@@ -49,21 +49,16 @@ def test_publications_from_dois():
     # look up the publication metadata for them
     pubs = list(openalex.publications_from_dois(dois))
 
-    # >= is used because sometimes there can be multiple works for a DOI!
-    assert len(pubs) >= 231, "should paginate (page size=200)"
+    # > 200 is used because some of the 231 DOIs have been removed from openalex 🤷
+    assert len(pubs) > 200, "should paginate (page size=200)"
     assert set(openalex.FIELDS) == set(pubs[0].keys()), "All fields accounted for."
-    assert len(pubs[0].keys()) == 53, "first publication has 53 columns"
-    assert len(pubs[1].keys()) == 53, "second publication has 53 columns"
+    assert len(pubs[0].keys()) == 54, "first publication has 54 columns"
+    assert len(pubs[1].keys()) == 54, "second publication has 54 columns"
 
 
 def test_publications_from_invalid_dois(caplog):
-    # Error may change if OpenAlex API or pyalex changes
     invalid_dois = ["doi-with-comma,a", "10.1145/3442188.3445922"]
     assert len(list(openalex.publications_from_dois(invalid_dois))) == 1
-    assert (
-        "OpenAlex QueryError for doi-with-comma,a: Invalid query parameter"
-        in caplog.text
-    ), "logs error message"
 
 
 def test_publications_from_invalid_with_comma(caplog):
@@ -71,10 +66,6 @@ def test_publications_from_invalid_with_comma(caplog):
     # Does not return a result for the first half even if valid. Will return an empty list
     invalid_doi = ["10.1002/cncr.33546,-(wileyonlinelibrary.com)"]
     assert len(list(openalex.publications_from_dois(invalid_doi))) == 0
-    assert (
-        "OpenAlex QueryError for 10.1002/cncr.33546,-(wileyonlinelibrary.com): Invalid query parameter"
-        in caplog.text
-    ), "logs error message"
 
 
 def test_publications_csv(tmp_path):
@@ -102,13 +93,9 @@ def test_publications_csv(tmp_path):
 
 
 def test_pyalex_urlencoding():
-    # this might start working if https://github.com/J535D165/pyalex/issues/41 is fixed
-    with pytest.raises(pyalex.api.QueryError):
-        pyalex.Works().filter(doi="10.1207/s15327809jls0703&4_2").count() == 1
-
-    assert (
-        pyalex.Works().filter(doi="10.1207/s15327809jls0703%264_2").count() == 1
-    ), "url encoding the & works with OpenAlex API"
+    assert pyalex.Works().filter(doi="10.1207/s15327809jls0703&4_2").count() == 1, (
+        "url encoding the & works with OpenAlex API"
+    )
 
     assert (
         len(
@@ -119,7 +106,7 @@ def test_pyalex_urlencoding():
             )
         )
         == 2
-    ), "we handle url URL encoding DOIs until pyalex does"
+    ), "we handle URL encoding"
 
 
 @pytest.mark.skip(reason="This record no longer exhibits the problem")

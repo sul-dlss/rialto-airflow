@@ -3,7 +3,6 @@ import logging
 import os
 import pickle
 import time
-from urllib.parse import quote
 
 from more_itertools import batched
 from pyalex import Authors, Works, config, api
@@ -92,7 +91,7 @@ def publications_from_dois(dois: list):
         # TODO: do we need this to stay within 100,000 requests / day API quota?
         time.sleep(1)
 
-        doi_list = quote("|".join([doi for doi in doi_batch]))
+        doi_list = "|".join([doi for doi in doi_batch])
         try:
             for page in Works().filter(doi=doi_list).paginate(per_page=200):
                 for pub in page:
@@ -124,6 +123,7 @@ def normalize_publication(pub) -> dict:
 
 FIELDS = [
     "abstract_inverted_index",
+    "abstract_inverted_index_v3",
     "authorships",
     "apc_list",
     "apc_paid",

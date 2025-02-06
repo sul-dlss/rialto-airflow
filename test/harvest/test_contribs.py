@@ -45,9 +45,9 @@ def test_create_contribs(pubs_parquet, doi_sunet, authors, tmp_path):
     create_contribs(pubs_parquet, doi_sunet, authors, contribs_parquet)
 
     df = pl.read_parquet(contribs_parquet)
-    assert set(df.columns) == set(
-        ["doi", "sunetid", "title", "first_name"]
-    ), "columns are correct"
+    assert set(df.columns) == set(["doi", "sunetid", "title", "first_name"]), (
+        "columns are correct"
+    )
 
     # first publication got joined to authors
     assert len(df.filter(pl.col("doi") == "0000/abc")) == 1

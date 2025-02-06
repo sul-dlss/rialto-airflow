@@ -1,9 +1,17 @@
 [project]
 name = "rialto-airflow"
+
 version = "0.1.0"
+
 description = "Airflow app for harvesting data for open access analysis and research intelligence."
+
 authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}]
-requires-python = ">= 3.12"
+
+# Aligned with what is defined in Dockerfile and CI
+requires-python = "== 3.12.*" 
+
+package-mode = false
+
 dependencies = [
     "pandas",
     "requests",
@@ -11,13 +19,16 @@ dependencies = [
     "dimcli",
     "polars>=1.2",
     "pyalex",
-    "more-itertools"
+    "more-itertools",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 addopts = "-v"
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "python-dotenv>=1.0.1",
+    "ruff>=0.9.4",
+]

@@ -1,4 +1,0 @@
-pytest
-python-dotenv
-ruff
-apache-airflow==2.9.3

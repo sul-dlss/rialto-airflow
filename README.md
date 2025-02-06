@@ -67,28 +67,10 @@ https://sul-rialto-dev.stanford.edu/authors?action=index&commit=Search&controlle
 ### Set-up
 
 1. Install `uv` for dependency management as described in [the uv docs](https://github.com/astral-sh/uv?tab=readme-ov-file#getting-started).
-2. Create a virtual environment:
-```
-uv venv
-```
-
-This will create the virtual environment at the default location of `.venv/`. `uv` automatically looks for a venv at this location when installing dependencies.
-
-3. Activate the virtual environment:
-```
-source .venv/bin/activate
-```
-
-
-### Install dependencies
-```
-uv pip install -r requirements.txt
-```
 
 To add a dependency:
-1. `uv pip install flask`
-2. Add the dependency to `pyproject.toml`.
-3. To re-generate the locked dependencies in `requirements.txt`:
+1. `uv add flask`
+3. Then re-generate the locked dependencies in `requirements.txt` which is used in `Dockerfile`.
 ```
 uv pip compile pyproject.toml -o requirements.txt
 ```
@@ -103,29 +85,15 @@ uv pip compile pyproject.toml -o requirements.txt --upgrade
 
 ## Run Tests
 
-First enable the virtual environment:
-
 ```
-source .venv/bin/activate
-```
-
-Then ensure the app dependencies and dev dependencies are installed.
-
-```
-uv pip install -r requirements.txt -r requirements-dev.txt
-```
-
-Then run the tests:
-
-```
-pytest
+uv run pytest
 ```
 
 ### Linting and formatting
 
-1. Run linting: `ruff check`
-2. Automatically fix linting: `ruff check --fix`
-3. Run formatting: `ruff format` (or `ruff format --check` to identify any unformatted files)
+1. Run linting: `uv run ruff check`
+2. Automatically fix linting: `uv run ruff check --fix`
+3. Run formatting: `uv run ruff format` (or `uv run ruff format --check` to identify any unformatted files)
 
 ## Deployment
 

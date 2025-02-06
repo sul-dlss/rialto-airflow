@@ -27,13 +27,11 @@ jobs:
         with:
           args: 'format --check'
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+      - name: Install uv
+        run: pip3 install uv
 
       - name: Run tests
-        run: pytest
+        run: uv run pytest
         env:
           AIRFLOW_VAR_DIMENSIONS_API_USER: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_USER }}
           AIRFLOW_VAR_DIMENSIONS_API_PASS: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_PASS }}

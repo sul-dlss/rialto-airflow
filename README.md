@@ -60,7 +60,14 @@ done
 ```
 
 5. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
-https://sul-rialto-dev.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory. 
+https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory. 
+
+6. Bring up containers. 
+```
+docker compose up -d
+```
+
+7. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password. 
 
 ## Development
 

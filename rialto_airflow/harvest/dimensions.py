@@ -21,17 +21,7 @@ def dois_from_orcid(orcid):
         limit 1000
         """.format(orcid)
 
-    # The Dimensions API can flake out sometimes, so try to catch & retry.
-    # TODO: Consider using retry param in query() instead
-    try_count = 0
-    while try_count < 20:
-        try_count += 1
-        try:
-            result = dsl().query(q)
-            break
-        except requests.exceptions.RequestException as e:
-            logging.error("Dimensions API call %s resulted in error: %s", try_count, e)
-            time.sleep(try_count * 10)
+    result = query_with_retry(q, 20)
 
     if len(result["publications"]) == 1000:
         logging.warning("Truncated results for ORCID %s", orcid)
@@ -83,7 +73,7 @@ def publications_from_dois(dois: list, batch_size=200):
             limit 1000
             """
 
-        result = dsl().query(q, retry=5)
+        result = query_with_retry(q, retry=5)
 
         for pub in result["publications"]:
             yield normalize_publication(pub)
@@ -124,3 +114,26 @@ def dsl():
     """
     login()
     return dimcli.Dsl(verbose=False)
+
+
+def query_with_retry(q, retry=5):
+    # Catch all request exceptions since dimcli currently only catches HTTP exceptions
+    # see: https://github.com/digital-science/dimcli/issues/88
+    try_count = 0
+    while True:
+        try_count += 1
+
+        try:
+            # dimcli will retry HTTP level errors, but not ones involving the connection
+            return dsl().query(q, retry=retry)
+        except requests.exceptions.RequestException as e:
+            if try_count > retry:
+                logging.error(
+                    "Dimensions API call %s resulted in error: %s", try_count, e
+                )
+                raise e
+            else:
+                logging.warning(
+                    "Dimensions query error retry %s of %s: %s", try_count, retry, e
+                )
+                time.sleep(try_count * 10)

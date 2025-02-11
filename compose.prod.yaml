@@ -88,6 +88,7 @@ x-airflow-common:
     AIRFLOW_VAR_SUL_PUB_KEY: ${AIRFLOW_VAR_SUL_PUB_KEY}
     AIRFLOW_VAR_DATA_DIR: /opt/airflow/data
     AIRFLOW_VAR_PUBLISH_DIR: /opt/airflow/data/latest
+    AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOSTNAME}"
   volumes:
     - /opt/app/rialto/rialto-airflow/current/rialto_airflow:/opt/airflow/rialto_airflow
     - /data:/opt/airflow/data

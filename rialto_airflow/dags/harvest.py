@@ -10,7 +10,11 @@ from rialto_airflow.harvest import dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 from rialto_airflow.harvest.contribs import create_contribs
-from rialto_airflow.utils import create_snapshot_dir, rialto_authors_file
+from rialto_airflow.utils import (
+    create_database,
+    create_snapshot_dir,
+    rialto_authors_file,
+)
 
 data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
@@ -36,6 +40,7 @@ def harvest():
         Setup the data directory.
         """
         snapshot_dir = create_snapshot_dir(data_dir)
+        create_database(snapshot_dir)
         return snapshot_dir
 
     @task()

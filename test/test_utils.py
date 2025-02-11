@@ -46,6 +46,7 @@ def teardown_database():
             connection.execution_options(isolation_level="AUTOCOMMIT")
             connection.execute(text(f"drop database {db_name}"))
             connection.close()
+
     return perform_teardown_database
 
 

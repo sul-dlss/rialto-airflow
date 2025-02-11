@@ -82,6 +82,7 @@ x-airflow-common:
     AIRFLOW_VAR_DATA_DIR: /opt/airflow/data
     AIRFLOW_VAR_PUBLISH_DIR: /opt/airflow/data/latest
     AIRFLOW_VAR_OPENALEX_EMAIL: ${AIRFLOW_VAR_OPENALEX_EMAIL}
+    AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@postgres"
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/rialto_airflow:/opt/airflow/rialto_airflow
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -97,6 +98,9 @@ x-airflow-common:
 services:
   postgres:
     image: postgres:16
+    # make available for local testing outside docker
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow

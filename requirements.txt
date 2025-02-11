@@ -62,6 +62,8 @@ prompt-toolkit==3.0.50
     # via
     #   dimcli
     #   ipython
+psycopg2==2.9.10
+    # via rialto-airflow (pyproject.toml)
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
@@ -105,6 +107,8 @@ sphinxcontrib-qthelp==2.0.0
     # via sphinx
 sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
+sqlalchemy==2.0.38
+    # via rialto-airflow (pyproject.toml)
 stack-data==0.6.3
     # via ipython
 tqdm==4.67.1
@@ -113,6 +117,8 @@ traitlets==5.14.3
     # via
     #   ipython
     #   matplotlib-inline
+typing-extensions==4.12.2
+    # via sqlalchemy
 tzdata==2025.1
     # via pandas
 urllib3==2.3.0

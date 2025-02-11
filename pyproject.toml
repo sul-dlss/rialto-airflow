@@ -20,6 +20,8 @@ dependencies = [
     "polars>=1.2",
     "pyalex",
     "more-itertools",
+    "sqlalchemy>=2.0.38",
+    "psycopg2>=2.9.10",
 ]
 
 [tool.pytest.ini_options]

@@ -20,7 +20,7 @@ sul_pub_key = Variable.get("sul_pub_key")
 # to artificially limit the API activity in development
 try:
     dev_limit = int(Variable.get("dev_limit", default_var=None))
-except ValueError:
+except TypeError:
     dev_limit = None
 
 

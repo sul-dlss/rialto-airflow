@@ -45,7 +45,7 @@ set :honeybadger_env, fetch(:stage)
 # Set Rails env to production in all Cap environments
 set :rails_env, 'production'
 
-set :docker_compose_file, 'docker-compose.prod.yaml'
+set :docker_compose_file, 'compose.prod.yaml'
 set :docker_compose_migrate_use_hooks, false
 set :docker_compose_seed_use_hooks, false
 set :docker_compose_rabbitmq_use_hooks, false

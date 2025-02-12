@@ -60,7 +60,7 @@ class Publication(Base):
     __tablename__ = "publication"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    doi = Column(String, primary_key=True)
+    doi = Column(String, unique=True)
     title = Column(String)
     pub_year = Column(Integer)
     dim_json = Column(JSONB)
@@ -77,8 +77,8 @@ class Author(Base):
     __tablename__ = "author"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sunet = Column(String, primary_key=True)
-    orcid = Column(String, primary_key=True)
+    sunet = Column(String, unique=True)
+    orcid = Column(String, unique=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     status = Column(String, nullable=False)
@@ -96,9 +96,10 @@ class Author(Base):
     )
 
 
-def create_db_schema(database_name: str):
+def create_schema(database_name: str):
     """Create tables for the publications and author/orgs data"""
     engine = create_engine(
         f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}", echo=True
     )
     Base.metadata.create_all(engine)
+    logging.info(f"Created schema in database {database_name}")

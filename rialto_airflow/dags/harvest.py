@@ -10,7 +10,7 @@ from rialto_airflow.harvest import dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 from rialto_airflow.harvest.contribs import create_contribs
-from rialto_airflow.database import create_database
+from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.utils import (
     create_snapshot_dir,
     rialto_authors_file,
@@ -37,10 +37,11 @@ def harvest():
     @task()
     def setup():
         """
-        Setup the data directory.
+        Setup the data directory and database.
         """
         snapshot_dir = create_snapshot_dir(data_dir)
-        create_database(snapshot_dir)
+        database_name = create_database(snapshot_dir)
+        create_schema(database_name)
         return snapshot_dir
 
     @task()

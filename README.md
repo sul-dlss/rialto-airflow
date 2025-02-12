@@ -36,7 +36,7 @@ flowchart TD
 
 Based on the documentation, [Running Airflow in Docker](https://airflow.apache.org/docs/apache-airflow/stable/start/docker.html).
 
-1. Clone repository `git clone https://github.com/sul-dlss/rialto-airflow.git`
+1. Clone repository `git clone git@github.com:sul-dlss/rialto-airflow.git` (cloning using the git over ssh URL will make it easier to push changes back than using the https URL)
 
 2. Start up docker locally.
 

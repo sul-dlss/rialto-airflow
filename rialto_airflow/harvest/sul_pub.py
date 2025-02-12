@@ -54,6 +54,9 @@ def harvest(host, key, since, limit):
             more = False
 
         for record in records:
+            if not approved(record):
+                continue
+
             record_count += 1
             if limit is not None and record_count > limit:
                 logging.info(f"stopping with limit={limit}")
@@ -71,3 +74,13 @@ def extract_doi(record):
         if id.get("type") == "doi" and "id" in id:
             return id["id"].replace("https://doi.org/", "")
     return None
+
+
+def approved(pub):
+    """
+    Returns True if at least one author has approved the publication, and False if not.
+    """
+    for authorship in pub["authorship"]:
+        if authorship["status"] == "approved":
+            return True
+    return False

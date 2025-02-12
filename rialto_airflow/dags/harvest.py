@@ -10,8 +10,8 @@ from rialto_airflow.harvest import dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 from rialto_airflow.harvest.contribs import create_contribs
+from rialto_airflow.database import create_database
 from rialto_airflow.utils import (
-    create_database,
     create_snapshot_dir,
     rialto_authors_file,
 )

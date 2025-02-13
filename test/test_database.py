@@ -20,7 +20,7 @@ def mock_rialto_postgres(monkeypatch):
 @pytest.fixture
 def teardown_database():
     def perform_teardown_database(db_name):
-        # Clean up by creating a new engine and connection and then drop the database
+        """Clean up by creating a new engine and connection and then drop the database"""
         teardown_conn = f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/postgres"
         teardown_engine = create_engine(teardown_conn, poolclass=NullPool)
         with teardown_engine.connect() as connection:
@@ -31,17 +31,96 @@ def teardown_database():
     return perform_teardown_database
 
 
-def test_create_database(tmp_path, mock_rialto_postgres, teardown_database):
-    db_name = database.create_database(tmp_path)
-    assert db_name == "rialto_" + Path(tmp_path).name
+def null_pool_engine(database_name):
+    # engine with NullPool to avoid connections staying open and preventing later cleanup
+    engine = create_engine(
+        f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}",
+        poolclass=NullPool,
+    )
+    return engine
 
-    # Using NullPool to avoid connections to the database staying open and preventing later cleanup
-    postgres_conn = f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{db_name}"
-    engine = create_engine(postgres_conn, poolclass=NullPool)
-    conn = engine.connect()
+
+def test_create_database(tmp_path, mock_rialto_postgres, teardown_database):
     try:
-        # Verify that the database exists and a connection was able to be made
-        assert conn
-        conn.close()
+        db_name = database.create_database(tmp_path)
+        assert db_name == "rialto_" + Path(tmp_path).name
+
+        with null_pool_engine(db_name).connect() as conn:
+            # Verify that the database exists and a connection was able to be made
+            assert conn
+            conn.close()
     finally:
+        # even if exception raised, tear down the database
+        teardown_database(db_name)
+
+
+def test_create_schema(tmp_path, mock_rialto_postgres, monkeypatch, teardown_database):
+    # During testing, we want to be able to drop the database at the end.
+    # Mocking the engine obtained by create_schema to avoid connections staying open and preventing teardown.
+    def mock_engine_setup(db_name):
+        engine = create_engine(
+            f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{db_name}",
+            poolclass=NullPool,
+        )
+        return engine
+
+    monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
+
+    db_name = database.create_database(tmp_path)
+    try:
+        database.create_schema(db_name)
+        # Verify that the tables exist and the columns match the schema
+        engine = null_pool_engine(db_name)
+        with engine.connect() as conn:
+            pub_result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='publication'"
+                )
+            )
+            pub_columns = [row[0] for row in pub_result]
+            assert set(pub_columns) == {
+                "id",
+                "doi",
+                "title",
+                "pub_year",
+                "dim_json",
+                "openalex_json",
+                "sulpub_json",
+                "created_at",
+                "updated_at",
+            }
+
+            author_result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='author'"
+                )
+            )
+            author_columns = [row[0] for row in author_result]
+            assert set(author_columns) == {
+                "id",
+                "sunet",
+                "orcid",
+                "first_name",
+                "last_name",
+                "status",
+                "academic_council",
+                "primary_role",
+                "schools",
+                "departments",
+                "primary_school",
+                "primary_dept",
+                "primary_division",
+                "created_at",
+                "updated_at",
+            }
+
+            association_result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='pub_author_association'"
+                )
+            )
+            association_columns = [row[0] for row in association_result]
+            assert set(association_columns) == {"publication_id", "author_id"}
+    finally:
+        # even if exception raised, tear down the database
         teardown_database(db_name)

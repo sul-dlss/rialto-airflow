@@ -14,6 +14,17 @@ from sqlalchemy.types import DateTime
 Base = declarative_base()
 
 
+def engine_setup(database_name: str):
+    """
+    When creating the database and its schema, use an engine and connection.
+    Subsequent querying should be done through a session.
+    """
+    engine = create_engine(
+        f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}", echo=True
+    )
+    return engine
+
+
 def create_database(snapshot_dir: str) -> str:
     """Create a DAG-specific database for publications and author/orgs data"""
     timestamp = Path(snapshot_dir).name
@@ -21,7 +32,7 @@ def create_database(snapshot_dir: str) -> str:
 
     # set up the connection using the default postgres database
     # see discussion here: https://stackoverflow.com/questions/6506578/how-to-create-a-new-database-using-sqlalchemy
-    # and https://docs.sqlalchemy.org/en/20/core/connections.html#understanding-the-dbapi-level-autocommit-isolation-level
+    # and https://docs.sqlalchemy.org/en/14/core/connections.html#understanding-the-dbapi-level-autocommit-isolation-level
     postgres_conn = f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/postgres"
     engine = create_engine(postgres_conn)
     with engine.connect() as connection:
@@ -98,8 +109,9 @@ class Author(Base):
 
 def create_schema(database_name: str):
     """Create tables for the publications and author/orgs data"""
-    engine = create_engine(
-        f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}", echo=True
-    )
-    Base.metadata.create_all(engine)
+    engine = engine_setup(database_name)
+    with engine.connect() as connection:
+        Base.metadata.create_all(engine)
+        connection.close()
+
     logging.info(f"Created schema in database {database_name}")

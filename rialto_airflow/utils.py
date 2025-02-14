@@ -1,30 +1,7 @@
 import csv
 import datetime
-import logging
-import os
 from pathlib import Path
 import re
-
-from sqlalchemy import create_engine, text
-
-
-def create_database(snapshot_dir):
-    """Create a DAG-specific database for publications and author/orgs data"""
-    timestamp = Path(snapshot_dir).name
-    database_name = f"rialto_{timestamp}"
-
-    # set up the connection using the default postgres database
-    # see discussion here: https://stackoverflow.com/questions/6506578/how-to-create-a-new-database-using-sqlalchemy
-    # and https://docs.sqlalchemy.org/en/20/core/connections.html#understanding-the-dbapi-level-autocommit-isolation-level
-    postgres_conn = f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/postgres"
-    engine = create_engine(postgres_conn)
-    with engine.connect() as connection:
-        connection.execution_options(isolation_level="AUTOCOMMIT")
-        connection.execute(text(f"create database {database_name}"))
-        connection.close()
-
-    logging.info(f"created database {database_name}")
-    return database_name
 
 
 def create_snapshot_dir(data_dir):

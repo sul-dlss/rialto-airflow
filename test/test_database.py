@@ -21,12 +21,10 @@ def mock_rialto_postgres(monkeypatch):
 def teardown_database():
     def perform_teardown_database(db_name):
         """Clean up by creating a new engine and connection and then drop the database"""
-        teardown_conn = f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/postgres"
-        teardown_engine = create_engine(teardown_conn, poolclass=NullPool)
+        teardown_engine = null_pool_engine("postgres")
         with teardown_engine.connect() as connection:
             connection.execution_options(isolation_level="AUTOCOMMIT")
             connection.execute(text(f"drop database {db_name}"))
-            connection.close()
 
     return perform_teardown_database
 
@@ -48,7 +46,6 @@ def test_create_database(tmp_path, mock_rialto_postgres, teardown_database):
         with null_pool_engine(db_name).connect() as conn:
             # Verify that the database exists and a connection was able to be made
             assert conn
-            conn.close()
     finally:
         # even if exception raised, tear down the database
         teardown_database(db_name)
@@ -58,11 +55,7 @@ def test_create_schema(tmp_path, mock_rialto_postgres, monkeypatch, teardown_dat
     # During testing, we want to be able to drop the database at the end.
     # Mocking the engine obtained by create_schema to avoid connections staying open and preventing teardown.
     def mock_engine_setup(db_name):
-        engine = create_engine(
-            f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{db_name}",
-            poolclass=NullPool,
-        )
-        return engine
+        return null_pool_engine(db_name)
 
     monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
 

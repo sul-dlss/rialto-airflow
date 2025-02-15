@@ -2,13 +2,12 @@
 
 # This script is called by our weekly dependency update job in Jenkins
 
-pip3 install uv > rialto-airflow.txt &&
-    ~/.local/bin/uv lock --upgrade >> rialto-airflow.txt &&     # Currently, local dev and CI use the uv.lock file for dependency resolution...
-    uv pip compile pyproject.toml -o requirements.txt --upgrade # ...but the Dockerfile for our Airflow image uses requirements.txt.
+pip3 install --upgrade uv > rialto-airflow.txt &&
+    ~/.local/bin/uv lock --upgrade >> rialto-airflow.txt
 
 retVal=$?
 
-git add uv.lock requirements.txt &&
+git add uv.lock &&
     git commit -m "Update Python dependencies"
 
 if [ $retVal -ne 0 ]; then

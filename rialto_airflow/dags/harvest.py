@@ -91,26 +91,21 @@ def harvest():
         return str(pickle_file)
 
     @task()
-    def doi_set(doi_sunet_pickle):
+    def dimensions_harvest_pubs(doi_sunet, snapshot_dir):
         """
-        Use the DOI -> [SUNET] pickle to return a list of all DOIs.
+        Harvest publication metadata from Dimensions using the dois from doi_sunet.
         """
-        return list(pickle.load(open(doi_sunet_pickle, "rb")).keys())
-
-    @task()
-    def dimensions_harvest_pubs(dois, snapshot_dir):
-        """
-        Harvest publication metadata from Dimensions using the dois from doi_set.
-        """
+        dois = list(pickle.load(open(doi_sunet, "rb")).keys())
         csv_file = Path(snapshot_dir) / "dimensions-pubs.csv"
         dimensions.publications_csv(dois, csv_file)
         return str(csv_file)
 
     @task()
-    def openalex_harvest_pubs(dois, snapshot_dir):
+    def openalex_harvest_pubs(doi_sunet, snapshot_dir):
         """
         Harvest publication metadata from OpenAlex using the dois from doi_set.
         """
+        dois = list(pickle.load(open(doi_sunet, "rb")).keys())
         csv_file = Path(snapshot_dir) / "openalex-pubs.csv"
         openalex.publications_csv(dois, csv_file)
         return str(csv_file)
@@ -161,11 +156,9 @@ def harvest():
         dimensions_dois, openalex_dois, sul_pub, authors_csv, snapshot_dir
     )
 
-    dois = doi_set(doi_sunet)
+    dimensions_pubs = dimensions_harvest_pubs(doi_sunet, snapshot_dir)
 
-    dimensions_pubs = dimensions_harvest_pubs(dois, snapshot_dir)
-
-    openalex_pubs = openalex_harvest_pubs(dois, snapshot_dir)
+    openalex_pubs = openalex_harvest_pubs(doi_sunet, snapshot_dir)
 
     pubs = merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot_dir)
 

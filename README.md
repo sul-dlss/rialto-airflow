@@ -75,19 +75,14 @@ docker compose up -d
 
 1. Install `uv` for dependency management as described in [the uv docs](https://github.com/astral-sh/uv?tab=readme-ov-file#getting-started).
 
-To add a dependency:
+To add a dependency, e.g. flask:
 1. `uv add flask`
-3. Then re-generate the locked dependencies in `requirements.txt` which is used in `Dockerfile`.
-```
-uv pip compile pyproject.toml -o requirements.txt
-```
-
-Unlike poetry, uv's dependency resolution is not platform-agnostic. If we find we need to generate a requirements.txt for linux, we can use [uv's multi-platform resolution options](https://github.com/astral-sh/uv?tab=readme-ov-file#multi-platform-resolution).
+3. Then commit `pyproject.toml` and `uv.lock` files.
 
 ### Upgrading dependencies
 To upgrade Python dependencies:
 ```
-uv pip compile pyproject.toml -o requirements.txt --upgrade
+uv lock --upgrade
 ```
 
 ## Run Tests

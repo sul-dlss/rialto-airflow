@@ -8,7 +8,16 @@ ENV PYTHONPATH "${PYTHONPATH}:/opt/airflow/"
 USER airflow
 
 COPY rialto_airflow ./rialto_airflow
+COPY README.md uv.lock pyproject.toml .
 
-COPY requirements.txt .
+# For the Airflow application to be able to find dependencies they need to be
+# installed for the airflow user in $VIRTUAL_ENV /home/airflow/.local 
+# However `uv sync` will put them in /opt/airflow/.venv
+#
+# By building the wheels and then installing them with `uv pip install` we will
+# ensure that uv gets the dependencies (from uv.lock) and puts them in
+# /home/airflow/.local
+ 
+RUN uv build
+RUN uv pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" dist/*.whl
 
-RUN uv pip install --no-cache "apache-airflow==${AIRFLOW_VERSION}" -r requirements.txt

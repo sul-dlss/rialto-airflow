@@ -3,6 +3,7 @@ import logging
 
 import requests
 
+from rialto_airflow.utils import normalize_doi
 
 SUL_PUB_FIELDS = [
     "authorship",
@@ -72,7 +73,7 @@ def harvest(host, key, since, limit):
 def extract_doi(record):
     for id in record.get("identifier"):
         if id.get("type") == "doi" and "id" in id:
-            return id["id"].replace("https://doi.org/", "")
+            return normalize_doi(id["id"])
     return None
 
 

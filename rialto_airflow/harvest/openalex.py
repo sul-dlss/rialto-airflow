@@ -7,7 +7,7 @@ import time
 from more_itertools import batched
 from pyalex import Authors, Works, config, api
 
-from rialto_airflow.utils import invert_dict
+from rialto_airflow.utils import invert_dict, normalize_doi
 
 config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
@@ -62,8 +62,7 @@ def dois_from_orcid(orcid: str, limit=None):
     ):
         for pub in page:
             if pub.get("doi"):
-                doi = pub.get("doi").replace("https://doi.org/", "")
-                dois.add(doi)
+                dois.add(normalize_doi(pub.get("doi")))
                 if limit is not None and len(dois) == limit:
                     return list(dois)
 

@@ -88,6 +88,7 @@ uv lock --upgrade
 ## Run Tests
 
 ```
+docker compose up -d postgres
 uv run pytest
 ```
 

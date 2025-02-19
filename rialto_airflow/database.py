@@ -75,6 +75,8 @@ class Publication(Base):
     dim_json = Column(JSONB)
     openalex_json = Column(JSONB)
     sulpub_json = Column(JSONB)
+    wos_json = Column(JSONB)
+    pubmed_json = Column(JSONB)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     authors = relationship(

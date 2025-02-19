@@ -79,6 +79,8 @@ def test_create_schema(tmp_path, mock_rialto_postgres, monkeypatch, teardown_dat
                 "dim_json",
                 "openalex_json",
                 "sulpub_json",
+                "wos_json",
+                "pubmed_json",
                 "created_at",
                 "updated_at",
             }

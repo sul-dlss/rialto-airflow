@@ -10,7 +10,7 @@ from rialto_airflow.database import Author
 from rialto_airflow.utils import rialto_authors_file
 
 
-db_name = Variable.get("rialto_db_name", None)
+db_name = Variable.get("rialto_db_name")
 data_dir = Variable.get("data_dir")
 
 # an Engine, which the Session will use for connection resources

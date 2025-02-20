@@ -2,6 +2,8 @@ import logging
 import os
 from pathlib import Path
 
+from airflow.models import Variable
+
 from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -38,7 +40,7 @@ def create_database(snapshot_dir: str) -> str:
     with engine.connect() as connection:
         connection.execution_options(isolation_level="AUTOCOMMIT")
         connection.execute(text(f"create database {database_name}"))
-
+    Variable.set(key="rialto_db_name", value=database_name)
     logging.info(f"created database {database_name}")
     return database_name
 
@@ -93,7 +95,7 @@ class Author(Base):
     orcid = Column(String, unique=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    status = Column(String, nullable=False)
+    status = Column(Boolean)
     academic_council = Column(Boolean)
     primary_role = Column(String)
     schools = Column(ARRAY(String))

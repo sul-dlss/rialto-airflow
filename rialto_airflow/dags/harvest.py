@@ -1,4 +1,5 @@
 import datetime
+import logging
 import pickle
 from pathlib import Path
 import shutil
@@ -6,15 +7,13 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import dimensions, merge_pubs, openalex
+from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 from rialto_airflow.harvest.contribs import create_contribs
 from rialto_airflow.database import create_database, create_schema
-from rialto_airflow.utils import (
-    create_snapshot_dir,
-    rialto_authors_file,
-)
+from rialto_airflow.utils import create_snapshot_dir, rialto_authors_file
+
 
 data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
@@ -37,7 +36,7 @@ def harvest():
     @task()
     def setup():
         """
-        Setup the data directory and database.
+        Set up the data directory and database.
         """
         snapshot_dir = create_snapshot_dir(data_dir)
         database_name = create_database(snapshot_dir)
@@ -45,10 +44,20 @@ def harvest():
         return snapshot_dir
 
     @task()
-    def find_authors_csv():
+    def load_authors(snapshot_dir):
+        """
+        Load the authors data from the authors CSV into the database.
+        """
+        authors.load_authors_table()
+        return snapshot_dir
+
+    @task()
+    def find_authors_csv(snapshot_dir):
         """
         Find and return the path to the rialto-orgs authors.csv snapshot.
+        TODO: Delete this task once subsequent tasks read author data from the database.
         """
+        logging.info("Snapshot directory: %s", snapshot_dir)
         return rialto_authors_file(data_dir)
 
     @task()
@@ -144,7 +153,9 @@ def harvest():
 
     snapshot_dir = setup()
 
-    authors_csv = find_authors_csv()
+    authors_table = load_authors(snapshot_dir)
+
+    authors_csv = find_authors_csv(authors_table)
 
     sul_pub = sul_pub_harvest(snapshot_dir)
 

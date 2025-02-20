@@ -40,6 +40,7 @@ def create_database(snapshot_dir: str) -> str:
     with engine.connect() as connection:
         connection.execution_options(isolation_level="AUTOCOMMIT")
         connection.execute(text(f"create database {database_name}"))
+
     Variable.set(key="rialto_db_name", value=database_name)
     logging.info(f"created database {database_name}")
     return database_name

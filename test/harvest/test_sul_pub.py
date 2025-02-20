@@ -6,6 +6,7 @@ import pytest
 
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 
+
 dotenv.load_dotenv()
 
 sul_pub_host = os.environ.get("AIRFLOW_VAR_SUL_PUB_HOST")

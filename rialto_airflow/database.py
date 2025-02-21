@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import cache
 from pathlib import Path
 
 from airflow.models import Variable
@@ -26,6 +27,14 @@ def engine_setup(database_name: str):
     Subsequent querying should be done through a session.
     """
     return create_engine(db_uri(database_name), echo=True)
+
+
+# consider moving to database.py
+@cache
+def get_engine(database_name: str):
+    return create_engine(
+        f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}", echo=True
+    )
 
 
 def create_database(snapshot_dir: str) -> str:

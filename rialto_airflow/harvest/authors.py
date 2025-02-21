@@ -1,32 +1,21 @@
 import csv
 import logging
-import os
 
-from airflow.models import Variable
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from rialto_airflow.database import Author
+from rialto_airflow.database import get_engine, Author
 from rialto_airflow.utils import rialto_authors_file
 
 
-db_name = Variable.get("rialto_db_name")
-data_dir = Variable.get("data_dir")
-
-# an Engine, which the Session will use for connection resources
-engine = create_engine(
-    f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{db_name}", echo=True
-)
-
-# a sessionmaker(), also in the same scope as the engine
-Session = sessionmaker(engine)
-
-
-def load_authors_table() -> str:
+def load_authors_table(harvest_config) -> str:
     """
     Load the authors data from the authors CSV into the database
     """
-    authors_file = rialto_authors_file(data_dir)
+    db_name = harvest_config["database_name"]
+    engine = get_engine(db_name)
+    Session = sessionmaker(engine)
+
+    authors_file = rialto_authors_file(harvest_config["snapshot_dir"])
     check_headers(authors_file)
 
     logging.info(f"Loading authors from {authors_file} into database {db_name}")

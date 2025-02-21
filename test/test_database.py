@@ -153,10 +153,10 @@ def author(test_session):
     with test_session.begin() as session:
         session.add(
             database.Author(
-                sunet="mjgiarlo",
-                orcid="0000-0002-2100-6108",
-                first_name="Mike",
-                last_name="Giarlo",
+                sunet="janes",
+                orcid="https://orcid.org/0000-0000-0000-0001",
+                first_name="Jane",
+                last_name="Stanford",
                 status=True,
             )
         )
@@ -164,5 +164,4 @@ def author(test_session):
 
 def test_author_fixture(test_session, author):
     with test_session.begin() as session:
-        assert session.query(Author).where(Author.sunet == "mjgiarlo").count() == 1
-
+        assert session.query(Author).where(Author.sunet == "janes").count() == 1

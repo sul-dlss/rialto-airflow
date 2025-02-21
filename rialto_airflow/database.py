@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import cache
 from pathlib import Path
 
 from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
@@ -21,9 +22,15 @@ def db_uri(database_name):
 def engine_setup(database_name: str):
     """
     When creating the database and its schema, use an engine and connection.
-    Subsequent querying should be done through a session.
+    Subsequent querying should be done by accessing an engine via get_engine.
     """
     return create_engine(db_uri(database_name), echo=True)
+
+
+@cache
+def get_engine(database_name: str):
+    """Memoized engine for use in other modules"""
+    return engine_setup(database_name)
 
 
 def create_database(snapshot_dir: str) -> str:
@@ -38,7 +45,6 @@ def create_database(snapshot_dir: str) -> str:
     with engine.connect() as connection:
         connection.execution_options(isolation_level="AUTOCOMMIT")
         connection.execute(text(f"create database {database_name}"))
-
     logging.info(f"created database {database_name}")
     return database_name
 
@@ -93,7 +99,7 @@ class Author(Base):
     orcid = Column(String, unique=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    status = Column(String, nullable=False)
+    status = Column(Boolean)
     academic_council = Column(Boolean)
     primary_role = Column(String)
     schools = Column(ARRAY(String))

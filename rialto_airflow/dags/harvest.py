@@ -6,15 +6,13 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import dimensions, merge_pubs, openalex
+from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest.sul_pub import sul_pub_csv
 from rialto_airflow.harvest.contribs import create_contribs
 from rialto_airflow.database import create_database, create_schema
-from rialto_airflow.utils import (
-    create_snapshot_dir,
-    rialto_authors_file,
-)
+from rialto_airflow.utils import create_snapshot_dir, rialto_authors_file
+
 
 data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
@@ -37,95 +35,103 @@ def harvest():
     @task()
     def setup():
         """
-        Setup the data directory and database.
+        Set up the snapshot directory and database.
         """
         snapshot_dir = create_snapshot_dir(data_dir)
+        shutil.copyfile(
+            Path(rialto_authors_file(data_dir)), Path(snapshot_dir) / "authors.csv"
+        )
         database_name = create_database(snapshot_dir)
         create_schema(database_name)
-        return snapshot_dir
+
+        harvest_config = {"snapshot_dir": snapshot_dir, "database_name": database_name}
+        return harvest_config
 
     @task()
-    def find_authors_csv():
+    def load_authors(harvest_config):
         """
-        Find and return the path to the rialto-orgs authors.csv snapshot.
+        Load the authors data from the authors CSV into the database.
         """
-        return rialto_authors_file(data_dir)
+        authors.load_authors_table(harvest_config)
+        return harvest_config
 
     @task()
-    def dimensions_harvest_dois(authors_csv, snapshot_dir):
+    def dimensions_harvest_dois(harvest_config):
         """
         Fetch the data by ORCID from Dimensions.
         """
-        pickle_file = Path(snapshot_dir) / "dimensions-doi-orcid.pickle"
-        dimensions.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
+        pickle_file = (
+            Path(harvest_config["snapshot_dir"]) / "dimensions-doi-orcid.pickle"
+        )
+        dimensions.doi_orcids_pickle(pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
-    def openalex_harvest_dois(authors_csv, snapshot_dir):
+    def openalex_harvest_dois(harvest_config):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        pickle_file = Path(snapshot_dir) / "openalex-doi-orcid.pickle"
-        openalex.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
+        pickle_file = Path(harvest_config["snapshot_dir"]) / "openalex-doi-orcid.pickle"
+        openalex.doi_orcids_pickle(pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
-    def sul_pub_harvest(snapshot_dir):
+    def sul_pub_harvest(harvest_config):
         """
         Harvest data from SUL-Pub.
         """
-        csv_file = Path(snapshot_dir) / "sulpub.csv"
+        csv_file = Path(harvest_config["snapshot_dir"]) / "sulpub.csv"
         sul_pub_csv(csv_file, sul_pub_host, sul_pub_key, limit=dev_limit)
 
         return str(csv_file)
 
     @task()
-    def create_doi_sunet(dimensions, openalex, sul_pub, authors, snapshot_dir):
+    def create_doi_sunet(dimensions, openalex, sul_pub, harvest_config):
         """
         Extract a mapping of DOI -> [SUNET] from the dimensions doi-orcid dict,
         openalex doi-orcid dict, SUL-Pub publications, and authors data.
         """
-        pickle_file = Path(snapshot_dir) / "doi-sunet.pickle"
+        pickle_file = Path(harvest_config["snapshot_dir"]) / "doi-sunet.pickle"
         create_doi_sunet_pickle(dimensions, openalex, sul_pub, authors, pickle_file)
 
         return str(pickle_file)
 
     @task()
-    def dimensions_harvest_pubs(doi_sunet, snapshot_dir):
+    def dimensions_harvest_pubs(doi_sunet, harvest_config):
         """
         Harvest publication metadata from Dimensions using the dois from doi_sunet.
         """
         dois = list(pickle.load(open(doi_sunet, "rb")).keys())
-        csv_file = Path(snapshot_dir) / "dimensions-pubs.csv"
+        csv_file = Path(harvest_config["snapshot_dir"]) / "dimensions-pubs.csv"
         dimensions.publications_csv(dois, csv_file)
         return str(csv_file)
 
     @task()
-    def openalex_harvest_pubs(doi_sunet, snapshot_dir):
+    def openalex_harvest_pubs(doi_sunet, harvest_config):
         """
         Harvest publication metadata from OpenAlex using the dois from doi_set.
         """
         dois = list(pickle.load(open(doi_sunet, "rb")).keys())
-        csv_file = Path(snapshot_dir) / "openalex-pubs.csv"
+        csv_file = Path(harvest_config["snapshot_dir"]) / "openalex-pubs.csv"
         openalex.publications_csv(dois, csv_file)
         return str(csv_file)
 
     @task()
-    def merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot_dir):
+    def merge_publications(sul_pub, openalex_pubs, dimensions_pubs, harvest_config):
         """
         Merge the OpenAlex, Dimensions and sul_pub data.
         """
-        output = Path(snapshot_dir) / "publications.parquet"
+        output = Path(harvest_config["snapshot_dir"]) / "publications.parquet"
         merge_pubs.merge(sul_pub, openalex_pubs, dimensions_pubs, output)
         return str(output)
 
     @task()
-    def pubs_to_contribs(pubs, doi_sunet_pickle, authors_csv, snapshot_dir):
+    def pubs_to_contribs(pubs, doi_sunet_pickle, harvest_config):
         """
         Get contributions from publications.
         """
-        output = Path(snapshot_dir) / "contributions.parquet"
-        create_contribs(pubs, doi_sunet_pickle, authors_csv, output)
+        output = Path(harvest_config["snapshot_dir"]) / "contributions.parquet"
+        create_contribs(pubs, doi_sunet_pickle, output)
 
         return str(output)
 
@@ -142,27 +148,30 @@ def harvest():
 
         return str(publish_dir)
 
-    snapshot_dir = setup()
+    harvest_config = setup()
 
-    authors_csv = find_authors_csv()
+    load_authors(harvest_config)
 
-    sul_pub = sul_pub_harvest(snapshot_dir)
+    sul_pub = sul_pub_harvest(harvest_config)
 
-    dimensions_dois = dimensions_harvest_dois(authors_csv, snapshot_dir)
+    dimensions_dois = dimensions_harvest_dois(harvest_config)
 
-    openalex_dois = openalex_harvest_dois(authors_csv, snapshot_dir)
+    openalex_dois = openalex_harvest_dois(harvest_config)
 
     doi_sunet = create_doi_sunet(
-        dimensions_dois, openalex_dois, sul_pub, authors_csv, snapshot_dir
+        dimensions_dois,
+        openalex_dois,
+        sul_pub,
+        harvest_config,
     )
 
-    dimensions_pubs = dimensions_harvest_pubs(doi_sunet, snapshot_dir)
+    dimensions_pubs = dimensions_harvest_pubs(doi_sunet, harvest_config)
 
-    openalex_pubs = openalex_harvest_pubs(doi_sunet, snapshot_dir)
+    openalex_pubs = openalex_harvest_pubs(doi_sunet, harvest_config)
 
-    pubs = merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot_dir)
+    pubs = merge_publications(sul_pub, openalex_pubs, dimensions_pubs, harvest_config)
 
-    contribs = pubs_to_contribs(pubs, doi_sunet, authors_csv, snapshot_dir)
+    contribs = pubs_to_contribs(pubs, doi_sunet, harvest_config)
 
     publish(contribs, pubs)
 

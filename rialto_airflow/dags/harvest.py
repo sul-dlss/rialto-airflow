@@ -8,7 +8,7 @@ from airflow.models import Variable
 
 from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
-from rialto_airflow.harvest.sul_pub import sul_pub_csv
+from rialto_airflow.harvest import sul_pub
 from rialto_airflow.harvest.contribs import create_contribs
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
@@ -83,10 +83,11 @@ def harvest():
         """
         Harvest data from SUL-Pub.
         """
-        csv_file = snapshot.path / "sulpub.csv"
-        sul_pub_csv(csv_file, sul_pub_host, sul_pub_key, limit=dev_limit)
+        jsonl_file = sul_pub.harvest(
+            snapshot, sul_pub_host, sul_pub_key, limit=dev_limit
+        )
 
-        return str(csv_file)
+        return jsonl_file
 
     @task()
     def create_doi_sunet(dimensions, openalex, sul_pub, snapshot):
@@ -155,9 +156,9 @@ def harvest():
 
     snapshot = setup()
 
-    load_authors(snapshot)
+    snapshot = load_authors(snapshot)
 
-    sul_pub = sul_pub_harvest(snapshot)
+    sul_pub_jsonl = sul_pub_harvest(snapshot)
 
     dimensions_dois = dimensions_harvest_dois(snapshot)
 
@@ -166,7 +167,7 @@ def harvest():
     doi_sunet = create_doi_sunet(
         dimensions_dois,
         openalex_dois,
-        sul_pub,
+        sul_pub_jsonl,
         snapshot,
     )
 

@@ -1,53 +1,91 @@
-import csv
+import json
 import logging
 
 import requests
+from requests.adapters import HTTPAdapter
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from urllib3.util import Retry
 
+from rialto_airflow.database import (
+    Author,
+    Publication,
+    get_session,
+    pub_author_association,
+)
 from rialto_airflow.utils import normalize_doi
 
-SUL_PUB_FIELDS = [
-    "authorship",
-    "title",
-    "author",
-    "year",
-    "type",
-    "journal",
-    "provenance",
-    "doi",
-    "sulpubid",
-    "date",
-    "country",
-    "booktitle",
-]
+
+def harvest(snapshot, host, key, per_page=1000, limit=None):
+    # create a jsonl file to write to
+    jsonl_file = snapshot.path / "sulpub.jsonl"
+
+    with jsonl_file.open("w") as jsonl_output:
+        for sulpub_pub in publications(host, key, per_page, limit):
+            with get_session(snapshot.database_name).begin() as session:
+                doi = extract_doi(sulpub_pub)
+
+                # if when inserting the row we get a constraint violation
+                # on the DOI then we have to do an update
+                pub_id = session.execute(
+                    insert(Publication)
+                    .values(doi=doi, sulpub_json=sulpub_pub)
+                    .on_conflict_do_update(
+                        constraint="publication_doi_key",
+                        set_=dict(sulpub_json=sulpub_pub),
+                    )
+                    .returning(Publication.id)
+                ).scalar_one()
+
+                # get a list of approved cap_ids for the publication
+                # the cap_profile_id needs to be a string for the database
+                cap_ids = [
+                    str(a["cap_profile_id"])
+                    for a in sulpub_pub["authorship"]
+                    if a["status"] == "approved"
+                ]
+
+                # if the row is already there we could get a constraint
+                # violation, but we can safely ignore that
+                session.execute(
+                    insert(pub_author_association)
+                    .from_select(
+                        ["publication_id", "author_id"],
+                        select(pub_id, Author.id).where(
+                            Author.cap_profile_id.in_(cap_ids)
+                        ),
+                    )
+                    .on_conflict_do_nothing()
+                )
+
+                jsonl_output.write(json.dumps(sulpub_pub) + "\n")
+
+    return jsonl_file
 
 
-def sul_pub_csv(csv_file, host, key, since=None, limit=None):
-    with open(csv_file, "w") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=SUL_PUB_FIELDS)
-        writer.writeheader()
-        for row in harvest(host, key, since, limit):
-            writer.writerow(row)
-
-
-def harvest(host, key, since, limit):
+def publications(host, key, per_page=1000, limit=None):
     url = f"https://{host}/publications.json"
 
     http_headers = {"CAPKEY": key}
-
-    params = {"per": 1000}
-    if since:
-        params["changedSince"] = since.strftime("%Y-%m-%d")
+    params = {"per": per_page}
 
     page = 0
     record_count = 0
     more = True
+
+    # catch and back off from temporary errors from sulpub
+    # https://docs.python-requests.org/en/latest/user/advanced/#example-automatic-retries
+
+    http = requests.Session()
+    retries = Retry(connect=5, read=5)
+    http.mount("https://", HTTPAdapter(max_retries=retries))
 
     while more:
         page += 1
         params["page"] = page
 
         logging.info(f"fetching sul_pub results {url} {params}")
-        resp = requests.get(url, params=params, headers=http_headers)
+        resp = http.get(url, params=params, headers=http_headers)
         resp.raise_for_status()
 
         records = resp.json()["records"]
@@ -64,10 +102,7 @@ def harvest(host, key, since, limit):
                 more = False
                 break
 
-            pub = {key: record[key] for key in record if key in SUL_PUB_FIELDS}
-            pub["doi"] = extract_doi(record)
-
-            yield pub
+            yield record
 
 
 def extract_doi(record):

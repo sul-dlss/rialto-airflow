@@ -14,11 +14,11 @@ class Snapshot:
     time: str
     database_name: str
 
-    def __init__(self, data_dir, database_name=None):
+    def __init__(self, path, database_name=None):
         now = datetime.datetime.now()
         self.time = now.strftime("%Y%m%d%H%M%S")
 
-        self.path = Path(data_dir) / "snapshots" / self.time
+        self.path = Path(path) / "snapshots" / self.time
         self.path.mkdir(parents=True)
 
         self.database_name = database_name or f"rialto_{self.time}"

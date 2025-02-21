@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-from airflow.models import Variable
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
@@ -17,14 +16,6 @@ def mock_rialto_postgres(monkeypatch):
         "AIRFLOW_VAR_RIALTO_POSTGRES",
         "postgresql+psycopg2://airflow:airflow@localhost:5432",
     )
-
-
-@pytest.fixture
-def mock_airflow_variable(monkeypatch):
-    def mock_set_variable(key, value):
-        return None
-
-    return mock_set_variable
 
 
 @pytest.fixture
@@ -52,11 +43,8 @@ def test_create_database(
     tmp_path,
     mock_rialto_postgres,
     monkeypatch,
-    mock_airflow_variable,
     teardown_database,
 ):
-    monkeypatch.setattr(Variable, "set", mock_airflow_variable)
-
     try:
         db_name = database.create_database(tmp_path)
         assert db_name == "rialto_" + Path(tmp_path).name
@@ -73,7 +61,6 @@ def test_create_schema(
     tmp_path,
     mock_rialto_postgres,
     monkeypatch,
-    mock_airflow_variable,
     teardown_database,
 ):
     # During testing, we want to be able to drop the database at the end.
@@ -82,9 +69,6 @@ def test_create_schema(
         return null_pool_engine(db_name)
 
     monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
-    monkeypatch.setattr(
-        Variable, "set", mock_airflow_variable
-    )  # used in create_database
 
     try:
         db_name = database.create_database(tmp_path)

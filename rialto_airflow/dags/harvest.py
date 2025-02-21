@@ -86,7 +86,7 @@ def harvest():
         return str(csv_file)
 
     @task()
-    def create_doi_sunet(dimensions, openalex, sul_pub, authors, harvest_config):
+    def create_doi_sunet(dimensions, openalex, sul_pub, harvest_config):
         """
         Extract a mapping of DOI -> [SUNET] from the dimensions doi-orcid dict,
         openalex doi-orcid dict, SUL-Pub publications, and authors data.

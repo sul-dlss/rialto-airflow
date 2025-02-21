@@ -7,18 +7,19 @@ from rialto_airflow.database import get_engine, Author
 from rialto_airflow.utils import rialto_authors_file
 
 
-def load_authors_table(harvest_config) -> str:
+def load_authors_table(snapshot) -> str:
     """
     Load the authors data from the authors CSV into the database
     """
-    db_name = harvest_config["database_name"]
-    engine = get_engine(db_name)
+    engine = get_engine(snapshot.database_name)
     Session = sessionmaker(engine)
 
-    authors_file = rialto_authors_file(harvest_config["snapshot_dir"])
+    authors_file = rialto_authors_file(snapshot.path)
     check_headers(authors_file)
 
-    logging.info(f"Loading authors from {authors_file} into database {db_name}")
+    logging.info(
+        f"Loading authors from {authors_file} into database {snapshot.database_name}"
+    )
     with Session.begin() as session:
         with open(authors_file, "r") as file:
             csv_reader = csv.DictReader(file)

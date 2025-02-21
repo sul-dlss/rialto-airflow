@@ -15,18 +15,20 @@ package-mode = false
 dependencies = [
     "pandas",
     "requests",
+    "requests_oauthlib",
     "python-dotenv",
     "dimcli",
     "polars>=1.2",
     "pyalex",
     "more-itertools",
-    "psycopg2>=2.9.10",
+    "psycopg2-binary>=2.9.10",
     "sqlalchemy>=1.4.36,<2.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 addopts = "-v"
+markers = "mais_tests: Tests requiring MAIS access"
 
 [dependency-groups]
 dev = [

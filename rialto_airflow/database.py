@@ -14,15 +14,16 @@ from sqlalchemy.types import DateTime
 Base = declarative_base()
 
 
+def db_uri(database_name):
+    return f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}"
+
+
 def engine_setup(database_name: str):
     """
     When creating the database and its schema, use an engine and connection.
     Subsequent querying should be done through a session.
     """
-    engine = create_engine(
-        f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}", echo=True
-    )
-    return engine
+    return create_engine(db_uri(database_name), echo=True)
 
 
 def create_database(snapshot_dir: str) -> str:

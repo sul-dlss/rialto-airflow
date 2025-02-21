@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
+from rialto_airflow.database import Author
 
 
 @pytest.fixture
@@ -119,3 +120,22 @@ def test_create_schema(tmp_path, mock_rialto_postgres, monkeypatch, teardown_dat
     finally:
         # even if exception raised, tear down the database
         teardown_database(db_name)
+
+
+@pytest.fixture
+def author(test_session):
+    with test_session.begin() as session:
+        session.add(
+            database.Author(
+                sunet="mjgiarlo",
+                orcid="0000-0002-2100-6108",
+                first_name="Mike",
+                last_name="Giarlo",
+                status="active",
+            )
+        )
+
+
+def test_author_fixture(test_session, author):
+    with test_session.begin() as session:
+        assert session.query(Author).where(Author.sunet == "mjgiarlo").count() == 1

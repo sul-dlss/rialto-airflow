@@ -53,8 +53,7 @@ def harvest():
         Load the authors data from the authors CSV into the database.
         """
         authors.load_authors_table(harvest_config)
-        snapshot_dir = harvest_config["snapshot_dir"]
-        return snapshot_dir
+        return harvest_config
 
     @task()
     def dimensions_harvest_dois(harvest_config):

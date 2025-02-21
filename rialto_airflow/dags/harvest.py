@@ -150,7 +150,7 @@ def harvest():
 
     harvest_config = setup()
 
-    authors_table = load_authors(harvest_config)
+    load_authors(harvest_config)
 
     sul_pub = sul_pub_harvest(harvest_config)
 

@@ -6,7 +6,7 @@ from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import RelationshipProperty, declarative_base, relationship  # type: ignore
 from sqlalchemy.sql import expression
 from sqlalchemy.types import DateTime
 
@@ -69,7 +69,7 @@ pub_author_association = Table(
 )
 
 
-class Publication(Base):
+class Publication(Base):  # type: ignore
     __tablename__ = "publication"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -83,12 +83,12 @@ class Publication(Base):
     pubmed_json = Column(JSONB)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-    authors = relationship(
+    authors: RelationshipProperty = relationship(
         "Author", secondary=pub_author_association, back_populates="publications"
     )
 
 
-class Author(Base):
+class Author(Base):  # type: ignore
     __tablename__ = "author"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -107,7 +107,7 @@ class Author(Base):
     primary_division = Column(String)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-    publications = relationship(
+    publications: RelationshipProperty = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"
     )
 

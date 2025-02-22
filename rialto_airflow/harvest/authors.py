@@ -20,7 +20,7 @@ def load_authors_table(snapshot) -> str:
     logging.info(
         f"Loading authors from {authors_file} into database {snapshot.database_name}"
     )
-    with Session.begin() as session:
+    with Session.begin() as session:  # type: ignore
         with open(authors_file, "r") as file:
             csv_reader = csv.DictReader(file)
             for row in csv_reader:
@@ -75,7 +75,7 @@ def to_boolean(value: str) -> bool:
     bool_map = {"true": True, "false": False}
 
     # will raise KeyError if unexpected value
-    return bool_map.get(value.strip().lower())
+    return bool_map[value.strip().lower()]
 
 
 def to_array(value: str) -> list:

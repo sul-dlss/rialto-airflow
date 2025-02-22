@@ -21,10 +21,13 @@ sul_pub_host = Variable.get("sul_pub_host")
 sul_pub_key = Variable.get("sul_pub_key")
 
 # to artificially limit the API activity in development
+dev_limit = None
 try:
     dev_limit = int(Variable.get("dev_limit", default_var=None))
 except TypeError:
-    dev_limit = None
+    pass
+except ValueError:
+    pass
 
 
 @dag(
@@ -60,8 +63,9 @@ def harvest():
         """
         Fetch the data by ORCID from Dimensions.
         """
+        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "dimensions-doi-orcid.pickle"
-        dimensions.doi_orcids_pickle(pickle_file, limit=dev_limit)
+        dimensions.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
@@ -69,8 +73,9 @@ def harvest():
         """
         Fetch the data by ORCID from OpenAlex.
         """
+        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "openalex-doi-orcid.pickle"
-        openalex.doi_orcids_pickle(pickle_file, limit=dev_limit)
+        openalex.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
@@ -89,8 +94,9 @@ def harvest():
         Extract a mapping of DOI -> [SUNET] from the dimensions doi-orcid dict,
         openalex doi-orcid dict, SUL-Pub publications, and authors data.
         """
+        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "doi-sunet.pickle"
-        create_doi_sunet_pickle(dimensions, openalex, sul_pub, authors, pickle_file)
+        create_doi_sunet_pickle(dimensions, openalex, sul_pub, authors_csv, pickle_file)
 
         return str(pickle_file)
 
@@ -128,10 +134,11 @@ def harvest():
         """
         Get contributions from publications.
         """
-        output = snapshot.path / "contributions.parquet"
-        create_contribs(pubs, doi_sunet_pickle, output)
+        authors_csv = snapshot.path / "authors.csv"
+        contribs_path = snapshot.path / "contributions.parquet"
+        create_contribs(pubs, doi_sunet_pickle, authors_csv, contribs_path)
 
-        return str(output)
+        return str(contribs_path)
 
     @task()
     def publish(pubs_to_contribs, merge_publications):

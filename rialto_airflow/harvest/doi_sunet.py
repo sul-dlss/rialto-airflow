@@ -10,7 +10,7 @@ from rialto_airflow.utils import normalize_doi, normalize_orcid
 
 def create_doi_sunet_pickle(
     dimensions: str, openalex: str, sul_pub_csv: str, authors_csv: str, output_path
-) -> dict:
+) -> None:
     """
     Get DOIs from each source and determine their SUNETID(s) using the authors
     csv file. Write the resulting mapping as a pickle to the output_path.
@@ -80,7 +80,7 @@ def sulpub_doi_sunetids(sul_pub_csv, cap_profile_sunet):
     return df.groupby("doi")["sunet"].apply(list).to_dict()
 
 
-def get_author_maps(authors):
+def get_author_maps(authors) -> tuple[dict[str, str], dict[str, str]]:
     """
     Reads the authors csv and returns two dictionary mappings: orcid -> sunet,
     cap_profile_id -> sunet.
@@ -89,21 +89,23 @@ def get_author_maps(authors):
     df["orcidid"] = df["orcidid"].apply(orcid_id)
 
     # orcid -> sunet
-    orcid = pd.Series(df["sunetid"].values, index=df["orcidid"]).to_dict()
+    orcid: dict[str, str] = pd.Series(
+        df["sunetid"].values, index=df["orcidid"]
+    ).to_dict()
 
     # cap_profile_id -> sunet
-    cap_profile_id = pd.Series(
+    cap_profile_id: dict[str, str] = pd.Series(
         df["sunetid"].values, index=df["cap_profile_id"]
     ).to_dict()
 
     return orcid, cap_profile_id
 
 
-def combine_maps(m1, m2, m3):
-    m = defaultdict(set)
+def combine_maps(m1: dict, m2: dict, m3: dict) -> dict:
+    m: dict[str, set] = defaultdict(set)
 
     # fold values from dictionary d2 into dictionary d1
-    def combine(d1, d2):
+    def combine(d1: dict, d2: dict) -> None:
         for doi, sunets in d2.items():
             for sunet in sunets:
                 d1[doi].add(sunet)

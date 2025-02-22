@@ -22,20 +22,34 @@ dependencies = [
     "pyalex",
     "more-itertools",
     "psycopg2-binary>=2.9.10",
-    "sqlalchemy>=1.4.36,<2.0",
+    "sqlalchemy>=1.4.36,<2.0", # airflow still incompatible with 2.x, see https://github.com/apache/airflow/issues/28723
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-addopts = "-v"
 markers = "mais_tests: Tests requiring MAIS access"
+addopts = "-v --cov --cov-report=html --cov-report=term"
+
+[tool.mypy]
+check_untyped_defs = true # Type-checks the interior of functions without type annotations.
+
+[[tool.mypy.overrides]]
+module = ["dimcli", "pyalex", "requests_oauthlib", "sqlalchemy_utils"]
+ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
     "apache-airflow==2.10.4", # aligned with base Docker image
+    "mypy>=1.15.0",
     "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
     "python-dotenv>=1.0.1",
     "ruff>=0.9.4",
+
+    # packages with type info, for mypy
+    "pandas-stubs",
+    "sqlalchemy-stubs>=0.4", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible
+    "types-requests",
 ]
 
 [build-system]

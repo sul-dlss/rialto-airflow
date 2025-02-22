@@ -2,7 +2,7 @@ import os
 import logging
 from collections import defaultdict
 from datetime import date
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 from rialto_airflow.utils import normalize_orcid
 
 import requests
@@ -13,8 +13,8 @@ import dotenv
 dotenv.load_dotenv()
 
 # Type aliases for clarity
-ORCIDRecord = Dict[str, Any]
-ORCIDStats = List[Union[str, int, float]]
+ORCIDRecord = dict[str, Any]
+ORCIDStats = list[Union[str, int, float]]
 
 TOTAL_USERS_CONSTANT = (
     72000  # Where does this come from? It's in the stats spreadsheet.
@@ -31,7 +31,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_token(client_id: str, client_secret: str, base_url: str) -> Optional[str]:
+class TokenFetchError(LookupError):
+    pass
+
+
+def get_token(client_id: str, client_secret: str, base_url: str) -> str:
     """Retrieves an OAuth2 access token."""
 
     token_url = f"{base_url}/api/oauth/token"
@@ -58,21 +62,20 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> Optional[str
             logger.info("Successfully obtained access token.")  # Log success
             return access_token
         else:
-            logger.error(
-                f"No 'access_token' found in JSON response: {data}"
-            )  # Log specific error
-            return None
+            err_msg = f"No 'access_token' found in JSON response: {data}"
+            logger.error(err_msg)  # Log specific error
+            raise TokenFetchError(err_msg)
 
     except requests.exceptions.RequestException as e:  # Catch all requests exceptions
         logger.exception(f"Error during token request: {e}")
         if e.response is not None and hasattr(e.response, "text"):
             logger.error(f"Response content: {e.response.text}")
-        return None
+        raise TokenFetchError("Error during token request, see logs") from e
 
 
 def get_response(
-    access_token: str, url: str, params: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    access_token: str, url: str, params: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     """Retrieves a JSON response from the MAIS ORCID API."""
     oauth_session = OAuth2Session(
         token={"access_token": access_token, "token_type": "Bearer"}
@@ -84,10 +87,10 @@ def get_response(
 
 def fetch_orcid_users(
     access_token: str, base_url: str, path: str, limit: Optional[int] = None
-) -> List[ORCIDRecord]:
+) -> list[ORCIDRecord]:
     """Fetches ORCID user records from the MAIS ORCID API, handling pagination."""
 
-    orcid_users: List[ORCIDRecord] = []
+    orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
     url = f"{base_url}/mais/orcid/v1{path}"
     params = {"page": 1, "per_page": per_page}
@@ -118,13 +121,16 @@ def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRec
     return get_response(access_token, f"{base_url}/mais/orcid/v1/users/{cleaned_id}")
 
 
-def current_orcid_users(access_token: str) -> List[ORCIDRecord]:
+def current_orcid_users(access_token: str) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
+
+    if BASE_URL is None:
+        raise ValueError("AIRFLOW_VAR_MAIS_BASE_URL is a required value")
 
     all_users = fetch_orcid_users(access_token, BASE_URL, "/users?scope=ANY")
 
     # Create a dictionary to store the most recent record for each ORCID iD
-    current_users_by_orcid: Dict[str, ORCIDRecord] = {}
+    current_users_by_orcid: dict[str, ORCIDRecord] = {}
 
     for user in all_users:
         if "orcid_id" in user:
@@ -134,10 +140,10 @@ def current_orcid_users(access_token: str) -> List[ORCIDRecord]:
     return list(current_users_by_orcid.values())
 
 
-def count_scopes(records: List[ORCIDRecord]) -> Dict[str, int]:
+def count_scopes(records: list[ORCIDRecord]) -> dict[str, int]:
     """Counts the occurrences of different scopes within the ORCID records."""
 
-    value_counts = defaultdict(int)
+    value_counts: dict[Any, int] = defaultdict(int)
 
     for record in records:
         scopes = record.get("scope")
@@ -150,7 +156,7 @@ def count_scopes(records: List[ORCIDRecord]) -> Dict[str, int]:
     return value_counts
 
 
-def get_orcid_stats(current_records: List[ORCIDRecord]) -> ORCIDStats:
+def get_orcid_stats(current_records: list[ORCIDRecord]) -> ORCIDStats:
     """Calculates and returns ORCID user statistics."""
 
     today_str = date.today().strftime("%m/%d/%Y")

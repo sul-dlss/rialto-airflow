@@ -1,13 +1,13 @@
 import os
 import pytest
 import requests
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from datetime import date
 from rialto_airflow import mais
 
-ORCIDRecord = Dict[str, Any]
-ORCIDStats = List[Union[str, int, float]]
+ORCIDRecord = dict[str, Any]
+ORCIDStats = list[Union[str, int, float]]
 
 TOTAL_USERS_CONSTANT = 72000
 
@@ -46,14 +46,17 @@ def test_get_token_success(base_url, client_id, client_secret):
 
 @pytest.mark.mais_tests
 def test_get_token_failure(base_url, client_id, client_secret):
+    # It's true, this test specifically doesn't use a valid client_id or client_secret, but
+    # the presence of those values indicates we're able to reach the service in question (which
+    # is not possible from e.g. CI).
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    token = mais.get_token("dummy_invalid_id", "dummy_invalid_secret", base_url)
-    assert token is None
+    with pytest.raises(mais.TokenFetchError):
+        mais.get_token("dummy_invalid_id", "dummy_invalid_secret", base_url)
 
 
 @pytest.mark.mais_tests
-def test_get_response_success(access_token, base_url):
+def test_get_response_success(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     test_url = f"{base_url}/mais/orcid/v1/users"
@@ -68,7 +71,7 @@ def test_get_response_success(access_token, base_url):
 
 
 @pytest.mark.mais_tests
-def test_fetch_orcid_users_with_limit(access_token, base_url):
+def test_fetch_orcid_users_with_limit(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     path = "/users?scope=ANY"
@@ -79,7 +82,9 @@ def test_fetch_orcid_users_with_limit(access_token, base_url):
 
 
 @pytest.mark.mais_tests
-def test_fetch_orcid_users_invalid_path(access_token, base_url):
+def test_fetch_orcid_users_invalid_path(
+    access_token, base_url, client_id, client_secret
+):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     invalid_path = "/invalid_path"
@@ -88,7 +93,7 @@ def test_fetch_orcid_users_invalid_path(access_token, base_url):
 
 
 @pytest.mark.mais_tests
-def test_fetch_orcid_user_valid_id(access_token, base_url):
+def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     orcid_id = "https://orcid.org/0009-0008-2120-5722"  # Example Valid ID
@@ -97,7 +102,7 @@ def test_fetch_orcid_user_valid_id(access_token, base_url):
 
 
 @pytest.mark.mais_tests
-def test_current_orcid_users(access_token):
+def test_current_orcid_users(access_token, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     current_users = mais.current_orcid_users(access_token)
@@ -112,7 +117,7 @@ def test_current_orcid_users(access_token):
 
 
 def test_count_scopes_empty_list():
-    records: List[ORCIDRecord] = []
+    records: list[ORCIDRecord] = []
     scope_counts = mais.count_scopes(records)
     assert scope_counts == {}
 
@@ -125,7 +130,7 @@ def test_count_scopes_string_scopes():
 
 def test_count_scopes_list_scopes():
     """Tests with list scopes."""
-    records: List[ORCIDRecord] = [
+    records: list[ORCIDRecord] = [
         {"scope": ["scope1", "scope2"]},
         {"scope": ["scope2", "scope3"]},
         {"scope": "scope1"},  # Mixed string and list
@@ -135,7 +140,7 @@ def test_count_scopes_list_scopes():
 
 
 def test_get_orcid_stats_with_data():
-    current_records: List[ORCIDRecord] = [
+    current_records: list[ORCIDRecord] = [
         {"scope": "/read-limited"},
         {"scope": ["/read-limited", "/activities/update"]},
         {"scope": "/activities/update"},

@@ -82,7 +82,7 @@ def authors_csv(snapshot):
     return fixture_file
 
 
-def test_load_authors_table(test_session, tmp_path, authors_csv, snapshot):
+def test_load_authors_table(test_session, tmp_path, caplog, authors_csv, snapshot):
     load_authors_table(snapshot)
 
     with test_session.begin() as session:
@@ -105,3 +105,45 @@ def test_load_authors_table(test_session, tmp_path, authors_csv, snapshot):
         ]
         assert author.departments == ["Computer Science", "Horticulture"]
         assert author.created_at is not None
+    assert "Errors:" not in caplog.text
+
+
+def test_load_dupe_orcid(test_session, tmp_path, caplog, authors_csv, snapshot):
+    # add a row with a duplicate ORCID to the CSV
+    with open(authors_csv, "a", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(
+            [
+                "lelands",
+                "Leland",
+                "Stanford, Jr.",
+                "Leland Stanford, Jr.",
+                "https://orcid.org/0000-0000-0000-0001",
+                "true",
+                "67890",
+                "faculty",
+                "true",
+                "Humanities",
+                "School of Humanities and Sciences",
+                "History",
+                "History Division",
+                "School of Humanities and Sciences",
+                "History",
+                "History Division",
+                "true",
+            ]
+        )
+
+    load_authors_table(snapshot)
+
+    with test_session.begin() as session:
+        assert session.query(Author).count() == 1
+        assert session.query(Author).where(Author.sunet == "janes").count() == 1
+        assert session.query(Author).where(Author.sunet == "lelands").count() == 0
+
+    assert (
+        len([record for record in caplog.records if record.levelname == "WARNING"]) == 2
+    )
+    for record in caplog.records:
+        assert "Skipping author: ('lelands'" in caplog.text
+        assert "Errors:" in caplog.text

@@ -109,6 +109,7 @@ def test_create_schema(
             assert set(author_columns) == {
                 "id",
                 "sunet",
+                "cap_profile_id",
                 "orcid",
                 "first_name",
                 "last_name",
@@ -142,6 +143,7 @@ def author(test_session):
         session.add(
             database.Author(
                 sunet="janes",
+                cap_profile_id="12345",
                 orcid="https://orcid.org/0000-0000-0000-0001",
                 first_name="Jane",
                 last_name="Stanford",

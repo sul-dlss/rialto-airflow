@@ -26,6 +26,7 @@ def load_authors_table(snapshot) -> str:
             for row in csv_reader:
                 author = Author(
                     sunet=row["sunetid"],
+                    cap_profile_id=row["cap_profile_id"],
                     orcid=row["orcidid"] or None,
                     first_name=row["first_name"],
                     last_name=row["last_name"],

@@ -3,6 +3,7 @@ import logging
 from collections import defaultdict
 from datetime import date
 from typing import Any, Dict, List, Optional, Union
+from rialto_airflow.utils import normalize_orcid
 
 import requests
 from requests_oauthlib import OAuth2Session
@@ -113,7 +114,7 @@ def fetch_orcid_users(
 
 def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRecord:
     """Fetches a single ORCID user record by ORCID iD or SUNet ID from the MAIS ORCID API."""
-    cleaned_id = user_id.replace("https://orcid.org/", "")
+    cleaned_id = normalize_orcid(user_id)
     return get_response(access_token, f"{base_url}/mais/orcid/v1/users/{cleaned_id}")
 
 

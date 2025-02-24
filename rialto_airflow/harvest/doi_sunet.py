@@ -5,7 +5,7 @@ from collections import defaultdict
 # TODO: use polars instead?
 import pandas as pd
 
-from rialto_airflow.utils import normalize_doi
+from rialto_airflow.utils import normalize_doi, normalize_orcid
 
 
 def create_doi_sunet_pickle(
@@ -120,4 +120,4 @@ def orcid_id(orcid):
     if pd.isna(orcid):
         return None
     else:
-        return orcid.replace("https://orcid.org/", "")
+        return normalize_orcid(orcid)

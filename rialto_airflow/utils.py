@@ -49,3 +49,12 @@ def normalize_doi(doi):
     doi = re.sub("^doi: ", "", doi)
 
     return doi
+
+
+def normalize_orcid(orcid):
+    orcid = orcid.strip().lower()
+    orcid = orcid.replace("https://orcid.org/", "").replace(
+        "https://sandbox.orcid.org/", ""
+    )
+
+    return orcid

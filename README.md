@@ -60,14 +60,14 @@ done
 ```
 
 5. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
-https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory. 
+https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory.
 
-6. Bring up containers. 
+6. Bring up containers.
 ```
 docker compose up -d
 ```
 
-7. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password. 
+7. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password.
 
 ## Development
 
@@ -107,8 +107,10 @@ DOCKER_DEFAULT_PLATFORM="linux/amd64" docker build . -t suldlss/rialto-airflow:l
 docker push suldlss/rialto-airflow
 ```
 
-Deployment to https://sul-rialto-airflow-dev.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:
+Deployment to https://sul-rialto-airflow-XXXX.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:
 
 ```
-bundle exec cap dev deploy
+bundle exec cap stage deploy # stage
+bundle exec cap prod deploy  # prod
+# Note: there is no QA
 ```

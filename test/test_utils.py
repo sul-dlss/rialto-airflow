@@ -62,3 +62,19 @@ def test_normalize_doi():
         == "10.1103/physrevlett.96.07390"
     )
     assert utils.normalize_doi(" doi: 10.1234/5678 ") == "10.1234/5678"
+
+
+def test_normalize_orcid():
+    assert (
+        utils.normalize_orcid("https://orcid.org/0000-0002-7262-6251")
+        == "0000-0002-7262-6251"
+    )
+    assert (
+        utils.normalize_orcid("https://sandbox.orcid.org/0000-0002-7262-6251")
+        == "0000-0002-7262-6251"
+    )
+    assert utils.normalize_orcid("0000-0002-7262-6251") == "0000-0002-7262-6251"
+    assert (
+        utils.normalize_orcid(" HTTPS://ORCID.org/0000-0002-7262-6251 ")
+        == "0000-0002-7262-6251"
+    )

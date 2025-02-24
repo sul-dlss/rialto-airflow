@@ -7,7 +7,7 @@ import time
 from more_itertools import batched
 from pyalex import Authors, Works, config, api
 
-from rialto_airflow.utils import invert_dict, normalize_doi
+from rialto_airflow.utils import invert_dict, normalize_doi, normalize_orcid
 
 config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
@@ -23,7 +23,7 @@ def doi_orcids_pickle(authors_csv, pickle_file, limit=None):
         orcid_dois = {}
         count = 0
         for row in csv.DictReader(csv_input):
-            orcid = row["orcidid"].replace("https://orcid.org/", "")
+            orcid = normalize_orcid(row["orcidid"])
             if orcid:
                 count += 1
                 orcid_dois[orcid] = list(dois_from_orcid(orcid))

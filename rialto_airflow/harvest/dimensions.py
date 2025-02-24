@@ -10,7 +10,7 @@ import pandas as pd
 import requests
 from more_itertools import batched
 
-from rialto_airflow.utils import invert_dict
+from rialto_airflow.utils import invert_dict, normalize_doi, normalize_orcid
 
 
 def dois_from_orcid(orcid):
@@ -27,7 +27,7 @@ def dois_from_orcid(orcid):
         logging.warning("Truncated results for ORCID %s", orcid)
     for pub in result["publications"]:
         if pub.get("doi"):
-            doi_id = pub["doi"].replace("https://doi.org/", "")
+            doi_id = normalize_doi(pub["doi"])
             yield doi_id
 
 
@@ -41,7 +41,7 @@ def doi_orcids_pickle(authors_csv, pickle_file, limit=None) -> None:
     orcid_dois = {}
 
     for orcid_url in orcids[:limit]:
-        orcid = orcid_url.replace("https://orcid.org/", "")
+        orcid = normalize_orcid(orcid_url)
         dois = list(dois_from_orcid(orcid))
         orcid_dois.update({orcid: dois})
 

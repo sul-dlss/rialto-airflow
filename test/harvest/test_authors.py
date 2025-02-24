@@ -11,6 +11,7 @@ def author(test_session):
         session.add(
             Author(
                 sunet="janes",
+                cap_profile_id="12345",
                 orcid="https://orcid.org/0000-0000-0000-0001",
                 first_name="Jane",
                 last_name="Stanford",
@@ -88,6 +89,7 @@ def test_load_authors_table(test_session, tmp_path, authors_csv, snapshot):
         assert session.query(Author).count() == 1
 
         author = session.query(Author).where(Author.sunet == "janes").one()
+        assert author.cap_profile_id == "12345"
         assert author.first_name == "Jane"
         assert author.last_name == "Stanford"
         assert author.orcid == "https://orcid.org/0000-0000-0000-0001"

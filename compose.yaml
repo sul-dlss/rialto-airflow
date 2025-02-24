@@ -62,6 +62,7 @@ x-airflow-common:
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__CORE__DAGS_FOLDER: '/opt/airflow/rialto_airflow/dags'
     AIRFLOW__CORE__PLUGINS_FOLDER: '/opt/airflow/rialto_airflow/plugins'
+    AIRFLOW__CORE__ENABLE_XCOM_PICKLING: 'true'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks

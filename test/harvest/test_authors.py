@@ -1,6 +1,7 @@
 import csv
 import pytest
 from rialto_airflow.database import Author
+from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.harvest.authors import load_authors_table
 
 
@@ -24,9 +25,15 @@ def test_author_fixture(test_session, author):
 
 
 @pytest.fixture
-def authors_csv(tmp_path):
+def snapshot(tmp_path):
+    # override the generation of a database name, all the tests use rialto_test
+    return Snapshot(tmp_path, database_name="rialto_test")
+
+
+@pytest.fixture
+def authors_csv(snapshot):
     # Create a fixture authors CSV file
-    fixture_file = tmp_path / "authors.csv"
+    fixture_file = snapshot.path / "authors.csv"
     with open(fixture_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(
@@ -74,9 +81,8 @@ def authors_csv(tmp_path):
     return fixture_file
 
 
-def test_load_authors_table(test_session, tmp_path, authors_csv):
-    harvest_config = {"snapshot_dir": tmp_path, "database_name": "rialto_test"}
-    load_authors_table(harvest_config)
+def test_load_authors_table(test_session, tmp_path, authors_csv, snapshot):
+    load_authors_table(snapshot)
 
     with test_session.begin() as session:
         assert session.query(Author).count() == 1

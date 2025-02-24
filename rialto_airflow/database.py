@@ -1,7 +1,6 @@
 import logging
 import os
 from functools import cache
-from pathlib import Path
 
 from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy import create_engine, text
@@ -33,10 +32,8 @@ def get_engine(database_name: str):
     return engine_setup(database_name)
 
 
-def create_database(snapshot_dir: str) -> str:
+def create_database(database_name: str) -> str:
     """Create a DAG-specific database for publications and author/orgs data"""
-    timestamp = Path(snapshot_dir).name
-    database_name = f"rialto_{timestamp}"
 
     # set up the connection using the default postgres database
     # see discussion here: https://stackoverflow.com/questions/6506578/how-to-create-a-new-database-using-sqlalchemy

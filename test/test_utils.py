@@ -19,11 +19,6 @@ def authors_csv(tmp_path):
     return fixture_file
 
 
-def test_create_snapshot_dir(tmp_path):
-    snap_dir = Path(utils.create_snapshot_dir(tmp_path))
-    assert snap_dir.is_dir()
-
-
 def test_rialto_authors_orcids(tmp_path, authors_csv):
     orcids = utils.rialto_authors_orcids(authors_csv)
     assert len(orcids) == 2

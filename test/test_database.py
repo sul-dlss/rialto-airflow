@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -7,6 +6,12 @@ from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
 from rialto_airflow.database import Author
+from rialto_airflow.snapshot import Snapshot
+
+
+@pytest.fixture
+def snapshot(tmp_path):
+    return Snapshot(tmp_path)
 
 
 @pytest.fixture
@@ -20,12 +25,12 @@ def mock_rialto_postgres(monkeypatch):
 
 @pytest.fixture
 def teardown_database():
-    def perform_teardown_database(db_name):
+    def perform_teardown_database(database_name):
         """Clean up by creating a new engine and connection and then drop the database"""
         teardown_engine = null_pool_engine("postgres")
         with teardown_engine.connect() as connection:
             connection.execution_options(isolation_level="AUTOCOMMIT")
-            connection.execute(text(f"drop database {db_name}"))
+            connection.execute(text(f"drop database {database_name}"))
 
     return perform_teardown_database
 
@@ -40,25 +45,24 @@ def null_pool_engine(database_name):
 
 
 def test_create_database(
-    tmp_path,
+    snapshot,
     mock_rialto_postgres,
     monkeypatch,
     teardown_database,
 ):
     try:
-        db_name = database.create_database(tmp_path)
-        assert db_name == "rialto_" + Path(tmp_path).name
+        database.create_database(snapshot.database_name)
 
-        with null_pool_engine(db_name).connect() as conn:
+        with null_pool_engine(snapshot.database_name).connect() as conn:
             # Verify that the database exists and a connection was able to be made
             assert conn
     finally:
         # even if exception raised, tear down the database
-        teardown_database("rialto_" + Path(tmp_path).name)
+        teardown_database(snapshot.database_name)
 
 
 def test_create_schema(
-    tmp_path,
+    snapshot,
     mock_rialto_postgres,
     monkeypatch,
     teardown_database,
@@ -71,10 +75,10 @@ def test_create_schema(
     monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
 
     try:
-        db_name = database.create_database(tmp_path)
-        database.create_schema(db_name)
+        database.create_database(snapshot.database_name)
+        database.create_schema(snapshot.database_name)
         # Verify that the tables exist and the columns match the schema
-        engine = null_pool_engine(db_name)
+        engine = null_pool_engine(snapshot.database_name)
         with engine.connect() as conn:
             pub_result = conn.execute(
                 text(
@@ -129,7 +133,7 @@ def test_create_schema(
             assert set(association_columns) == {"publication_id", "author_id"}
     finally:
         # even if exception raised, tear down the database
-        teardown_database(db_name)
+        teardown_database(snapshot.database_name)
 
 
 @pytest.fixture

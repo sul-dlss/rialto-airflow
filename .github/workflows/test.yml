@@ -18,14 +18,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Lint
-        uses: chartboost/ruff-action@v1
-        # Default action is 'check'
-        # it may move, see https://github.com/astral-sh/ruff/issues/8400
-
-      - name: Format
-        uses: chartboost/ruff-action@v1
+        uses: astral-sh/ruff-action@v3
         with:
-          args: 'format --check'
+          # if files would be reformatted: print the diff between the current file and
+          # the re-formatted file, then exit with non-zero status code (which should fail the build step)
+          args: 'format --diff'
 
       - name: Install uv
         run: pip3 install uv
@@ -33,8 +30,17 @@ jobs:
       - name: Bring up postgres container
         run: docker compose -f compose.yaml up -d --wait postgres
 
+      - name: Run type checking
+        run: uv run mypy .
+
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest --cov-branch --cov-report=xml
         env:
           AIRFLOW_VAR_DIMENSIONS_API_USER: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_USER }}
           AIRFLOW_VAR_DIMENSIONS_API_PASS: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_PASS }}
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: sul-dlss/rialto-airflow

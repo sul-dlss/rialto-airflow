@@ -1,6 +1,7 @@
 # rialto-airflow
 
 [![.github/workflows/test.yml](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml/badge.svg)](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/sul-dlss/rialto-airflow/graph/badge.svg?token=rmO5oWki9D)](https://codecov.io/gh/sul-dlss/rialto-airflow)
 
 Airflow for harvesting data for open access analysis and research intelligence. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/) and [Dimensions](https://www.dimensions.ai/) APIs to provide a view of publication data for Stanford University research. The basic workflow is: fetch Stanford Research publications from SUL-Pub, OpenAlex, and Dimensions, enrich them with additional metadata from OpenAlex and Dimensions using the DOI, merge the organizational data found in [rialto_orgs], and publish the data to our JupyterHub environment.
 
@@ -94,11 +95,30 @@ docker compose up -d postgres
 uv run pytest
 ```
 
+### Test coverage reporting
+
+In addition to the terminal display of a summary of the test coverage percentages, you can get a detailed look at which lines are covered or not by opening `htmlcov/index.html` after running the test suite.
+
 ### Linting and formatting
 
 1. Run linting: `uv run ruff check`
-2. Automatically fix linting: `uv run ruff check --fix`
-3. Run formatting: `uv run ruff format` (or `uv run ruff format --check` to identify any unformatted files)
+2. Automatically fix lint: `uv run ruff check --fix`
+3. Run formatting: `uv run ruff format` (or `uv run ruff format --check` to identify any unformatted files,  or `uv run ruff format --diff` to see what would change without applying)
+
+### Type Checking
+
+To see if there are any type mismatches:
+
+```
+uv run mypy .
+```
+
+### Run all the checks
+
+One line for running the linter, the type checker, and the test suite (failing fast if there are errors):
+```
+uv run ruff format --diff . && uv run ruff check && uv run mypy . && uv run pytest
+```
 
 ## Deployment
 

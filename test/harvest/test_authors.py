@@ -146,4 +146,4 @@ def test_load_dupe_orcid(test_session, tmp_path, caplog, authors_csv, snapshot):
     )
     for record in caplog.records:
         assert "Skipping author: ('lelands'" in caplog.text
-        assert "Errors:" in caplog.text
+        assert "Errors with 1 author" in caplog.text

@@ -54,7 +54,7 @@ def load_authors_table(snapshot) -> None:
     logging.info(f"Loaded {session.query(Author).count()} authors")
     if errors:
         # show all errors at the end of the log
-        logging.warning(f"Errors: {errors}")
+        logging.warning(f"Errors with {len(errors)} authors: {errors}")
 
 
 def check_headers(authors_file: str) -> None:

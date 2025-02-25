@@ -53,11 +53,13 @@ AIRFLOW_VAR_DATA_DIR="data"
 Here is an script to generate content for your dev .env file:
 
 ```
-for i in `vault kv list -format yaml puppet/application/rialto-airflow/dev | sed 's/- //'` ; do \
+for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
   val=$(echo $i| tr '[a-z]' '[A-Z]'); \
-  echo AIRFLOW_VAR_$val=`vault kv get -field=content puppet/application/rialto-airflow/dev/$i`; \
+  echo AIRFLOW_VAR_$val=`vault kv get -field=content puppet/application/rialto-airflow/stage/$i`; \
 done
 ```
+
+Additionally, you may want a value for `AIRFLOW_VAR_MAIS_BASE_URL`. This is available from the rialto-orgs configuration (either in the [base config](https://github.com/sul-dlss/rialto-orgs/blob/main/config/settings.yml), or overridden via shared_configs).
 
 5. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
 https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory.

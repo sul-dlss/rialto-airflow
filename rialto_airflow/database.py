@@ -18,18 +18,18 @@ def db_uri(database_name):
     return f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}"
 
 
-def engine_setup(database_name: str):
+def engine_setup(database_name: str, pool_pre_ping=False):
     """
     When creating the database and its schema, use an engine and connection.
     Subsequent querying should be done by accessing an engine via get_engine.
     """
-    return create_engine(db_uri(database_name), echo=True)
+    return create_engine(db_uri(database_name), pool_pre_ping=pool_pre_ping, echo=True)
 
 
 @cache
 def get_engine(database_name: str):
     """Memoized engine for use in other modules"""
-    return engine_setup(database_name)
+    return engine_setup(database_name, pool_pre_ping=True)
 
 
 def create_database(database_name: str) -> str:

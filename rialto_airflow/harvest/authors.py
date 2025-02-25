@@ -8,7 +8,7 @@ from rialto_airflow.database import get_engine, Author
 from rialto_airflow.utils import rialto_authors_file
 
 
-def load_authors_table(snapshot) -> str:
+def load_authors_table(snapshot) -> None:
     """
     Load the authors data from the authors CSV into the database
     """
@@ -26,7 +26,7 @@ def load_authors_table(snapshot) -> str:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             try:
-                with Session.begin() as session:
+                with Session.begin() as session:  # type: ignore
                     author = Author(
                         sunet=row["sunetid"],
                         cap_profile_id=row["cap_profile_id"],
@@ -48,6 +48,8 @@ def load_authors_table(snapshot) -> str:
                 logging.warning(message)
                 errors.append(message)
                 continue
+            finally:
+                session.close()
 
     logging.info(f"Loaded {session.query(Author).count()} authors")
     if errors:

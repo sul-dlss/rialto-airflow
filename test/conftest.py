@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import create_schema, engine_setup
@@ -42,4 +43,7 @@ def test_session(test_engine):
     """
     Returns a sqlalchemy session for the test database.
     """
-    return sessionmaker(test_engine)
+    try:
+        yield sessionmaker(test_engine)
+    finally:
+        close_all_sessions()

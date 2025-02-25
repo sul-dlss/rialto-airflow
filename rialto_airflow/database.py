@@ -6,7 +6,12 @@ from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import RelationshipProperty, declarative_base, relationship  # type: ignore
+from sqlalchemy.orm import (  # type: ignore
+    RelationshipProperty,
+    declarative_base,
+    relationship,
+    sessionmaker,
+)
 from sqlalchemy.sql import expression
 from sqlalchemy.types import DateTime
 
@@ -18,18 +23,22 @@ def db_uri(database_name):
     return f"{os.environ.get('AIRFLOW_VAR_RIALTO_POSTGRES')}/{database_name}"
 
 
-def engine_setup(database_name: str, pool_pre_ping=False):
+def engine_setup(database_name: str, pool_pre_ping=False, echo=False):
     """
     When creating the database and its schema, use an engine and connection.
     Subsequent querying should be done by accessing an engine via get_engine.
     """
-    return create_engine(db_uri(database_name), pool_pre_ping=pool_pre_ping, echo=True)
+    return create_engine(db_uri(database_name), pool_pre_ping=pool_pre_ping, echo=echo)
 
 
 @cache
-def get_engine(database_name: str):
+def get_engine(database_name: str, echo=False):
     """Memoized engine for use in other modules"""
-    return engine_setup(database_name, pool_pre_ping=True)
+    return engine_setup(database_name, pool_pre_ping=True, echo=echo)
+
+
+def get_session(database_name: str):
+    return sessionmaker(engine_setup(database_name))
 
 
 def create_database(database_name: str) -> str:

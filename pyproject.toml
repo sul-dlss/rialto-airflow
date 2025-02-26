@@ -5,7 +5,7 @@ version = "0.1.0"
 
 description = "Airflow app for harvesting data for open access analysis and research intelligence."
 
-authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}]
+authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}, {name = "Johnathan Martin", email = "john.martin@stanford.edu"}]
 
 # Aligned with what is defined in Dockerfile and CI
 requires-python = "== 3.12.*" 
@@ -29,6 +29,9 @@ dependencies = [
 pythonpath = ["."]
 markers = "mais_tests: Tests requiring MAIS access"
 addopts = "-v --cov --cov-report=html --cov-report=term"
+
+[tool.coverage.run]
+omit = ["test/*"]
 
 [tool.mypy]
 check_untyped_defs = true # Type-checks the interior of functions without type annotations.

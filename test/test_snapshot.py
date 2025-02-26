@@ -1,6 +1,7 @@
 import io
 import pickle
 
+from pathlib import Path
 from rialto_airflow.snapshot import Snapshot
 
 
@@ -11,6 +12,8 @@ def test_snapshot(tmpdir):
     s = Snapshot(tmpdir)
     assert s.time
     assert s.path.is_dir()
+    assert s.path.is_relative_to(Path(tmpdir))
+    assert s.authors_csv.is_relative_to(Path(tmpdir))
     assert s.database_name == f"rialto_{s.time}"
 
 

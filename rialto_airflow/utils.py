@@ -44,6 +44,9 @@ def invert_dict(dict):
 
 
 def normalize_doi(doi):
+    if doi is None:
+        return None
+
     doi = doi.strip().lower()
     doi = doi.replace("https://doi.org/", "").replace("https://dx.doi.org/", "")
     doi = re.sub("^doi: ", "", doi)

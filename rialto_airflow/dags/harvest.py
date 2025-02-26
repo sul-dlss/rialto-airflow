@@ -66,13 +66,13 @@ def harvest():
         return str(pickle_file)
 
     @task()
-    def openalex_harvest_dois(snapshot):
+    def openalex_harvest(snapshot):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        pickle_file = snapshot.path / "openalex-doi-orcid.pickle"
-        openalex.doi_orcids_pickle(snapshot.authors_csv, pickle_file, limit=dev_limit)
-        return str(pickle_file)
+        jsonl_file = openalex.harvest(snapshot, limit=dev_limit)
+
+        return jsonl_file
 
     @task()
     def sul_pub_harvest(snapshot):
@@ -106,16 +106,6 @@ def harvest():
         dois = list(pickle.load(open(doi_sunet, "rb")).keys())
         csv_file = snapshot.path / "dimensions-pubs.csv"
         dimensions.publications_csv(dois, csv_file)
-        return str(csv_file)
-
-    @task()
-    def openalex_harvest_pubs(doi_sunet, snapshot):
-        """
-        Harvest publication metadata from OpenAlex using the dois from doi_set.
-        """
-        dois = list(pickle.load(open(doi_sunet, "rb")).keys())
-        csv_file = snapshot.path / "openalex-pubs.csv"
-        openalex.publications_csv(dois, csv_file)
         return str(csv_file)
 
     @task()
@@ -158,20 +148,18 @@ def harvest():
 
     dimensions_dois = dimensions_harvest_dois(snapshot)
 
-    openalex_dois = openalex_harvest_dois(snapshot)
+    openalex_jsonl = openalex_harvest(snapshot)
 
     doi_sunet = create_doi_sunet(
         dimensions_dois,
-        openalex_dois,
+        openalex_jsonl,
         sul_pub_jsonl,
         snapshot,
     )
 
     dimensions_pubs = dimensions_harvest_pubs(doi_sunet, snapshot)
 
-    openalex_pubs = openalex_harvest_pubs(doi_sunet, snapshot)
-
-    pubs = merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot)
+    pubs = merge_publications(sul_pub, openalex_jsonl, dimensions_pubs, snapshot)
 
     contribs = pubs_to_contribs(pubs, doi_sunet, snapshot)
 

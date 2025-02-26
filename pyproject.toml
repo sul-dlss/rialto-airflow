@@ -5,7 +5,7 @@ version = "0.1.0"
 
 description = "Airflow app for harvesting data for open access analysis and research intelligence."
 
-authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}]
+authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}, {name = "Johnathan Martin", email = "john.martin@stanford.edu"}]
 
 # Aligned with what is defined in Dockerfile and CI
 requires-python = "== 3.12.*" 

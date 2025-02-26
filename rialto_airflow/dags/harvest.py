@@ -42,9 +42,7 @@ def harvest():
         Set up the snapshot directory and database.
         """
         snapshot = Snapshot(data_dir)
-        shutil.copyfile(
-            Path(rialto_authors_file(data_dir)), snapshot.path / "authors.csv"
-        )
+        shutil.copyfile(Path(rialto_authors_file(data_dir)), snapshot.authors_csv)
         create_database(snapshot.database_name)
         create_schema(snapshot.database_name)
 
@@ -63,9 +61,8 @@ def harvest():
         """
         Fetch the data by ORCID from Dimensions.
         """
-        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "dimensions-doi-orcid.pickle"
-        dimensions.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
+        dimensions.doi_orcids_pickle(snapshot.authors_csv, pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
@@ -73,9 +70,8 @@ def harvest():
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "openalex-doi-orcid.pickle"
-        openalex.doi_orcids_pickle(authors_csv, pickle_file, limit=dev_limit)
+        openalex.doi_orcids_pickle(snapshot.authors_csv, pickle_file, limit=dev_limit)
         return str(pickle_file)
 
     @task()
@@ -95,9 +91,10 @@ def harvest():
         Extract a mapping of DOI -> [SUNET] from the dimensions doi-orcid dict,
         openalex doi-orcid dict, SUL-Pub publications, and authors data.
         """
-        authors_csv = snapshot.path / "authors.csv"
         pickle_file = snapshot.path / "doi-sunet.pickle"
-        create_doi_sunet_pickle(dimensions, openalex, sul_pub, authors_csv, pickle_file)
+        create_doi_sunet_pickle(
+            dimensions, openalex, sul_pub, snapshot.authors_csv, pickle_file
+        )
 
         return str(pickle_file)
 
@@ -135,9 +132,8 @@ def harvest():
         """
         Get contributions from publications.
         """
-        authors_csv = snapshot.path / "authors.csv"
         contribs_path = snapshot.path / "contributions.parquet"
-        create_contribs(pubs, doi_sunet_pickle, authors_csv, contribs_path)
+        create_contribs(pubs, doi_sunet_pickle, snapshot.authors_csv, contribs_path)
 
         return str(contribs_path)
 

@@ -13,6 +13,7 @@ class Snapshot:
     path: Path
     time: str
     database_name: str
+    authors_csv: Path
 
     def __init__(self, path, database_name=None):
         now = datetime.datetime.now()
@@ -22,3 +23,4 @@ class Snapshot:
         self.path.mkdir(parents=True)
 
         self.database_name = database_name or f"rialto_{self.time}"
+        self.authors_csv = self.path / "authors.csv"

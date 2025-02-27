@@ -140,3 +140,43 @@ bundle exec cap stage deploy # stage
 bundle exec cap prod deploy  # prod
 # Note: there is no QA
 ```
+
+## Google Drive Setup
+
+In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly
+
+### GCP Setup
+
+1. You will need a Google Cloud Platform (GCP) project, which has billing enabled and setup.  Look up how to do this or ask for help for Ops if there isn't already an existing DLSS GCP project that can be used.
+2. You need a service account in GCP under this project.  Once the project is selected, go to IAM > Service Accounts to create (or select an existing if appropriate) service account.
+3. You will need to download the JSON Key file for this service account.  Once you have selected the service account under IAM > Service Accounts, edit it with the pencil icon, find the "Keys" tab and add a key.  It should offer to let you download the key as a JSON file.  Save this file.
+4. Grant this service account permissions to access Google Drive.  Do this by going to IAM and scrolling down to find the name of the service account.  Edit it by clicking the pencil icon.  Click "Add another role" and then add the role "Storage Object Admin" and save the user.
+
+### Airflow Setup
+
+1. In Airflow, go to the "Admin" menu and select "Connections".
+2. If it doesn't exist, create a connection by clicking the + button.
+3. The connection info is below (skip the quotes, they just denote the value to enter):
+
+connection id: "google_cloud_default"
+connection type: "Google Cloud"
+description: # something useful, e.g. "Google Drive connection"
+project id: # the exact ID of the google project in GCP from step 1 in the GCP Setup, e.g. "sul-airflow"
+keyfile path: # this is the path to the JSON file you downloaded in step 3 in the GCP Setup.  It needs to be put on the VM/docker image and this is the full path to it
+keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image
+credential configuriation file: # leave blank
+Scopes: https://www.googleapis.com/auth/drive.file
+
+everything else can be left blank/default
+
+Click "Save" to save the connection.
+
+4. Note tha the connection id (e.g. "google_cloud_default") is going to referenced in the Airflow DAG definitions, so it needs to match what is in the code.
+
+### Google Drive Setup
+
+1. Find the Google Drive folder you want Airflow to be able to access.
+2. Click the sharing setup in Google Drive.
+3. Copy the full email address of the GCP Service account (e.g. rialto-google-drive-test@sul-ai-sandbox.iam.gserviceaccount.com) and share the Google Drive folder with that user, providing "Admin" access.  Save.
+
+Whew. You did it.

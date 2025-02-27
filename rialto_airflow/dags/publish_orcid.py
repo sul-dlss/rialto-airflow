@@ -38,7 +38,7 @@ def publish_orcid():
         Publish a file to Google Drive.
         """
         transfer_to_google_drive(
-            filename="Gemfile.lock",
+            filename="/opt/airflow/rialto_airflow/google_drive.py",
             drive_folder_id="1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
         )
 

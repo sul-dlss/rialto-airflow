@@ -200,11 +200,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/65/10/ef074670d8dc2281c5604366062be4011c206442ac0e9f0dddbbc3251e04/apache_airflow-2.10.4-py3-none-any.whl", hash = "sha256:9470a26479034ddede69fca913d7f84a32dd883368861b9421e2a692c0fc5ef4", size = 13445691 },
 ]
 
-[package.optional-dependencies]
-google = [
-    { name = "apache-airflow-providers-google" },
-]
-
 [[package]]
 name = "apache-airflow-providers-common-compat"
 version = "1.5.0"
@@ -3325,7 +3320,6 @@ name = "rialto-airflow"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "apache-airflow", extra = ["google"] },
     { name = "apache-airflow-providers-google" },
     { name = "dimcli" },
     { name = "jsonpath-ng" },
@@ -3355,7 +3349,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apache-airflow", extras = ["google"], specifier = ">=2.10.4" },
     { name = "apache-airflow-providers-google", specifier = ">=14.0.0" },
     { name = "dimcli" },
     { name = "jsonpath-ng", specifier = ">=1.7.0" },

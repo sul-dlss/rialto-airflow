@@ -2,6 +2,7 @@ import datetime
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from rialto_airflow.google_drive import transfer_to_google_drive
 
 from rialto_airflow.mais import (
     get_token,
@@ -31,7 +32,18 @@ def publish_orcid():
         orcid_stats = get_orcid_stats(current_users)
         return orcid_stats
 
+    @task
+    def publish_file_to_google_drive():
+        """
+        Publish a file to Google Drive.
+        """
+        transfer_to_google_drive(
+            filename="Gemfile.lock",
+            drive_folder_id="1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
+        )
+
     orcid_integration_stats()
 
+    publish_file_to_google_drive()
 
 publish_orcid()

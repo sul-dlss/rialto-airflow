@@ -13,6 +13,8 @@ requires-python = "== 3.12.*"
 package-mode = false
 
 dependencies = [
+    "apache-airflow-providers-google>=14.0.0",
+    "apache-airflow[google]>=2.10.4",
     "dimcli",
     "jsonpath-ng>=1.7.0",
     "more-itertools",

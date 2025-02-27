@@ -200,11 +200,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/65/10/ef074670d8dc2281c5604366062be4011c206442ac0e9f0dddbbc3251e04/apache_airflow-2.10.4-py3-none-any.whl", hash = "sha256:9470a26479034ddede69fca913d7f84a32dd883368861b9421e2a692c0fc5ef4", size = 13445691 },
 ]
 
-[package.optional-dependencies]
-google = [
-    { name = "apache-airflow-providers-google" },
-]
-
 [[package]]
 name = "apache-airflow-providers-common-compat"
 version = "1.5.0"
@@ -1225,7 +1220,7 @@ wheels = [
 
 [[package]]
 name = "google-cloud-aiplatform"
-version = "1.81.0"
+version = "1.82.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
@@ -1241,9 +1236,9 @@ dependencies = [
     { name = "shapely" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/9b/1a2012018f9a47c6057f45190a85f4053847511eea7d14592d42c942c16e/google_cloud_aiplatform-1.81.0.tar.gz", hash = "sha256:1398be33bfc2725dde47555e559b89e8cb3b2d676a47a9802d9f33a89f1630bf", size = 8702664 }
+sdist = { url = "https://files.pythonhosted.org/packages/82/f2/86f7c064b04415c61f1952c09e972a80054708e29f443c068d7410d4c71e/google_cloud_aiplatform-1.82.0.tar.gz", hash = "sha256:b7ea7379249cc1821aa46300a16e4b15aa64aa22665e2536b2bcb7e473d7438e", size = 8735542 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/74/59afe8abef2610f3e882ab8721f4c93fbc0365cadc4837d90e5344326318/google_cloud_aiplatform-1.81.0-py2.py3-none-any.whl", hash = "sha256:e4b6745dfd1f6215d690e9589239d2e7ae2553e39bf9c24c7b7581af0f2f6a68", size = 7266935 },
+    { url = "https://files.pythonhosted.org/packages/cb/e9/f0ad7ef7e50eb2e98b48e087d321b1a1f765b97c6392f00cc3109ca98af0/google_cloud_aiplatform-1.82.0-py2.py3-none-any.whl", hash = "sha256:13368a961b2bfa8f46ccd10371bb19bd5f946d8f29c411726061ed1a140ce890", size = 7291872 },
 ]
 
 [package.optional-dependencies]
@@ -1329,7 +1324,7 @@ wheels = [
 
 [[package]]
 name = "google-cloud-bigquery"
-version = "3.29.0"
+version = "3.30.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core", extra = ["grpc"] },
@@ -1340,9 +1335,9 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/21/36/87875a9775985849f18d4b3e320e4acdeb5232db3d49cfa6269e7c7867b8/google_cloud_bigquery-3.29.0.tar.gz", hash = "sha256:fafc2b455ffce3bcc6ce0e884184ef50b6a11350a83b91e327fadda4d5566e72", size = 467180 }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/2f/3dda76b3ec029578838b1fe6396e6b86eb574200352240e23dea49265bb7/google_cloud_bigquery-3.30.0.tar.gz", hash = "sha256:7e27fbafc8ed33cc200fe05af12ecd74d279fe3da6692585a3cef7aee90575b6", size = 474389 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/68/60/9e1430f0fe17f8e8e931eff468021516f74f2573f261221529767dd59591/google_cloud_bigquery-3.29.0-py2.py3-none-any.whl", hash = "sha256:5453a4eabe50118254eda9778f3d7dad413490de5f7046b5e66c98f5a1580308", size = 244605 },
+    { url = "https://files.pythonhosted.org/packages/0c/6d/856a6ca55c1d9d99129786c929a27dd9d31992628ebbff7f5d333352981f/google_cloud_bigquery-3.30.0-py2.py3-none-any.whl", hash = "sha256:f4d28d846a727f20569c9b2d2f4fa703242daadcb2ec4240905aa485ba461877", size = 247885 },
 ]
 
 [[package]]
@@ -3305,7 +3300,6 @@ name = "rialto-airflow"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "apache-airflow", extra = ["google"] },
     { name = "apache-airflow-providers-google" },
     { name = "dimcli" },
     { name = "more-itertools" },
@@ -3335,7 +3329,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apache-airflow", extras = ["google"], specifier = ">=2.10.4" },
     { name = "apache-airflow-providers-google", specifier = ">=14.0.0" },
     { name = "dimcli" },
     { name = "more-itertools" },
@@ -3695,16 +3688,16 @@ wheels = [
 
 [[package]]
 name = "sqlalchemy-spanner"
-version = "1.8.0"
+version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
     { name = "google-cloud-spanner" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/93/f2e08ce143434070038136181033966c944d67851978501ba115010a05a7/sqlalchemy_spanner-1.8.0.tar.gz", hash = "sha256:52e8f44c3cfee6a951615b75315e7b7c98a4368b9fd10881d46b3d864b0bc232", size = 80162 }
+sdist = { url = "https://files.pythonhosted.org/packages/89/fc/2fd110662e27f4b27f5cedd08736d4cde24071c14e8d90a4dda7192887c2/sqlalchemy_spanner-1.9.0.tar.gz", hash = "sha256:192e9383fce23ad2449ea9386f30f2f51fed84ce54ea0a17d9bc930614a377bb", size = 80215 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/09/93e7c4c317f65cd61cdb60954f216fd99b6fe0f4b02f47a9f84337e96ef5/sqlalchemy_spanner-1.8.0-py3-none-any.whl", hash = "sha256:5934153f6d23e08ed900eff221156cd7634f097de9d6c7b9a7d32e66c81e1d31", size = 29422 },
+    { url = "https://files.pythonhosted.org/packages/aa/95/1497510de9eb84e5ad18161e4eeddf9d4fc00a9b6e4a207be9c842ce3187/sqlalchemy_spanner-1.9.0-py3-none-any.whl", hash = "sha256:3226c9ada02ebaa3bf252f7eef4252ca915e9ac2bbebd30bc17c440fadce376e", size = 29478 },
 ]
 
 [[package]]

@@ -1,116 +1,157 @@
-import pickle
-import re
-
-import pandas
-import pyalex
+import dotenv
+import logging
 import pytest
 
 from rialto_airflow.harvest import openalex
+from rialto_airflow.snapshot import Snapshot
+from rialto_airflow.database import Publication
+
+from test.utils import num_jsonl_objects
+
+dotenv.load_dotenv()
 
 
-def test_dois_from_orcid():
-    dois = list(openalex.dois_from_orcid("0000-0002-1298-3089"))
-    assert len(dois) >= 54
+def test_orcid_publications():
+    """
+    This is a live test of OpenAlex API, to make sure paging works properly.
+    """
+    count = 0
+    for pub in openalex.orcid_publications("https://orcid.org/0000-0002-8030-5327"):
+        assert pub
+
+        count += 1
+        if count >= 400:
+            break
+
+    assert count == 400, "found 100 publications"
 
 
-def test_dois_from_orcid_paging():
-    # per_page is set to 200, so ensure that paging is working
-    # for Shanhui Fan who has a lot of publications (> 1300)
-    dois = list(openalex.dois_from_orcid("0000-0002-0081-9732", limit=300))
-    assert len(dois) == 300, "paging is limiting to 200 works"
-    assert len(set(dois)) == len(dois), "the dois are unique"
+response = {
+    "records": [
+        {
+            "title": "An example title",
+            "identifier": [
+                {"type": "doi", "id": "https://doi.org/10.1515/9781503624153"}
+            ],
+            "authorship": [
+                {"status": "approved", "cap_profile_id": "12345"},
+                {"status": "approved", "cap_profile_id": "123456"},
+            ],
+        }
+    ]
+}
 
 
-def test_doi_orcids_pickle(tmp_path):
-    # authors_csv, pickle_file):
-    pickle_file = tmp_path / "openalex-doi-orcid.pickle"
-    openalex.doi_orcids_pickle("test/data/authors.csv", pickle_file)
-    assert pickle_file.is_file(), "created the pickle file"
+@pytest.fixture
+def mock_openalex(monkeypatch):
+    """
+    Mock our function for fetching publications by orcid from OpenAlex.
+    """
 
-    mapping = pickle.load(pickle_file.open("rb"))
-    assert isinstance(mapping, dict)
-    assert len(mapping) > 0
+    def f(*args, **kwargs):
+        yield {
+            "doi": "https://doi.org/10.1515/9781503624153",
+            "title": "An example title",
+            "publication_year": 1891,
+        }
 
-    doi = list(mapping.keys())[0]
-    assert "https://doi.org/" not in doi, "doi is an ID"
-    assert "/" in doi
-
-    orcids = mapping[doi]
-    assert isinstance(orcids, list)
-    assert len(orcids) > 0
-    assert re.match(r"^\d+-\d+-\d+-\d+$", orcids[0])
+    monkeypatch.setattr(openalex, "orcid_publications", f)
 
 
-def test_publications_from_dois():
-    # get 231 dois that we know are in openalex
-    dois = pandas.read_csv("test/data/openalex-dois.csv").doi.to_list()
-    assert len(dois) == 231
+def test_harvest(tmp_path, test_session, mock_authors, mock_openalex):
+    # harvest from openalex
+    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    openalex.harvest(snapshot)
 
-    # look up the publication metadata for them
-    pubs = list(openalex.publications_from_dois(dois))
+    # the mocked openalex api returns the same publication for both authors
+    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
 
-    # > 200 is used because some of the 231 DOIs have been removed from openalex 🤷
-    assert len(pubs) > 200, "should paginate (page size=200)"
-    assert set(openalex.FIELDS) == set(pubs[0].keys()), "All fields accounted for."
-    assert len(pubs[0].keys()) == 54, "first publication has 54 columns"
-    assert len(pubs[1].keys()) == 54, "second publication has 54 columns"
+    # make sure a publication is in the database and linked to the author
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publication loaded"
 
+        pub = session.query(Publication).first()
+        assert pub.doi == "10.1515/9781503624153", "doi was normalized"
 
-def test_publications_from_invalid_dois(caplog):
-    invalid_dois = ["doi-with-comma,a", "10.1145/3442188.3445922"]
-    assert len(list(openalex.publications_from_dois(invalid_dois))) == 1
-
-
-def test_publications_from_invalid_with_comma(caplog):
-    # OpenAlex will interpret a DOI string with a comma as two DOIs but
-    # Does not return a result for the first half even if valid. Will return an empty list
-    invalid_doi = ["10.1002/cncr.33546,-(wileyonlinelibrary.com)"]
-    assert len(list(openalex.publications_from_dois(invalid_doi))) == 0
+        assert len(pub.authors) == 2, "publication has two authors"
+        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
-def test_publications_csv(tmp_path):
-    pubs_csv = tmp_path / "openalex-pubs.csv"
-    openalex.publications_csv(
-        ["10.48550/arxiv.1706.03762", "10.1145/3442188.3445922"], pubs_csv
-    )
+def test_harvest_when_doi_exists(
+    tmp_path, test_session, mock_publication, mock_authors, mock_openalex
+):
+    # harvest from openalex
+    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    openalex.harvest(snapshot)
 
-    df = pandas.read_csv(pubs_csv)
+    # jsonl file is there and has two lines (one for each author)
+    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
 
-    assert len(df) == 2
+    # ensure that the existing publication for the DOI was updated
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publication loaded"
+        pub = session.query(Publication).first()
 
-    # the order of the results isn't guaranteed but make sure things are coming back
+        assert pub.openalex_json
+        assert pub.openalex_json["title"] == "An example title", "sulpub json updated"
+        assert pub.wos_json == {"wos": "data"}, "wos data the same"
+        assert pub.pubmed_json is None
 
-    assert set(df.title.tolist()) == set(
-        ["On the Dangers of Stochastic Parrots", "Attention Is All You Need"]
-    )
-
-    assert set(df.doi.tolist()) == set(
-        [
-            "https://doi.org/10.48550/arxiv.1706.03762",
-            "https://doi.org/10.1145/3442188.3445922",
-        ]
-    )
-
-
-def test_pyalex_urlencoding():
-    assert pyalex.Works().filter(doi="10.1207/s15327809jls0703&4_2").count() == 1, (
-        "url encoding the & works with OpenAlex API"
-    )
-
-    assert (
-        len(
-            list(
-                openalex.publications_from_dois(
-                    ["10.1207/s15327809jls0703&4_2", "10.1145/3442188.3445922"]
-                )
-            )
-        )
-        == 2
-    ), "we handle URL encoding"
+        assert len(pub.authors) == 2, "publication has two authors"
+        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
-@pytest.mark.skip(reason="This record no longer exhibits the problem")
-def test_pyalex_varnish_bug():
-    # it seems like this author has a few records that are so big they blow out
-    # OpenAlex's Varnish index. See https://groups.google.com/u/1/g/openalex-community/c/hl09WRF3Naw
-    assert len(list(openalex.dois_from_orcid("0000-0003-3859-2905"))) > 270
+def test_harvest_when_author_exists(
+    tmp_path,
+    test_session,
+    mock_publication,
+    mock_authors,
+    mock_association,
+    mock_openalex,
+):
+    # harvest from openalex
+    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    openalex.harvest(snapshot)
+
+    # jsonl file is there and has two lines (one for each author)
+    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+
+    # ensure that the existing publication for the DOI was updated
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publication loaded"
+        pub = session.query(Publication).first()
+
+        assert pub.openalex_json
+        assert pub.openalex_json["title"] == "An example title", "openalex json updated"
+        assert pub.wos_json == {"wos": "data"}, "wos data the same"
+        assert pub.pubmed_json is None
+
+        assert len(pub.authors) == 2, "publication has two authors"
+        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+
+
+@pytest.fixture
+def mock_many_openalex(monkeypatch):
+    """
+    Mock our function for fetching publications by orcid from OpenAlex.
+    """
+
+    def f(*args, **kwargs):
+        for n in range(1, 1000):
+            yield {
+                "doi": f"https://doi.org/10.1515/{n}",
+                "title": "An example title",
+                "publication_year": 1891,
+            }
+
+    monkeypatch.setattr(openalex, "orcid_publications", f)
+
+
+def test_log_message(tmp_path, mock_authors, mock_many_openalex, caplog):
+    caplog.set_level(logging.INFO)
+    snapshot = Snapshot(tmp_path, "rialto_test")
+    openalex.harvest(snapshot, limit=50)
+    assert "Reached limit of 50 publications stopping" in caplog.text

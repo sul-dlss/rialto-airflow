@@ -97,6 +97,7 @@ x-airflow-common:
     AIRFLOW_VAR_WOS_KEY: ${AIRFLOW_VAR_WOS_KEY}
     AIRFLOW_VAR_DEV_LIMIT: ${AIRFLOW_VAR_DEV_LIMIT}
     AIRFLOW_VAR_DATA_DIR: /opt/airflow/data
+    AIRFLOW_VAR_GOOGLE_CONNECTION: google_cloud_default
     AIRFLOW_VAR_PUBLISH_DIR: /opt/airflow/data/latest
     AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOSTNAME}"
   volumes:

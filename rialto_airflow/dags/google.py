@@ -48,7 +48,7 @@ def google():
                 },
             ],
         }
-        create_spreadsheet = GoogleSheetsCreateSpreadsheetOperator(
+        GoogleSheetsCreateSpreadsheetOperator(
             task_id="create_spreadsheet",
             spreadsheet=spreadsheet,
             gcp_conn_id="google_cloud_default",
@@ -80,5 +80,6 @@ def google():
     append_rows_to_google_sheet(
         "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8", [["Hello", "World"]]
     )
+
 
 google()

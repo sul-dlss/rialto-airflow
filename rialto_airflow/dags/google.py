@@ -2,11 +2,17 @@ import datetime
 
 from airflow.decorators import dag, task
 from airflow.models.xcom_arg import XComArg
-from airflow.providers.google.suite.transfers.local_to_drive import LocalFilesystemToGoogleDriveOperator
-from airflow.providers.google.suite.operators.sheets import GoogleSheetsCreateSpreadsheetOperator
+from airflow.providers.google.suite.transfers.local_to_drive import (
+    LocalFilesystemToGoogleDriveOperator,
+)
+from airflow.providers.google.suite.operators.sheets import (
+    GoogleSheetsCreateSpreadsheetOperator,
+)
 from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.operators.bash import BashOperator
-from airflow.providers.google.suite.transfers.gcs_to_sheets import GCSToGoogleSheetsOperator
+from airflow.providers.google.suite.transfers.gcs_to_sheets import (
+    GCSToGoogleSheetsOperator,
+)
 
 
 @dag(
@@ -24,11 +30,11 @@ def google():
         #     filename="/opt/airflow/rialto_airflow/google_drive.py",
         #     drive_folder_id="1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
         # )
-        filename="/opt/airflow/rialto_airflow/dags/google.py"
-        drive_folder_id="1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL"
+        filename = "/opt/airflow/rialto_airflow/dags/google.py"
+        drive_folder_id = "1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL"
         LocalFilesystemToGoogleDriveOperator(
             gcp_conn_id="google_cloud_default",
-            task_id='upload_to_drive',
+            task_id="upload_to_drive",
             local_paths=[filename],
             folder_id=drive_folder_id,
             drive_folder="",
@@ -52,11 +58,15 @@ def google():
             ],
         }
         create_spreadsheet = GoogleSheetsCreateSpreadsheetOperator(
-            task_id="create_spreadsheet", spreadsheet=spreadsheet, gcp_conn_id="google_cloud_default").execute(context={})
-        print_spreadsheet_url = BashOperator(
-            task_id="print_spreadsheet_url",
-            bash_command=f"echo {XComArg(create_spreadsheet, key='spreadsheet_url')}")
-        print("Spreadsheet URL: ", print_spreadsheet_url)
+            task_id="create_spreadsheet",
+            spreadsheet=spreadsheet,
+            gcp_conn_id="google_cloud_default",
+        ).execute(context={})
+        # print_spreadsheet_url = BashOperator(
+        #     task_id="print_spreadsheet_url",
+        #     bash_command=f"echo {XComArg(create_spreadsheet, key='spreadsheet_url')}",
+        # )
+        # print("Spreadsheet URL: ", print_spreadsheet_url)
 
     @task
     def append_rows_to_google_sheet(spreadsheet_id, values):
@@ -64,7 +74,7 @@ def google():
         Append rows to an existing Google Sheet.
         """
         hook = GSheetsHook(gcp_conn_id="google_cloud_default")
-        values = values,
+        values = (values,)
         hook.append_values(
             spreadsheet_id=spreadsheet_id,
             range_="Sheet1!A1:D1",
@@ -89,8 +99,15 @@ def google():
 
     create_google_sheet()
 
-    append_rows_to_google_sheet("1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8", [["Hello", "World"]])
+    append_rows_to_google_sheet(
+        "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8", [["Hello", "World"]]
+    )
 
-    copy_csv_to_sheet("1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL", "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8", "orcid-integration-stats.csv")
+    copy_csv_to_sheet(
+        "1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
+        "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8",
+        "orcid-integration-stats.csv",
+    )
+
 
 google()

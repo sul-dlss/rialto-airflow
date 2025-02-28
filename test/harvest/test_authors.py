@@ -147,3 +147,67 @@ def test_load_dupe_orcid(test_session, tmp_path, caplog, authors_csv, snapshot):
     for record in caplog.records:
         assert "Skipping author: ('lelands'" in caplog.text
         assert "Errors with 1 author" in caplog.text
+
+
+def test_load_null_cap_id(test_session, tmp_path, caplog, authors_csv, snapshot):
+    # add row with null cap_profile_id
+    with open(authors_csv, "a", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(
+            [
+                [
+                    "lelands",
+                    "Leland",
+                    "Stanford, Jr.",
+                    "Leland Stanford, Jr.",
+                    "https://orcid.org/0000-0000-0000-0002",
+                    "true",
+                    None,
+                    "faculty",
+                    "true",
+                    "Humanities",
+                    "School of Humanities and Sciences",
+                    "History",
+                    "History Division",
+                    "School of Humanities and Sciences",
+                    "History",
+                    "History Division",
+                    "true",
+                ],
+                [
+                    "rsmith",
+                    "Robert",
+                    "Smith",
+                    "Robert Smith",
+                    "https://orcid.org/0000-0000-0000-0003",
+                    "true",
+                    None,
+                    "faculty",
+                    "true",
+                    "Humanities",
+                    "School of Humanities and Sciences",
+                    "History",
+                    "History Division",
+                    "School of Humanities and Sciences",
+                    "History",
+                    "History Division",
+                    "true",
+                ],
+            ]
+        )
+
+    load_authors_table(snapshot)
+
+    with test_session.begin() as session:
+        assert session.query(Author).count() == 3
+        assert (
+            session.query(Author)
+            .where(Author.sunet == "lelands")
+            .first()
+            .cap_profile_id
+            is None
+        )
+        assert (
+            session.query(Author).where(Author.sunet == "rsmith").first().cap_profile_id
+            is None
+        )

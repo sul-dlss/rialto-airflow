@@ -29,7 +29,7 @@ def load_authors_table(snapshot) -> None:
                 with Session.begin() as session:  # type: ignore
                     author = Author(
                         sunet=row["sunetid"],
-                        cap_profile_id=row["cap_profile_id"],
+                        cap_profile_id=row["cap_profile_id"] or None,
                         orcid=row["orcidid"] or None,
                         first_name=row["first_name"],
                         last_name=row["last_name"],

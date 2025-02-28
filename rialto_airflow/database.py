@@ -102,7 +102,7 @@ class Author(Base):  # type: ignore
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     sunet = Column(String, unique=True)
-    cap_profile_id = Column(String, unique=True, nullable=False)
+    cap_profile_id = Column(String, unique=True)
     orcid = Column(String, unique=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)

@@ -147,10 +147,14 @@ In order to access Google Drive (write files to google drive, create/update shee
 
 ### GCP Setup
 
-1. You will need a Google Cloud Platform (GCP) project, which has billing enabled and setup.  Look up how to do this or ask for help for Ops if there isn't already an existing DLSS GCP project that can be used.
-2. You need a service account in GCP under this project.  Once the project is selected, go to IAM > Service Accounts to create (or select an existing if appropriate) service account.
-3. You will need to download the JSON Key file for this service account.  Once you have selected the service account under IAM > Service Accounts, edit it with the pencil icon, find the "Keys" tab and add a key.  It should offer to let you download the key as a JSON file.  Save this file.
-4. Grant this service account permissions to access Google Drive.  Do this by going to IAM and scrolling down to find the name of the service account.  Edit it by clicking the pencil icon.  Click "Add another role" and then add the role "Storage Object Admin" and save the user.
+1. You will need a Google Cloud Platform (GCP) project, which has billing enabled and setup.  Look up how to do this or ask for help from Ops if there isn't already an existing DLSS GCP project that can be used.
+2. Ensure all of the needed APIs are enabled for this project.  These are under APIs & Services.  You want to ensure these are enabled:
+- Cloud Storage
+- Google Drive API
+- Google Sheets API
+3. You need a service account in GCP under this project.  Once the project is selected, go to IAM > Service Accounts to create (or select an existing if appropriate) service account.
+4. You will need to download the JSON Key file for this service account.  Once you have selected the service account under IAM > Service Accounts, edit it with the pencil icon, find the "Keys" tab and add a key.  It should offer to let you download the key as a JSON file.  Save this file.
+5. Grant this service account permissions to access Google Drive.  Do this by going to IAM and scrolling down to find the name of the service account.  Edit it by clicking the pencil icon.  Click "Add another role" and then add the role "Storage Object Admin" and save the user.
 
 ### Airflow Setup
 
@@ -163,15 +167,15 @@ connection type: "Google Cloud"
 description: # something useful, e.g. "Google Drive connection"
 project id: # the exact ID of the google project in GCP from step 1 in the GCP Setup, e.g. "sul-airflow"
 keyfile path: # this is the path to the JSON file you downloaded in step 3 in the GCP Setup.  It needs to be put on the VM/docker image and this is the full path to it
-keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image
+keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image...but if you use this approach and later come back to edit the connection, you will need to re-paste the JSON before saving again
 credential configuriation file: # leave blank
-Scopes: https://www.googleapis.com/auth/drive.file
+Scopes: "https://www.googleapis.com/auth/drive.file,https://www.googleapis.com/auth/spreadsheets"
 
 everything else can be left blank/default
 
 Click "Save" to save the connection.
 
-4. Note tha the connection id (e.g. "google_cloud_default") is going to referenced in the Airflow DAG definitions, so it needs to match what is in the code.
+4. Note that the connection id (e.g. "google_cloud_default") is going to referenced in the Airflow DAG definitions, so it needs to match what is in the code.
 
 ### Google Drive Setup
 

@@ -65,10 +65,9 @@ def google():
         Append rows to an existing Google Sheet.
         """
         hook = GSheetsHook(gcp_conn_id="google_cloud_default")
-        values = (values,)
         hook.append_values(
             spreadsheet_id=spreadsheet_id,
-            range_="Sheet1!A1:D1",
+            range_="Sheet1!A1:B1",
             values=values,
             value_input_option="RAW",
         )

@@ -1,4 +1,5 @@
 import dotenv
+import logging
 import pytest
 
 from rialto_airflow.harvest import openalex
@@ -130,3 +131,27 @@ def test_harvest_when_author_exists(
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
         assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+
+
+@pytest.fixture
+def mock_many_openalex(monkeypatch):
+    """
+    Mock our function for fetching publications by orcid from OpenAlex.
+    """
+
+    def f(*args, **kwargs):
+        for n in range(1, 1000):
+            yield {
+                "doi": f"https://doi.org/10.1515/{n}",
+                "title": "An example title",
+                "publication_year": 1891,
+            }
+
+    monkeypatch.setattr(openalex, "orcid_publications", f)
+
+
+def test_log_message(tmp_path, mock_authors, mock_many_openalex, caplog):
+    caplog.set_level(logging.INFO)
+    snapshot = Snapshot(tmp_path, "rialto_test")
+    openalex.harvest(snapshot, limit=50)
+    assert "Reached limit of 50 publications stopping" in caplog.text

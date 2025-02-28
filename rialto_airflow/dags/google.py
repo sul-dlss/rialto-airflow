@@ -1,7 +1,6 @@
 import datetime
 
 from airflow.decorators import dag, task
-from airflow.models.xcom_arg import XComArg
 from airflow.providers.google.suite.transfers.local_to_drive import (
     LocalFilesystemToGoogleDriveOperator,
 )
@@ -9,10 +8,6 @@ from airflow.providers.google.suite.operators.sheets import (
     GoogleSheetsCreateSpreadsheetOperator,
 )
 from airflow.providers.google.suite.hooks.sheets import GSheetsHook
-from airflow.operators.bash import BashOperator
-from airflow.providers.google.suite.transfers.gcs_to_sheets import (
-    GCSToGoogleSheetsOperator,
-)
 
 
 @dag(
@@ -26,10 +21,6 @@ def google():
         """
         Publish a file to Google Drive.
         """
-        # transfer_to_google_drive(
-        #     filename="/opt/airflow/rialto_airflow/google_drive.py",
-        #     drive_folder_id="1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
-        # )
         filename = "/opt/airflow/rialto_airflow/dags/google.py"
         drive_folder_id = "1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL"
         LocalFilesystemToGoogleDriveOperator(
@@ -82,19 +73,6 @@ def google():
             value_input_option="RAW",
         )
 
-    @task
-    def copy_csv_to_sheet(folder_id, spreadsheet_id, csv_file):
-        """
-        Copy CSV file to Google Sheet.
-        """
-        GCSToGoogleSheetsOperator(
-            gcp_conn_id="google_cloud_default",
-            task_id="copy_csv_to_sheet",
-            bucket_name=folder_id,
-            object_name=csv_file,
-            spreadsheet_id=spreadsheet_id,
-        ).execute(context={})
-
     publish_file_to_google_drive()
 
     create_google_sheet()
@@ -102,12 +80,5 @@ def google():
     append_rows_to_google_sheet(
         "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8", [["Hello", "World"]]
     )
-
-    copy_csv_to_sheet(
-        "1xjxrCUrA0yrOt0i5wNTrWB-841GJ_VDL",
-        "1FKyGKzRu2M7Swd8pPCXG2Z2taiCtNkEFhwcIMJIPfi8",
-        "orcid-integration-stats.csv",
-    )
-
 
 google()

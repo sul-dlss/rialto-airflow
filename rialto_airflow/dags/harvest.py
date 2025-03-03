@@ -6,7 +6,7 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex
+from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex, wos
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest import sul_pub
 from rialto_airflow.harvest.contribs import create_contribs
@@ -71,6 +71,15 @@ def harvest():
         Fetch the data by ORCID from OpenAlex.
         """
         jsonl_file = openalex.harvest(snapshot, limit=dev_limit)
+
+        return jsonl_file
+
+    @task()
+    def wos_harvest(snapshot):
+        """
+        Fetch the data by ORCID from OpenAlex.
+        """
+        jsonl_file = wos.harvest(snapshot, limit=dev_limit)
 
         return jsonl_file
 
@@ -149,6 +158,9 @@ def harvest():
     dimensions_dois = dimensions_harvest_dois(snapshot)
 
     openalex_jsonl = openalex_harvest(snapshot)
+
+    # TODO: use the return value here to hook into the workflow
+    wos_harvest(snapshot)
 
     doi_sunet = create_doi_sunet(
         dimensions_dois,

@@ -171,7 +171,7 @@ project id: # the exact ID of the google project in GCP from step 1 in the GCP S
 keyfile path: # this is the path to the JSON file you downloaded in step 3 in the GCP Setup.  It needs to be put on the VM/docker image and this is the full path to it
 keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image...but if you use this approach and later come back to edit the connection, you will need to re-paste the JSON before saving again
 credential configuration file: # leave blank
-Scopes: "https://www.googleapis.com/auth/drive.file,https://www.googleapis.com/auth/spreadsheets"
+Scopes: "https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets"
 
 everything else can be left blank/default
 

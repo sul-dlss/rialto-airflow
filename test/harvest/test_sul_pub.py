@@ -1,7 +1,6 @@
 import os
 
 import dotenv
-import pytest
 
 from rialto_airflow.database import Publication
 from rialto_airflow.harvest import sul_pub
@@ -17,16 +16,6 @@ sul_pub_key = os.environ.get("AIRFLOW_VAR_SUL_PUB_KEY")
 no_auth = not (sul_pub_host and sul_pub_key)
 
 
-@pytest.mark.skipif(no_auth, reason="no sul_pub key")
-def test_publications():
-    for pub in sul_pub.publications(sul_pub_host, sul_pub_key, per_page=50, limit=100):
-        # all the publications should be approved by at least one author
-        for authorship in pub["authorship"]:
-            if authorship["status"] == "approved":
-                approved = True
-        assert approved is True, f"sulpubid={pub['sulpubid']} is marked approved"
-
-
 response = {
     "records": [
         {
@@ -38,7 +27,17 @@ response = {
                 {"status": "approved", "cap_profile_id": "12345"},
                 {"status": "approved", "cap_profile_id": "123456"},
             ],
-        }
+        },
+        {
+            "title": "Another title",
+            "identifier": [
+                {"type": "doi", "id": "https://doi.org/10.1215/0961754X-9809305"}
+            ],
+            "authorship": [
+                {"status": "unknown", "cap_profile_id": "12345"},
+                {"status": "unknown", "cap_profile_id": "123456"},
+            ],
+        },
     ]
 }
 
@@ -52,7 +51,7 @@ def test_harvest(tmp_path, test_session, mock_authors, requests_mock):
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # make sure the jsonl file looks good
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
 
     # make sure there are publications in the database
     with test_session.begin() as session:
@@ -76,7 +75,7 @@ def test_harvest_when_doi_exists(
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:
@@ -109,7 +108,7 @@ def test_harvest_when_author_exists(
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:

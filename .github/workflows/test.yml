@@ -38,6 +38,7 @@ jobs:
         env:
           AIRFLOW_VAR_DIMENSIONS_API_USER: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_USER }}
           AIRFLOW_VAR_DIMENSIONS_API_PASS: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_PASS }}
+          AIRFLOW_VAR_WOS_KEY: ${{ secrets.AIRFLOW_VAR_WOS_KEY }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

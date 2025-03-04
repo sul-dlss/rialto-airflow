@@ -1,4 +1,5 @@
 import datetime
+import logging
 from pathlib import Path
 import shutil
 
@@ -27,6 +28,15 @@ except TypeError:
     pass
 except ValueError:
     pass
+
+if dev_limit is None:
+    logging.info(
+        f"⚠️ dev_limit is set to {dev_limit}, running harvest will stop at the limit number of publications per source"
+    )
+else:
+    logging.info(
+        "‼️ no dev_limit is set, running harvest will attempt to retrieve all results"
+    )
 
 
 @dag(
@@ -114,12 +124,12 @@ def harvest():
         return str(pickle_file)
 
     @task()
-    def merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot):
+    def merge_publications(sul_pub_pubs, openalex_pubs, dimensions_pubs, snapshot):
         """
         Merge the OpenAlex, Dimensions and sul_pub data.
         """
         output = snapshot.path / "publications.parquet"
-        merge_pubs.merge(sul_pub, openalex_pubs, dimensions_pubs, output)
+        merge_pubs.merge(sul_pub_pubs, openalex_pubs, dimensions_pubs, output)
         return str(output)
 
     @task()
@@ -167,7 +177,7 @@ def harvest():
         snapshot,
     )
 
-    pubs = merge_publications(sul_pub, openalex_jsonl, dimensions_jsonl, snapshot)
+    pubs = merge_publications(sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, snapshot)
 
     contribs = pubs_to_contribs(pubs, doi_sunet, snapshot)
 

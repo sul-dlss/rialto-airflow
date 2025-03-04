@@ -1,16 +1,81 @@
-import csv
+import json
 import logging
 import os
-import pickle
 import time
 from functools import cache
+from pathlib import Path
+from typing import Generator
 
 import dimcli
-import pandas as pd
 import requests
 from more_itertools import batched
+from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.utils import invert_dict, normalize_doi, normalize_orcid
+from rialto_airflow.database import (
+    Author,
+    Publication,
+    get_session,
+    pub_author_association,
+)
+from rialto_airflow.snapshot import Snapshot
+from rialto_airflow.utils import normalize_doi, normalize_orcid
+
+
+def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
+    """
+    Walk through all the Author ORCIDs and generate publications for them.
+    """
+    jsonl_file = snapshot.path / "dimensions.jsonl"
+    count = 0
+    stop = False
+
+    with jsonl_file.open("w") as jsonl_output:
+        with get_session(snapshot.database_name).begin() as select_session:
+            # get all authors that have an ORCID
+            for author in (
+                select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
+            ):
+                if stop is True:
+                    logging.info(f"Reached limit of {limit} publications stopping")
+                    break
+
+                # dimensions doesn't want scheme and host
+                orcid_query_str = normalize_orcid(author.orcid)
+                for dimensions_pub_json in orcid_publications(orcid_query_str):
+                    count += 1
+                    if limit is not None and count > limit:
+                        stop = True
+                        break
+
+                    doi = normalize_doi(dimensions_pub_json.get("doi", None))
+                    with get_session(snapshot.database_name).begin() as insert_session:
+                        # if there's a DOI constraint violation, update the existing row's JSON
+                        pub_id = insert_session.execute(
+                            insert(Publication)
+                            .values(doi=doi, dim_json=dimensions_pub_json)
+                            .on_conflict_do_update(
+                                constraint="publication_doi_key",
+                                set_=dict(dim_json=dimensions_pub_json),
+                            )
+                            .returning(Publication.id)
+                        ).scalar_one()
+
+                        # a constraint violation here means we already know the
+                        # publication is by the author
+                        insert_session.execute(
+                            insert(pub_author_association)
+                            .values(publication_id=pub_id, author_id=author.id)
+                            .on_conflict_do_nothing()
+                        )
+
+                        jsonl_output.write(json.dumps(dimensions_pub_json) + "\n")
+
+    return jsonl_file
+
+
+def orcid_publications(orcid: str) -> Generator[dict, None, None]:
+    dois = dois_from_orcid(orcid)
+    yield from publications_from_dois(dois)
 
 
 def dois_from_orcid(orcid):
@@ -31,37 +96,9 @@ def dois_from_orcid(orcid):
             yield doi_id
 
 
-def doi_orcids_pickle(authors_csv, pickle_file, limit=None) -> None:
-    """
-    Read the ORCIDs in the provided rialto-orgs authors.csv file and write a
-    dictionary mapping of DOI -> [ORCID] to a pickle file at the provided path.
-    """
-    df = pd.read_csv(authors_csv)
-    orcids = df[df["orcidid"].notna()]["orcidid"]
-    orcid_dois = {}
-
-    for orcid_url in orcids[:limit]:
-        orcid = normalize_orcid(orcid_url)
-        dois = list(dois_from_orcid(orcid))
-        orcid_dois.update({orcid: dois})
-
-    with open(pickle_file, "wb") as handle:
-        pickle.dump(invert_dict(orcid_dois), handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-def publications_csv(dois, csv_file) -> None:
-    with open(csv_file, "w") as output:
-        writer = csv.DictWriter(output, publication_fields())
-        writer.writeheader()
-        for pub in publications_from_dois(dois):
-            logging.info(f"writing metadata for {pub.get('doi')}")
-            writer.writerow(pub)
-
-
 def publications_from_dois(dois: list, batch_size=200):
     """
-    Get the publications metadata for the provided list of DOIs and write as a
-    CSV file.
+    Get the publications metadata for the provided list of DOIs.
     """
     fields = " + ".join(publication_fields())
     for doi_batch in batched(dois, batch_size):

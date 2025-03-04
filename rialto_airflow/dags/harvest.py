@@ -1,5 +1,4 @@
 import datetime
-import pickle
 from pathlib import Path
 import shutil
 
@@ -57,13 +56,11 @@ def harvest():
         return snapshot
 
     @task()
-    def dimensions_harvest_dois(snapshot):
+    def dimensions_harvest(snapshot):
         """
         Fetch the data by ORCID from Dimensions.
         """
-        pickle_file = snapshot.path / "dimensions-doi-orcid.pickle"
-        dimensions.doi_orcids_pickle(snapshot.authors_csv, pickle_file, limit=dev_limit)
-        return str(pickle_file)
+        return dimensions.harvest(snapshot, limit=dev_limit)
 
     @task()
     def openalex_harvest(snapshot):
@@ -117,16 +114,6 @@ def harvest():
         return str(pickle_file)
 
     @task()
-    def dimensions_harvest_pubs(doi_sunet, snapshot):
-        """
-        Harvest publication metadata from Dimensions using the dois from doi_sunet.
-        """
-        dois = list(pickle.load(open(doi_sunet, "rb")).keys())
-        csv_file = snapshot.path / "dimensions-pubs.csv"
-        dimensions.publications_csv(dois, csv_file)
-        return str(csv_file)
-
-    @task()
     def merge_publications(sul_pub, openalex_pubs, dimensions_pubs, snapshot):
         """
         Merge the OpenAlex, Dimensions and sul_pub data.
@@ -164,7 +151,7 @@ def harvest():
 
     sul_pub_jsonl = sul_pub_harvest(snapshot)
 
-    dimensions_dois = dimensions_harvest_dois(snapshot)
+    dimensions_jsonl = dimensions_harvest(snapshot)
 
     openalex_jsonl = openalex_harvest(snapshot)
 
@@ -174,15 +161,13 @@ def harvest():
     openalex_additions = fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl)
 
     doi_sunet = create_doi_sunet(
-        dimensions_dois,
+        dimensions_jsonl,
         openalex_jsonl,
         sul_pub_jsonl,
         snapshot,
     )
 
-    dimensions_pubs = dimensions_harvest_pubs(doi_sunet, snapshot)
-
-    pubs = merge_publications(sul_pub, openalex_jsonl, dimensions_pubs, snapshot)
+    pubs = merge_publications(sul_pub, openalex_jsonl, dimensions_jsonl, snapshot)
 
     contribs = pubs_to_contribs(pubs, doi_sunet, snapshot)
 

@@ -14,7 +14,7 @@ from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
 gcp_conn_id = Variable.get("google_connection")
 google_drive_id = Variable.get("google_drive_id")
 google_sheet_id = Variable.get(
-    "orcid_stats_sheet_id"
+    "orcid_stats_sheet_id", default_var="1smq7H5wuGBzTMsO3sAGyPd-Uz8BBlECX1xGd_0pwTrY"
 )  # setup in Airflow Admin -> Variables OR via vault/puppet environment variables
 
 

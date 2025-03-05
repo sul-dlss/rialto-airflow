@@ -1,5 +1,5 @@
 name: Test
-on: 
+on:
   - push
 jobs:
   build:
@@ -41,6 +41,7 @@ jobs:
           AIRFLOW_VAR_DIMENSIONS_API_USER: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_USER }}
           AIRFLOW_VAR_DIMENSIONS_API_PASS: ${{ secrets.AIRFLOW_VAR_DIMENSIONS_API_PASS }}
           AIRFLOW_VAR_WOS_KEY: ${{ secrets.AIRFLOW_VAR_WOS_KEY }}
+          AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

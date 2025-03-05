@@ -84,6 +84,17 @@ def harvest():
         )
 
         return jsonl_file
+    
+
+    @task()
+    def fill_in_openalex(snapshot, openalex_jsonl):
+        """
+        Fill in OpenAlex data for DOIs from other publication sources.
+        """
+        openalex.fill_in(snapshot, openalex_jsonl)
+
+        return snapshot
+
 
     @task()
     def create_doi_sunet(dimensions, openalex, sul_pub, snapshot):
@@ -149,6 +160,9 @@ def harvest():
     dimensions_dois = dimensions_harvest_dois(snapshot)
 
     openalex_jsonl = openalex_harvest(snapshot)
+
+    # TODO: add dimensions_jsonl as a dependency when task is added to DAG
+    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl)
 
     doi_sunet = create_doi_sunet(
         dimensions_dois,

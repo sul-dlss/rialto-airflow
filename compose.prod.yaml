@@ -106,7 +106,6 @@ x-airflow-common:
     - /opt/app/rialto/rialto-airflow/current/rialto_airflow:/opt/airflow/rialto_airflow
     - /rialto-data:/opt/airflow/data
     - /opt/app/rialto/rialto-airflow/shared/logs:/opt/airflow/logs
-    - /opt/app/rialto/rialto-airflow/shared/config:/opt/airflow/config
   user: "503:0"
   depends_on:
     &airflow-common-depends-on

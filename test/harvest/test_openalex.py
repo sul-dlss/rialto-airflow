@@ -1,7 +1,9 @@
 import dotenv
+import json
 import logging
 import pytest
 
+import requests
 from rialto_airflow.harvest import openalex
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.database import Publication
@@ -155,3 +157,110 @@ def test_log_message(tmp_path, mock_authors, mock_many_openalex, caplog):
     snapshot = Snapshot(tmp_path, "rialto_test")
     openalex.harvest(snapshot, limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
+
+
+def mock_jsonl(path):
+    """
+    Mock the existing jsonl file for OpenAlex.
+    """
+    records = [
+        {
+            "doi": "10.1515/9781503624150",
+            "title": "An example title",
+            "publication_year": 1891,
+        },
+        {
+            "doi": "10.1515/9781503624151",
+            "title": "Another example title",
+            "publication_year": 1892,
+        },
+    ]
+    with open(path, "w") as f:
+        for record in records:
+            f.write(f"{json.dumps(record)}\n")
+
+
+@pytest.fixture
+def mock_openalex_doi(monkeypatch):
+    """
+    Mock API calls to get a work from OpenAlex by DOI.
+    """
+
+    def get_work():
+        return {
+            "https://doi.org/10.1515/9781503624153": {
+                "doi": "10.1515/9781503624153",
+                "title": "A sample title",
+                "publication_year": 1891,
+            }
+        }
+
+    monkeypatch.setattr(openalex, "Works", get_work)
+
+
+def test_fill_in(tmp_path, test_session, mock_publication, mock_openalex_doi, caplog):
+    caplog.set_level(logging.INFO)
+    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    # set up a pre-existing jsonl file
+    jsonl_file = snapshot.path / "openalex.jsonl"
+    mock_jsonl(jsonl_file)
+
+    openalex.fill_in(snapshot, jsonl_file)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624153")
+            .first()
+        )
+        assert pub.openalex_json == {
+            "doi": "10.1515/9781503624153",
+            "title": "A sample title",
+            "publication_year": 1891,
+        }
+
+    # adds 1 publication to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 3
+    assert "filled in 1 publications" in caplog.text
+
+
+@pytest.fixture
+def mock_openalex_no_doi(monkeypatch):
+    """
+    Mock API calls to get a work that does not exist in OpenAlex.
+    """
+
+    def get_work():
+        raise requests.exceptions.HTTPError(
+            "404 Client Error: NOT FOUND for url: https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.1515%2F9781503624153"
+        )
+
+    monkeypatch.setattr(openalex, "Works", get_work)
+
+
+def test_fill_in_no_doi(
+    tmp_path, test_session, mock_publication, mock_openalex_no_doi, caplog
+):
+    caplog.set_level(logging.INFO)
+    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    # set up a pre-existing jsonl file
+    jsonl_file = snapshot.path / "openalex.jsonl"
+    mock_jsonl(jsonl_file)
+
+    openalex.fill_in(snapshot, jsonl_file)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624153")
+            .first()
+        )
+        assert pub.openalex_json is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert "filled in 0 publications" in caplog.text
+    assert (
+        "error looking up 10.1515/9781503624153: 404 Client Error: NOT FOUND for url: https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.1515%2F9781503624153"
+        in caplog.text
+    )

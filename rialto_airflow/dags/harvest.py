@@ -84,7 +84,6 @@ def harvest():
         )
 
         return jsonl_file
-    
 
     @task()
     def fill_in_openalex(snapshot, openalex_jsonl):
@@ -94,7 +93,6 @@ def harvest():
         openalex.fill_in(snapshot, openalex_jsonl)
 
         return snapshot
-
 
     @task()
     def create_doi_sunet(dimensions, openalex, sul_pub, snapshot):

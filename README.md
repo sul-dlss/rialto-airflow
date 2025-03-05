@@ -6,31 +6,47 @@
 Airflow for harvesting data for open access analysis and research intelligence. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/) and [Dimensions](https://www.dimensions.ai/) APIs to provide a view of publication data for Stanford University research. The basic workflow is: fetch Stanford Research publications from SUL-Pub, OpenAlex, and Dimensions, enrich them with additional metadata from OpenAlex and Dimensions using the DOI, merge the organizational data found in [rialto_orgs], and publish the data to our JupyterHub environment.
 
 ```mermaid
-flowchart TD
-  sul_pub_harvest(SUL-Pub harvest) --> sul_pub_pubs[/SUL-Pub publications/]
-  rialto_orgs_export(Manual RIALTO app export) --> org_data[/Stanford organizational data/]
-  org_data --> dimensions_harvest_orcid(Dimensions harvest ORCID)
-  org_data --> openalex_harvest_orcid(OpenAlex harvest ORCID)
-  dimensions_harvest_orcid --> dimensions_orcid_doi_dict[/Dimensions DOI-ORCID dictionary/]
-  openalex_harvest_orcid --> openalex_orcid_doi_dict[/OpenAlex DOI-ORCID dictionary/]
-  dimensions_orcid_doi_dict -- DOI --> doi_set(DOI set)
-  openalex_orcid_doi_dict -- DOI --> doi_set(DOI set)
-  sul_pub_pubs -- DOI --> doi_set(DOI set)
-  doi_set --> dois[/All unique DOIs/]
-  dois --> dimensions_enrich(Dimensions harvest DOI)
-  dois --> openalex_enrich(OpenAlex harvest DOI)
-  dimensions_enrich --> dimensions_enriched[/Dimensions publications/]
-  openalex_enrich --> openalex_enriched[/OpenAlex publications/]
-  dimensions_enriched -- DOI --> merge_pubs(Merge publications)
-  openalex_enriched -- DOI --> merge_pubs
-  sul_pub_pubs -- DOI --> merge_pubs
-  merge_pubs --> all_enriched_publications[/All publications/]
-  all_enriched_publications --> join_org_data(Join organizational data)
-  org_data --> join_org_data
-  join_org_data --> publications_with_org[/Publication with organizational data/]
-  publications_with_org -- DOI & SUNET --> contributions(Publications to contributions)
-  contributions --> contributions_set[/All contributions/]
-  contributions_set --> publish(Publish)
+
+flowchart TB
+  
+  subgraph Harvest-by-ORCID
+    direction RL
+    Dimensions-by-ORCID
+    OpenAlex-by-ORCID
+    PubMed-by-ORCID
+    WebOfScience-by-ORCID
+  end
+  
+  subgraph Harvest-by-DOI
+    direction RL
+    Dimensions-by-DOI
+    OpenAlex-by-DOI
+    PubMed-by-DOI
+    WebOfScience-by-DOI
+  end
+  
+  subgraph Publish
+    Data-Quality
+    Open-Access
+    Stanford
+    ORCID-Adoption
+    Publisher-Contracts
+  end
+  
+  Setup --> Load-Authors
+  
+  Load-Authors --> Harvest-sulpub
+   
+  Load-Authors --> Harvest-by-ORCID
+  
+  Harvest-sulpub --> Harvest-by-DOI
+  
+  Harvest-by-ORCID --> Harvest-by-DOI
+  
+  Harvest-by-DOI --> Distill
+  
+  Distill --> Publish
+  
 ```
 
 ## Running Locally with Docker

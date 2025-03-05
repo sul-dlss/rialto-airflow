@@ -140,4 +140,4 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
 
     logging.info(f"filled in {count} publications")
 
-    return snapshot
+    return snapshot.path

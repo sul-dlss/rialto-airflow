@@ -165,5 +165,5 @@ cython_debug/
 
 # rialto-airflow
 data/
-rialto_airflow/config/*.json
+config/*-key.json
 .DS_Store

@@ -111,10 +111,14 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
-            stmt = select(Publication.doi).where(Publication.doi.is_not(None)).where(Publication.openalex_json.is_(None)).execution_options(yield_per=100)
+            stmt = (
+                select(Publication.doi)
+                .where(Publication.doi.is_not(None))
+                .where(Publication.openalex_json.is_(None))
+                .execution_options(yield_per=100)
+            )
             for row in select_session.execute(stmt):
                 logging.info(f"filling in data for {row.doi}")
-                # look up in openalex
                 try:
                     openalex_pub = Works()[f"https://doi.org/{row.doi}"]
                     # TODO: get a key so we don't have to sleep!
@@ -124,13 +128,16 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                     continue
 
                 with get_session(snapshot.database_name).begin() as update_session:
-                    update_stmt = update(Publication).where(Publication.doi == row.doi).values(openalex_json=openalex_pub).returning(Publication.id)
+                    update_stmt = (
+                        update(Publication)
+                        .where(Publication.doi == row.doi)
+                        .values(openalex_json=openalex_pub)
+                    )
                     update_session.execute(update_stmt)
 
                 count += 1
                 jsonl_output.write(json.dumps(openalex_pub) + "\n")
-                
+
     logging.info(f"filled in {count} publications")
 
     return snapshot
-

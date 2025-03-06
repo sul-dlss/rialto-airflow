@@ -28,22 +28,6 @@ def test_orcid_publications():
     assert count == 400, "found 100 publications"
 
 
-response = {
-    "records": [
-        {
-            "title": "An example title",
-            "identifier": [
-                {"type": "doi", "id": "https://doi.org/10.1515/9781503624153"}
-            ],
-            "authorship": [
-                {"status": "approved", "cap_profile_id": "12345"},
-                {"status": "approved", "cap_profile_id": "123456"},
-            ],
-        }
-    ]
-}
-
-
 @pytest.fixture
 def mock_openalex(monkeypatch):
     """
@@ -96,7 +80,7 @@ def test_harvest_when_doi_exists(
         pub = session.query(Publication).first()
 
         assert pub.openalex_json
-        assert pub.openalex_json["title"] == "An example title", "sulpub json updated"
+        assert pub.openalex_json["title"] == "An example title", "openalex json updated"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
 

@@ -117,6 +117,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 .where(Publication.openalex_json.is_(None))
                 .execution_options(yield_per=100)
             )
+            # TODO: consider getting data for more than one DOI at a time
             for row in select_session.execute(stmt):
                 logging.info(f"filling in data for {row.doi}")
                 try:

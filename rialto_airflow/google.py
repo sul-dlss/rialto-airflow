@@ -9,10 +9,10 @@ from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
 from airflow.models import Variable
 
-gcp_conn_id = Variable.get("google_connection")
+gcp_conn_id = Variable.get("google_connection", "google_cloud_default")
 
 
-def clear_google_sheet(spreadsheet_id):
+def clear_google_sheet(spreadsheet_id, sheet_name="Sheet1"):
     """
     Clear the contents of an existing Google Sheet.
     Provide google sheet ID.
@@ -20,11 +20,11 @@ def clear_google_sheet(spreadsheet_id):
     """
     GSheetsHook(gcp_conn_id=gcp_conn_id).clear(
         spreadsheet_id=spreadsheet_id,
-        range_="Sheet1",
+        range_=sheet_name,
     )
 
 
-def append_rows_to_google_sheet(spreadsheet_id, values):
+def append_rows_to_google_sheet(spreadsheet_id, values, sheet_name="Sheet1"):
     """
     Append rows to an existing Google Sheet.
     Provide google sheet ID and an array of values to add to a new row.
@@ -32,7 +32,7 @@ def append_rows_to_google_sheet(spreadsheet_id, values):
     """
     GSheetsHook(gcp_conn_id=gcp_conn_id).append_values(
         spreadsheet_id=spreadsheet_id,
-        range_="Sheet1",
+        range_=sheet_name,
         values=values,
         value_input_option="RAW",
     )

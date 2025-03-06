@@ -28,7 +28,8 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 markers = "mais_tests: Tests requiring MAIS access"
-addopts = "-v --cov --cov-report=html --cov-report=term"
+addopts = "-v --cov --cov-report=html --cov-report=term --log-level INFO --log-file test.log"
+
 
 [tool.coverage.run]
 omit = ["test/*"]

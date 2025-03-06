@@ -6,7 +6,7 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex
+from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex, wos
 from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
 from rialto_airflow.harvest import sul_pub
 from rialto_airflow.harvest.contribs import create_contribs
@@ -75,6 +75,15 @@ def harvest():
         return jsonl_file
 
     @task()
+    def wos_harvest(snapshot):
+        """
+        Fetch the data by ORCID from Web of Science.
+        """
+        jsonl_file = wos.harvest(snapshot, limit=dev_limit)
+
+        return jsonl_file
+
+    @task()
     def sul_pub_harvest(snapshot):
         """
         Harvest data from SUL-Pub.
@@ -86,7 +95,7 @@ def harvest():
         return jsonl_file
 
     @task()
-    def fill_in_openalex(snapshot, openalex_jsonl):
+    def fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl):
         """
         Fill in OpenAlex data for DOIs from other publication sources.
         """
@@ -159,8 +168,10 @@ def harvest():
 
     openalex_jsonl = openalex_harvest(snapshot)
 
+    wos_jsonl = wos_harvest(snapshot)
+
     # TODO: add dimensions_jsonl as a dependency when task is added to DAG
-    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl)
+    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl)
 
     doi_sunet = create_doi_sunet(
         dimensions_dois,

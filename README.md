@@ -41,18 +41,18 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 
 2. Start up docker locally.
 
-3. Create a `.env` file with the `AIRFLOW_UID` and `AIRFLOW_GROUP` values. For local development these can usually be:
+3. Create a `.env` file with the following values. For local development these can usually be:
 ```
 AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
 AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
+AIRFLOW_TEST_GOOGLE_SHEET_ID=xxxx # this is the ID of the google sheet called "Test" in the RIALTO Core Team --> Airflow-Test folder
+AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add to the `.env` values for any environment variables used by DAGs. Not in place yet--they will usually applied to VMs by puppet once productionized.
-
-Here is an script to generate content for your dev .env file:
+4. Add to the `.env` values for any environment variables used by DAGs. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file:
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \

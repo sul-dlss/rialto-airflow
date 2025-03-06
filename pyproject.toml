@@ -15,8 +15,6 @@ package-mode = false
 dependencies = [
     "dimcli",
     "more-itertools",
-    "pandas",
-    "polars>=1.2",
     "psycopg2-binary>=2.9.10",
     "pyalex",
     "python-dotenv",

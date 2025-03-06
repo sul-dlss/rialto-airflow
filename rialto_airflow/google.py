@@ -62,7 +62,7 @@ def replace_file_in_google_drive(local_filename, google_file_id):
 
 def upload_file_to_google_drive(local_filename, google_drive_id):
     """
-    Updload an new file to a Google Drive folder.
+    Upload a new file to a Google Drive folder.
     Provide the local filename (with path) and the drive folder ID for the folder in Google Drive.
     The folder ID must exist in google drive and the service account must have access to the folder.
     If an existsing file of the same name exists in the folder, it will NOT be replaced, a new copy will be added.

@@ -112,8 +112,8 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
             stmt = (
-                select(Publication.doi)
-                .where(Publication.doi.is_not(None))
+                select(Publication.doi)  # type: ignore
+                .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.openalex_json.is_(None))
                 .execution_options(yield_per=100)
             )
@@ -129,7 +129,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
 
                 with get_session(snapshot.database_name).begin() as update_session:
                     update_stmt = (
-                        update(Publication)
+                        update(Publication)  # type: ignore
                         .where(Publication.doi == row.doi)
                         .values(openalex_json=openalex_pub)
                     )

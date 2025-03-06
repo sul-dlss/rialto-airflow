@@ -4,8 +4,10 @@ import os
 import time
 from pathlib import Path
 
+import requests
 from pyalex import Authors, Works, config
 from typing import Generator
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import (
@@ -93,7 +95,7 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
     if len(authors) == 0:
         return
     elif len(authors) > 1:
-        logging.warn(f"found more than one openalex author id for {orcid}")
+        logging.warning(f"found more than one openalex author id for {orcid}")
     author_id = authors[0]["id"]
 
     # get all the works for the openalex author id
@@ -102,3 +104,41 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
         time.sleep(1)
 
         yield from page
+
+
+def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
+    """Harvest OpenAlex data for DOIs from other publication sources."""
+    count = 0
+    with jsonl_file.open("a") as jsonl_output:
+        with get_session(snapshot.database_name).begin() as select_session:
+            stmt = (
+                select(Publication.doi)  # type: ignore
+                .where(Publication.doi.is_not(None))  # type: ignore
+                .where(Publication.openalex_json.is_(None))
+                .execution_options(yield_per=100)
+            )
+            # TODO: consider getting data for more than one DOI at a time
+            for row in select_session.execute(stmt):
+                logging.info(f"filling in data for {row.doi}")
+                try:
+                    openalex_pub = Works()[f"https://doi.org/{row.doi}"]
+                    # TODO: get a key so we don't have to sleep!
+                    time.sleep(1)
+                except requests.exceptions.HTTPError as e:
+                    logging.error(f"error looking up {row.doi}: {e}")
+                    continue
+
+                with get_session(snapshot.database_name).begin() as update_session:
+                    update_stmt = (
+                        update(Publication)  # type: ignore
+                        .where(Publication.doi == row.doi)
+                        .values(openalex_json=openalex_pub)
+                    )
+                    update_session.execute(update_stmt)
+
+                count += 1
+                jsonl_output.write(json.dumps(openalex_pub) + "\n")
+
+    logging.info(f"filled in {count} publications")
+
+    return snapshot.path

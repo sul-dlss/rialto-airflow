@@ -99,6 +99,7 @@ def mock_publication(test_session):
             doi="10.1515/9781503624153",
             sulpub_json={"sulpub": "data"},
             wos_json={"wos": "data"},
+            dim_json={"dimensions": "data"},
         )
         session.add(pub)
         return pub

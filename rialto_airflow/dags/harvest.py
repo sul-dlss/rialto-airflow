@@ -168,7 +168,7 @@ def harvest():
     wos_jsonl = wos_harvest(snapshot)
 
     # TODO: add dimensions_jsonl as a dependency when task is added to DAG
-    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl)
+    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl)  # noqa: F841
 
     doi_sunet = create_doi_sunet(
         dimensions_jsonl,

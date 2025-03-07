@@ -5,6 +5,7 @@ import shutil
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from honeybadger import honeybadger
 
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos
 from rialto_airflow.database import create_database, create_schema
@@ -26,6 +27,7 @@ except TypeError:
 except ValueError:
     pass
 
+
 if dev_limit is None:
     logging.info(
         f"⚠️ dev_limit is set to {dev_limit}, running harvest will stop at the limit number of publications per source"
@@ -34,6 +36,11 @@ else:
     logging.info(
         "‼️ no dev_limit is set, running harvest will attempt to retrieve all results"
     )
+
+honeybadger.configure(
+    api_key=Variable.get("honeybadger_api_key"),
+    environment=Variable.get("honeybadger_env"),
+)
 
 
 @dag(
@@ -52,6 +59,7 @@ def harvest():
         create_database(snapshot.database_name)
         create_schema(snapshot.database_name)
 
+        raise Exception("Testing Honeybadger configuration")
         return snapshot
 
     @task()

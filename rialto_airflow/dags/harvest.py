@@ -5,6 +5,7 @@ import shutil
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from honeybadger import honeybadger
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
@@ -37,10 +38,25 @@ else:
     )
 
 
+honeybadger.configure(
+    api_key=Variable.get("honeybadger_api_key"),
+    environment=Variable.get("honeybadger_env"),
+) # type: ignore
+
+
+def task_failure_notify(context):
+    honeybadger.notify(
+        error_class="Task failure",
+        error_message=f"Task(s) failed in {context['dag_run']}",
+        context=context,
+    )
+
+
 @dag(
     schedule=None,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
+    default_args={"on_failure_callback": task_failure_notify},
 )
 def harvest():
     @task()

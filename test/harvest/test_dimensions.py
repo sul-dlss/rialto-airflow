@@ -184,7 +184,7 @@ def mock_jsonl(path):
 def mock_no_dim_publication(test_session):
     with test_session.begin() as session:
         pub = Publication(
-            doi="10.1515/9781503624153",
+            doi="10.1515/9781503624199",
             sulpub_json={"sulpub": "data"},
             wos_json={"wos": "data"},
         )
@@ -200,7 +200,7 @@ def mock_dimensions_doi(monkeypatch):
 
     def f(*args, **kwargs):
         yield {
-            "doi": "10.1515/9781503624153",
+            "doi": "10.1515/9781503624199",
             "title": "An example title",
             "type": "article",
             "publication_year": 1891,
@@ -223,11 +223,11 @@ def test_fill_in(
     with test_session.begin() as session:
         pub = (
             session.query(Publication)
-            .where(Publication.doi == "10.1515/9781503624153")
+            .where(Publication.doi == "10.1515/9781503624199")
             .first()
         )
         assert pub.dim_json == {
-            "doi": "10.1515/9781503624153",
+            "doi": "10.1515/9781503624199",
             "title": "An example title",
             "type": "article",
             "publication_year": 1891,
@@ -238,25 +238,36 @@ def test_fill_in(
     assert "filled in 1 publications" in caplog.text
 
 
-def test_fill_in_no_doi(tmp_path, test_session, mock_publication, caplog, monkeypatch):
-    monkeypatch.setattr(dimensions, "publications_from_dois", [])
+@pytest.fixture
+def mock_dimensions_not_found(monkeypatch):
+    """
+    Mock our function for fetching publications by DOI from Dimensions.
+    """
+
+    def f(*args, **kwargs):
+        raise StopIteration
+
+    monkeypatch.setattr(dimensions, "publications_from_dois", f)
+
+
+def test_fill_in_no_doi(tmp_path, test_session, mock_publication, mock_no_dim_publication, mock_dimensions_not_found, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     # set up a pre-existing jsonl file
     jsonl_file = snapshot.path / "dimensions.jsonl"
     mock_jsonl(jsonl_file)
+    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
 
     dimensions.fill_in(snapshot, jsonl_file)
-
     with test_session.begin() as session:
         pub = (
             session.query(Publication)
-            .where(Publication.doi == "10.1515/9781503624153")
+            .where(Publication.doi == "10.1515/9781503624199")
             .first()
         )
-        assert pub.dimensions_json is None
+        assert pub.dim_json is None
 
     # adds 0 publications to the jsonl file
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
     assert "filled in 0 publications" in caplog.text
-    assert "No data found for 10.1515/9781503624153" in caplog.text
+    assert "No data found for 10.1515/9781503624199" in caplog.text

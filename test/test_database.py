@@ -91,6 +91,7 @@ def test_create_schema(
                 "doi",
                 "title",
                 "pub_year",
+                "open_access",
                 "dim_json",
                 "openalex_json",
                 "sulpub_json",

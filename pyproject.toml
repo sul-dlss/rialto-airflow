@@ -14,6 +14,7 @@ package-mode = false
 
 dependencies = [
     "dimcli",
+    "jsonpath-ng>=1.7.0",
     "more-itertools",
     "psycopg2-binary>=2.9.10",
     "pyalex",
@@ -36,7 +37,7 @@ omit = ["test/*"]
 check_untyped_defs = true # Type-checks the interior of functions without type annotations.
 
 [[tool.mypy.overrides]]
-module = ["dimcli", "pyalex", "requests_oauthlib", "sqlalchemy_utils"]
+module = ["dimcli", "pyalex", "requests_oauthlib", "sqlalchemy_utils", "jsonpath_ng"]
 ignore_missing_imports = true
 
 [dependency-groups]

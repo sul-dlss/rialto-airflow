@@ -245,6 +245,6 @@ def test_fill_in_no_doi(
     assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
     assert "filled in 0 publications" in caplog.text
     assert (
-        "error looking up 10.1515/9781503624153: 404 Client Error: NOT FOUND for url: https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.1515%2F9781503624153"
+        "No data found for 10.1515/9781503624153: 404 Client Error: NOT FOUND for url: https://api.openalex.org/works/https%3A%2F%2Fdoi.org%2F10.1515%2F9781503624153"
         in caplog.text
     )

@@ -119,13 +119,12 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
             )
             # TODO: consider getting data for more than one DOI at a time
             for row in select_session.execute(stmt):
-                logging.info(f"filling in data for {row.doi}")
                 try:
                     openalex_pub = Works()[f"https://doi.org/{row.doi}"]
                     # TODO: get a key so we don't have to sleep!
                     time.sleep(1)
                 except requests.exceptions.HTTPError as e:
-                    logging.error(f"error looking up {row.doi}: {e}")
+                    logging.info(f"No data found for {row.doi}: {e}")
                     continue
 
                 with get_session(snapshot.database_name).begin() as update_session:

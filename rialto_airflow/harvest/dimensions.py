@@ -9,6 +9,7 @@ from typing import Generator
 import dimcli
 import requests
 from more_itertools import batched
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import (
@@ -111,7 +112,6 @@ def publications_from_dois(dois: list, batch_size=200):
             """
 
         result = query_with_retry(q, retry=5)
-
         for pub in result["publications"]:
             yield normalize_publication(pub)
 
@@ -174,3 +174,39 @@ def query_with_retry(q, retry=5):
                     "Dimensions query error retry %s of %s: %s", try_count, retry, e
                 )
                 time.sleep(try_count * 10)
+
+
+def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
+    """Harvest Dimensions data for DOIs from other publication sources."""
+    count = 0
+    with jsonl_file.open("a") as jsonl_output:
+        with get_session(snapshot.database_name).begin() as select_session:
+            stmt = (
+                select(Publication.doi)  # type: ignore
+                .where(Publication.doi.is_not(None))  # type: ignore
+                .where(Publication.dim_json.is_(None))
+                .execution_options(yield_per=100)
+            )
+            for row in select_session.execute(stmt):
+                try:
+                    dimensions_pub = next(
+                        publications_from_dois([row.doi], batch_size=10)
+                    )
+                except StopIteration:
+                    logging.info(f"No data found for {row.doi}:")
+                    continue
+
+                with get_session(snapshot.database_name).begin() as update_session:
+                    update_stmt = (
+                        update(Publication)  # type: ignore
+                        .where(Publication.doi == row.doi)
+                        .values(dim_json=dimensions_pub)
+                    )
+                    update_session.execute(update_stmt)
+
+                count += 1
+                jsonl_output.write(json.dumps(dimensions_pub) + "\n")
+
+    logging.info(f"filled in {count} publications")
+
+    return snapshot.path

@@ -144,7 +144,8 @@ bundle exec cap prod deploy  # prod
 
 ## Google Drive Setup
 
-In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly
+In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly.
+In addition, for the test_google.py test to run correctly, a shared google drive folder and a shared google sheet that can be used for the integration test must be setup and shared out correctly, along with the necessary secrets set correctly in Github Secrets and Variables.
 
 ### GCP Setup
 

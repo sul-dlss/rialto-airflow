@@ -6,10 +6,7 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import authors, dimensions, merge_pubs, openalex, wos
-from rialto_airflow.harvest.doi_sunet import create_doi_sunet_pickle
-from rialto_airflow.harvest import sul_pub
-from rialto_airflow.harvest.contribs import create_contribs
+from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
@@ -102,58 +99,15 @@ def harvest():
         return jsonl_file
 
     @task()
-    def fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl):
+    def fill_in_openalex(
+        snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
+    ):
         """
         Fill in OpenAlex data for DOIs from other publication sources.
         """
         openalex.fill_in(snapshot, openalex_jsonl)
 
         return snapshot
-
-    @task()
-    def create_doi_sunet(dimensions, openalex, sul_pub, snapshot):
-        """
-        Extract a mapping of DOI -> [SUNET] from the dimensions doi-orcid dict,
-        openalex doi-orcid dict, SUL-Pub publications, and authors data.
-        """
-        pickle_file = snapshot.path / "doi-sunet.pickle"
-        create_doi_sunet_pickle(
-            dimensions, openalex, sul_pub, snapshot.authors_csv, pickle_file
-        )
-
-        return str(pickle_file)
-
-    @task()
-    def merge_publications(sul_pub_pubs, openalex_pubs, dimensions_pubs, snapshot):
-        """
-        Merge the OpenAlex, Dimensions and sul_pub data.
-        """
-        output = snapshot.path / "publications.parquet"
-        merge_pubs.merge(sul_pub_pubs, openalex_pubs, dimensions_pubs, output)
-        return str(output)
-
-    @task()
-    def pubs_to_contribs(pubs, doi_sunet_pickle, snapshot):
-        """
-        Get contributions from publications.
-        """
-        contribs_path = snapshot.path / "contributions.parquet"
-        create_contribs(pubs, doi_sunet_pickle, snapshot.authors_csv, contribs_path)
-
-        return str(contribs_path)
-
-    @task()
-    def publish(pubs_to_contribs, merge_publications):
-        """
-        Publish aggregate data to JupyterHub environment.
-        """
-        contribs_path = Path(publish_dir) / "contributions.parquet"
-        pubs_path = Path(publish_dir) / "publications.parquet"
-
-        shutil.copyfile(pubs_to_contribs, contribs_path)
-        shutil.copyfile(merge_publications, pubs_path)
-
-        return str(publish_dir)
 
     snapshot = setup()
 
@@ -167,21 +121,9 @@ def harvest():
 
     wos_jsonl = wos_harvest(snapshot)
 
-    # TODO: add dimensions_jsonl as a dependency when task is added to DAG
-    openalex_additions = fill_in_openalex(snapshot, openalex_jsonl, wos_jsonl)  # noqa: F841
-
-    doi_sunet = create_doi_sunet(
-        dimensions_jsonl,
-        openalex_jsonl,
-        sul_pub_jsonl,
-        snapshot,
-    )
-
-    pubs = merge_publications(sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, snapshot)
-
-    contribs = pubs_to_contribs(pubs, doi_sunet, snapshot)
-
-    publish(contribs, pubs)
+    openalex_additions = fill_in_openalex(
+        snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
+    )  # noqa: F841
 
 
 harvest()

@@ -250,7 +250,15 @@ def mock_dimensions_not_found(monkeypatch):
     monkeypatch.setattr(dimensions, "publications_from_dois", f)
 
 
-def test_fill_in_no_doi(tmp_path, test_session, mock_publication, mock_no_dim_publication, mock_dimensions_not_found, caplog, monkeypatch):
+def test_fill_in_no_doi(
+    tmp_path,
+    test_session,
+    mock_publication,
+    mock_no_dim_publication,
+    mock_dimensions_not_found,
+    caplog,
+    monkeypatch,
+):
     caplog.set_level(logging.INFO)
     snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     # set up a pre-existing jsonl file

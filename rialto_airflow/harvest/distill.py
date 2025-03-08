@@ -1,33 +1,34 @@
 import logging
 
 from sqlalchemy import Integer, case, func, update
+from sqlalchemy.sql.elements import Case
 
 from rialto_airflow.database import Publication, get_session
 from rialto_airflow.snapshot import Snapshot
 
 
-def distill(snapshot: Snapshot):
+def distill(snapshot: Snapshot) -> None:
     _update_cols(snapshot.database_name)
 
 
-def _update_cols(db_name):
-    logging.info("starting distill update")
+def _update_cols(db_name) -> None:
+    logging.info("starting distill update cols")
 
     with get_session(db_name).begin() as update_session:
         update_session.execute(
-            update(Publication).values(
+            update(Publication).values(  # type: ignore
                 title=_title(),
                 pub_year=_pub_year(),
-            )  # type: ignore
+                open_access=_open_access(),
+            )
         )
+    logging.info("finished distill update cols")
 
-    logging.info("finished distill update")
 
-
-def _title():
+def _title() -> Case:
     # title preference: sulpub, dimensions, openalex, wos
 
-    return case(
+    return case(  # type: ignore
         (
             Publication.sulpub_json["title"].isnot(None),
             Publication.sulpub_json["title"].astext,
@@ -57,9 +58,10 @@ def _title():
     )
 
 
-def _pub_year():
+def _pub_year() -> Case:
     # pub_year preference: sulpub, dimensions, openalex, wos
-    return case(
+
+    return case(  # type: ignore
         (
             Publication.sulpub_json["year"].isnot(None),
             Publication.sulpub_json["year"].astext.cast(Integer),
@@ -88,7 +90,26 @@ def _pub_year():
     )
 
 
-# oa
+def _open_access():
+    return case(  # type: ignore
+        (
+            func.jsonb_path_exists(
+                Publication.openalex_json, "$.open_access.oa_status"
+            ),
+            Publication.openalex_json["open_access"]["oa_status"].astext,
+        ),
+        (
+            Publication.dim_json["open_access"].is_not(None),
+            func.jsonb_path_query_first(
+                Publication.dim_json,
+                '$.open_access[*] ? (@ != "oa_all")',  # filter out oa_all
+            ).op("#>>")("{}"),
+            # the op here turns the JSONB value into text, since astext doesn't work
+            # https://www.postgresql.org/docs/current/functions-json.html#FUNCTIONS-JSON-PROCESSING
+        ),
+        else_=None,
+    )
+
 
 # type
 

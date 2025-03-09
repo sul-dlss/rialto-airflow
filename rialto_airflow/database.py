@@ -86,6 +86,7 @@ class Publication(Base):  # type: ignore
     title = Column(String)
     pub_year = Column(Integer)
     open_access = Column(String)
+    apc = Column(Integer)
     dim_json = Column(JSONB)
     openalex_json = Column(JSONB)
     sulpub_json = Column(JSONB)

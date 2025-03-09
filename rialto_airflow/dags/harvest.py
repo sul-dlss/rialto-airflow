@@ -6,7 +6,7 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos
+from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
@@ -109,6 +109,13 @@ def harvest():
 
         return snapshot
 
+    @task()
+    def distill_publications(snapshot, openalex_additions):
+        """
+        Distill the publication metadata into publication table columns.
+        """
+        return distill.distill(snapshot)
+
     snapshot = setup()
 
     snapshot = load_authors(snapshot)
@@ -124,6 +131,8 @@ def harvest():
     openalex_additions = fill_in_openalex(
         snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
     )  # noqa: F841
+
+    distill_publications(snapshot, openalex_additions)
 
 
 harvest()

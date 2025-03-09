@@ -33,15 +33,17 @@ def mock_wos(monkeypatch):
                     }
                 }
             },
-            "cluster_related": {
-                "identifiers": {
-                    "identifier": [
-                        {"type": "issn", "value": "2211-9124"},
-                        {
-                            "type": "doi",
-                            "value": "https://doi.org/10.1515/9781503624153",
-                        },
-                    ]
+            "dynamic_data": {
+                "cluster_related": {
+                    "identifiers": {
+                        "identifier": [
+                            {"type": "issn", "value": "2211-9124"},
+                            {
+                                "type": "doi",
+                                "value": "https://doi.org/10.1515/9781503624153",
+                            },
+                        ]
+                    }
                 }
             },
         }

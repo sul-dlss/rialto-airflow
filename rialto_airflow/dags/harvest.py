@@ -114,7 +114,7 @@ def harvest():
         """
         Distill the publication metadata into publication table columns.
         """
-        distill.distill(snapshot)
+        return distill.distill(snapshot)
 
     snapshot = setup()
 

@@ -106,7 +106,7 @@ def _apc(pub, context):
         pub,
         rules=[
             JsonPathRule("openalex_json", "apc_paid.value_usd"),
-            FuncRule("openalex_json", _apc_oa_dataset, context),
+            FuncRule("dim_json", _apc_oa_dataset, context),
             JsonPathRule("openalex_json", "apc_list.value_usd"),
         ],
     )
@@ -139,8 +139,8 @@ def _open_access_dim(dim_json):
     return None
 
 
-def _apc_oa_dataset(openalex, context):
-    if openalex is None:
+def _apc_oa_dataset(dim_json, context):
+    if dim_json is None:
         return None
 
     pub_year = context.get("pub_year")
@@ -149,7 +149,7 @@ def _apc_oa_dataset(openalex, context):
     if pub_year is None:
         return
 
-    for issn in openalex.get("issn", []):
+    for issn in dim_json.get("issn", []):
         cost = get_apc(issn, pub_year)
         if cost:
             return cost
@@ -222,7 +222,6 @@ def _first_int(pub, rules: Rules) -> Optional[int]:
 # TODO: We need to distill other values but this will involve additional work to
 # get appropriate data:
 #
-# - apc
 # - funders
 # - federally funded
 #

@@ -360,8 +360,8 @@ def test_apc_dataset(test_session, snapshot):
             [
                 Publication(
                     doi="10.1515/9781503624153",
-                    openalex_json={
-                        "publication_year": 2022,
+                    dim_json={
+                        "year": 2022,
                         "apc_list": {
                             # the dataset should be preferred to this value
                             "value_usd": 123

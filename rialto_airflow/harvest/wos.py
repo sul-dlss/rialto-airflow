@@ -189,6 +189,12 @@ def get_doi(pub) -> Optional[str]:
         .get("identifiers", {})
         .get("identifier", [])
     )
+
+    # sometimes there is just one id instead of a list of ids
+    # as an examle see record for WOS:000299597104419
+    if isinstance(ids, dict):
+        ids = [ids]
+
     for id in ids:
         if id["type"] == "doi":
             return normalize_doi(id["value"])

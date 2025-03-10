@@ -213,3 +213,40 @@ def test_bad_wos_json(test_session, tmp_path, caplog, mock_authors, requests_moc
         wos.harvest(snapshot, limit=50)
 
     assert "uhoh, instead of JSON we got: ffff" in caplog.text
+
+
+def test_get_doi():
+    wos_json_id_list = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {
+                    "identifier": [
+                        {"type": "issn", "value": "1234-5678"},
+                        {"type": "doi", "value": "abc123"},
+                    ]
+                }
+            }
+        }
+    }
+    assert wos.get_doi(wos_json_id_list) == "abc123"
+
+    wos_json_single_id = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {"identifier": {"type": "doi", "value": "abc123"}}
+            }
+        }
+    }
+    assert wos.get_doi(wos_json_single_id) == "abc123"
+
+    wos_json_no_doi = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {"identifier": {"type": "issn", "value": "1234-5678"}}
+            }
+        }
+    }
+    assert wos.get_doi(wos_json_no_doi) is None
+
+    wos_json_no_id: dict = {"dynamic_data": {"cluster_related": {"identifiers": {}}}}
+    assert wos.get_doi(wos_json_no_id) is None

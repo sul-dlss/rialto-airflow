@@ -183,7 +183,12 @@ def check_status(resp):
 
 
 def get_doi(pub) -> Optional[str]:
-    ids = pub.get("cluster_related", {}).get("identifiers", {}).get("identifier", [])
+    ids = (
+        pub.get("dynamic_data", {})
+        .get("cluster_related", {})
+        .get("identifiers", {})
+        .get("identifier", [])
+    )
     for id in ids:
         if id["type"] == "doi":
             return normalize_doi(id["value"])

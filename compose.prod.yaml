@@ -90,6 +90,7 @@ x-airflow-common:
     AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: 'google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5'
     AIRFLOW_VAR_GOOGLE_CONNECTION: google_cloud_default
     AIRFLOW_VAR_GOOGLE_DRIVE_ID: ${AIRFLOW_VAR_GOOGLE_DRIVE_ID}
+    AIRFLOW_VAR_ORCID_INTEGRATION_SHEET_ID: ${AIRFLOW_VAR_ORCID_INTEGRATION_SHEET_ID}
     AIRFLOW_VAR_DIMENSIONS_API_USER: ${AIRFLOW_VAR_DIMENSIONS_API_USER}
     AIRFLOW_VAR_DIMENSIONS_API_PASS: ${AIRFLOW_VAR_DIMENSIONS_API_PASS}
     AIRFLOW_VAR_MAIS_BASE_URL: https://aswsweb.stanford.edu

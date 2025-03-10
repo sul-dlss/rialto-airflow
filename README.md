@@ -142,10 +142,73 @@ bundle exec cap prod deploy  # prod
 # Note: there is no QA
 ```
 
-## Google Drive Setup
+## Google Drive
 
 In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly.
+
 In addition, for the test_google.py test to run correctly, a shared google drive folder and a shared google sheet that can be used for the integration test must be setup and shared out correctly, along with the necessary secrets set correctly in Github Secrets and Variables.
+
+### Using the integration in a DAG
+
+In cases where a Google folder and file ID is referenced, you can get this ID by opening the Google Drive UI, and then opening the file or folder and looking at the URL.
+
+The google drive folder you are adding to, or sheet you are operating on, or file you are replacing must be shared correctly with the google service account for permissions to work correctly.  This process is described below, though shared drives for use by RIALTO airflow are already setup.
+
+To use the integration from a DAG, import the methods and setup the variables you need:
+
+```
+from airflow.models import Variable
+
+from rialto_airflow.google import (
+    clear_google_sheet,
+    append_rows_to_google_sheet,
+    replace_file_in_google_drive,
+    upload_file_to_google_drive,
+)
+
+gcp_conn_id = Variable.get("google_connection") # this is already configured in vault/puppet
+```
+
+Then in your tasks, you can call the methods like this:
+
+1. To completely replace an existing file in a Google Drive, pass in the name of the local file and the remote Google file ID to replace.  This file must exist and have an ID:
+
+```
+replace_file_in_google_drive(
+    "/opt/airflow/rialto_airflow/dags/google.py",
+    "LONG-GOOGLE-FILE_ID-GOES-HERE",
+)
+```
+
+2. To upload a new file to a Google Drive, pass in the name of the local file and the remote Google drive folder ID to put the file in.  If a file of the same filename exists, you will get a new copy with a new google file ID:
+
+```
+upload_file_to_google_drive(
+    "/opt/airflow/rialto_airflow/dags/harvest.py",
+    "LONG-GOOGLE-FOLDER-ID-GOES-HERE",
+)
+```
+
+3. To clear a Google sheet, pass in the sheet ID:
+
+```
+clear_google_sheet("LONG-GOOGLE-SHEET-ID-GOES-HERE")
+```
+
+4. To add a row an existing Google Sheet, pass in the sheet ID and an array of data to append:
+```
+append_rows_to_google_sheet(
+    "LONG-GOOGLE-SHEET-ID-GOES-HERE",
+    [
+        [
+            "Hello",
+            "World",
+            "Column",
+            "Three",
+        ]
+    ],
+)
+```
 
 ### GCP Setup
 

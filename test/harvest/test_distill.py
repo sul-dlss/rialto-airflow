@@ -307,5 +307,76 @@ def test_multiple(test_session, snapshot):
     )
 
 
+# test apc costs
+
+
+def test_apc_openalex(test_session, snapshot):
+    """
+    use openalex apc_paid.value_usd to find initial APC cost
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    openalex_json={
+                        "apc_paid": {"value_usd": 123},
+                        "apc_list": {"value_usd": 1234},
+                    },
+                ),
+            ]
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 123
+
+
+def test_apc_openalex_fallback(test_session, snapshot):
+    """
+    fallback to openalex.apc_list if openalex.apc_paid isn't there
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    openalex_json={"apc_list": {"value_usd": 1234}},
+                ),
+            ]
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 1234
+
+
+def test_apc_dataset(test_session, snapshot):
+    """
+    Use APC 2024 dataset to get APC cost when openalex apc_paid isn't there.
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    openalex_json={
+                        "publication_year": 2022,
+                        "apc_list": {
+                            # the dataset should be preferred to this value
+                            "value_usd": 123
+                        },
+                        "issn": ["1234-5678", "2376-0605"],
+                    },
+                ),
+            ]
+        )
+
+    distill(snapshot)
+
+    # ignore the apc_list and use the value in the dataset
+    assert _pub(session).apc == 400
+
+
 def _pub(session, doi="10.1515/9781503624153"):
     return session.query(Publication).where(Publication.doi == doi).first()

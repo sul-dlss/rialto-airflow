@@ -7,21 +7,7 @@ from sqlalchemy import select, update
 
 from rialto_airflow.database import Publication, get_session
 from rialto_airflow.snapshot import Snapshot
-
-
-@dataclass
-class JsonPathRule:
-    col: str  # the JSONB column name to apply the rule to
-    matcher: str  # a JSON Path to evaluate against the JSON
-
-
-@dataclass
-class FuncRule:
-    col: str  # the JSONB column name to pass to a function
-    matcher: Callable  # a function to pass the JSON to
-
-
-Rules = list[JsonPathRule | FuncRule]
+from rialto_airflow.apc import get_apc
 
 
 def distill(snapshot: Snapshot) -> None:
@@ -45,12 +31,14 @@ def distill(snapshot: Snapshot) -> None:
                 "pub_year": _pub_year(pub),
                 "open_access": _open_access(pub),
                 # These are TBD:
-                # "apc":                _apc(pub),
                 # "funders":            _funders(pub),
                 # "federally_funded":   _federally_funded(pub)
             }
 
-            # persist the new columns to the database
+            # pub_year in cols is needed to determine the apc
+            cols["apc"] = _apc(pub, cols)
+
+            # update the publication with the new columns
             with get_session(snapshot.database_name).begin() as update_session:
                 update_stmt = (
                     update(Publication)  # type: ignore
@@ -58,6 +46,11 @@ def distill(snapshot: Snapshot) -> None:
                     .values(cols)
                 )
                 update_session.execute(update_stmt)
+
+
+#
+# Functions for determining publication attributes.
+#
 
 
 def _title(pub):
@@ -103,43 +96,26 @@ def _open_access(pub):
     )
 
 
-def _first(pub, rules: Rules) -> Optional[str]:
+def _apc(pub, context):
     """
-    Return the first rule match for the publication as a str.
+    Get the APC cost from one place in the openalex data , an external dataset, or another place in
+    OpenAlex data.
     """
-    for rule in rules:
-        # get the appropriate bit of json to analyze
-        data = getattr(pub, rule.col)
-
-        # if the rule is a string it's a jsonpath
-        if isinstance(rule.matcher, str):
-            jpath = jsonpath_ng.parse(rule.matcher)
-            results = jpath.find(data)
-            if len(results) > 0:
-                return results[0].value
-
-        # if the rule is a function pass it the json
-        elif callable(rule.matcher):
-            result = rule.matcher(data)
-            if result is not None:
-                return result
-
-    return None
+    # https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CR1MMV
+    return _first(
+        pub,
+        rules=[
+            JsonPathRule("openalex_json", "apc_paid.value_usd"),
+            FuncRule("openalex_json", _apc_oa_dataset, context),
+            JsonPathRule("openalex_json", "apc_list.value_usd"),
+        ],
+    )
 
 
-def _first_int(pub, rules: Rules) -> Optional[int]:
-    """
-    Return the first rule match for the publication as an int.
-    """
-    result = _first(pub, rules)
-    if result:
-        return int(result)
-    else:
-        return None
-
-
-# These are custom functions to work with specific JSON data structures that
-# aren't workable using JSON Path alone.
+#
+# Helper functions to extract from specific JSON data structures that
+# aren't workable using JSON Path by itself.
+#
 
 
 def _wos_title(wos_json):
@@ -161,6 +137,86 @@ def _open_access_dim(dim_json):
             return oa.value
 
     return None
+
+
+def _apc_oa_dataset(openalex, context):
+    if openalex is None:
+        return None
+
+    pub_year = context.get("pub_year")
+
+    # we need a pub_year to determine apc
+    if pub_year is None:
+        return
+
+    for issn in openalex.get("issn", []):
+        cost = get_apc(issn, pub_year)
+        if cost:
+            return cost
+
+    return None
+
+
+#
+# Classes and functions for representing matching rules and how to apply them.
+#
+
+
+@dataclass
+class JsonPathRule:
+    col: str  # the JSONB column name to apply the rule to
+    matcher: str  # a JSON Path to evaluate against the JSON
+
+
+@dataclass
+class FuncRule:
+    col: str  # the JSONB column name to pass to a function
+    matcher: Callable  # a function to pass the JSON to
+    context: Optional[dict] = (
+        None  # an optional dictionary of content for use in the matcher
+    )
+
+
+Rules = list[JsonPathRule | FuncRule]
+
+
+def _first(pub, rules: Rules) -> Optional[str]:
+    """
+    Provide a Publication and a list of rules and return the result of the first rule that matches.
+    """
+    for rule in rules:
+        # get the appropriate bit of json to analyze
+        data = getattr(pub, rule.col)
+
+        # if the rule is a string use it as a jsonpath
+        if isinstance(rule.matcher, str):
+            jpath = jsonpath_ng.parse(rule.matcher)
+            results = jpath.find(data)
+            if len(results) > 0:
+                return results[0].value
+
+        # if the rule is a function pass it the json, and optional context
+        elif callable(rule.matcher):
+            if rule.context is not None:
+                result = rule.matcher(data, rule.context)
+            else:
+                result = rule.matcher(data)
+
+            if result is not None:
+                return result
+
+    return None
+
+
+def _first_int(pub, rules: Rules) -> Optional[int]:
+    """
+    Return the first rule match for the publication as an int.
+    """
+    result = _first(pub, rules)
+    if result:
+        return int(result)
+    else:
+        return None
 
 
 # TODO: We need to distill other values but this will involve additional work to

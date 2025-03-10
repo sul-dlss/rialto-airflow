@@ -109,6 +109,15 @@ def harvest():
 
         return snapshot
 
+    @task()
+    def fill_in_dimensions(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl):
+        """
+        Fill in Dimensions data for DOIs from other publication sources.
+        """
+        dimensions.fill_in(snapshot, dimensions_jsonl)
+
+        return snapshot
+
     snapshot = setup()
 
     snapshot = load_authors(snapshot)
@@ -121,9 +130,11 @@ def harvest():
 
     wos_jsonl = wos_harvest(snapshot)
 
-    openalex_additions = fill_in_openalex(
+    fill_in_openalex(
         snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
-    )  # noqa: F841
+    )
+
+    fill_in_dimensions(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl)
 
 
 harvest()

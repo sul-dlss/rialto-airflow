@@ -5,12 +5,13 @@ from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import (
+    Author,
+    Publication,
     create_schema,
     engine_setup,
-    Publication,
-    Author,
     pub_author_association,
 )
+from rialto_airflow.snapshot import Snapshot
 
 
 @pytest.fixture
@@ -115,3 +116,8 @@ def mock_association(test_session, mock_publication, mock_authors):
                 author_id=1,
             )
         )
+
+
+@pytest.fixture
+def snapshot(tmp_path):
+    return Snapshot(path=tmp_path, database_name="rialto_test")

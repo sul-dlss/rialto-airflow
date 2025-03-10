@@ -16,6 +16,7 @@ dependencies = [
     "dimcli",
     "jsonpath-ng>=1.7.0",
     "more-itertools",
+    "pandas>=2.2.3",
     "psycopg2-binary>=2.9.10",
     "pyalex",
     "python-dotenv",

@@ -6,6 +6,7 @@ import shutil
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
+from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
@@ -123,9 +124,18 @@ def harvest():
         """
         Distill the publication metadata into publication table columns.
         """
-        distill.distill(snapshot)
+        count = distill.distill(snapshot)
 
-        return snapshot
+        return count
+
+    @task()
+    def link_funders(snapshot, openalex_fill_in, dimensions_fill_in):
+        """
+        Link all the publications to funders.
+        """
+        count = funders.link_publications(snapshot)
+
+        return count
 
     snapshot = setup()
 
@@ -148,6 +158,8 @@ def harvest():
     )
 
     distill_publications(snapshot, openalex_fill_in, dimensions_fill_in)
+
+    link_funders(snapshot, openalex_fill_in, dimensions_fill_in)
 
 
 harvest()

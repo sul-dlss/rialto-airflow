@@ -78,6 +78,14 @@ pub_author_association = Table(
 )
 
 
+pub_funder_association = Table(
+    "pub_funder_association",
+    Base.metadata,
+    Column("publication_id", ForeignKey("publication.id"), primary_key=True),
+    Column("funder_id", ForeignKey("funder.id"), primary_key=True),
+)
+
+
 class Publication(Base):  # type: ignore
     __tablename__ = "publication"
 
@@ -96,6 +104,9 @@ class Publication(Base):  # type: ignore
     updated_at = Column(DateTime, onupdate=utcnow())
     authors: RelationshipProperty = relationship(
         "Author", secondary=pub_author_association, back_populates="publications"
+    )
+    funders: RelationshipProperty = relationship(
+        "Funder", secondary=pub_funder_association, back_populates="publications"
     )
 
 
@@ -120,6 +131,21 @@ class Author(Base):  # type: ignore
     updated_at = Column(DateTime, onupdate=utcnow())
     publications: RelationshipProperty = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"
+    )
+
+
+class Funder(Base):  # type: ignore
+    __tablename__ = "funder"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    grid_id = Column(String, unique=True)
+    ror_id = Column(String, unique=True)
+    federal = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=utcnow())
+    updated_at = Column(DateTime, onupdate=utcnow())
+    publications: RelationshipProperty = relationship(
+        "Publication", secondary=pub_funder_association, back_populates="funders"
     )
 
 

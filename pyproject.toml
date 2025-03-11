@@ -50,7 +50,6 @@ dev = [
     "python-dotenv>=1.0.1",
     "requests-mock>=1.12.1",
     "ruff>=0.9.4",
-
     # packages with type info, for mypy
     "pandas-stubs",
     "sqlalchemy-stubs>=0.4", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible

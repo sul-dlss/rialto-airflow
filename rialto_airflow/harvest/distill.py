@@ -10,18 +10,20 @@ from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.apc import get_apc
 
 
-def distill(snapshot: Snapshot) -> None:
+def distill(snapshot: Snapshot) -> int:
     """
     Walk through all publications in the database and set the title, pub_year,
     open_access columns using the harvested metadata.
     """
     with get_session(snapshot.database_name).begin() as select_session:
         # iterate through publictions 100 at a time
+        count = 0
         stmt = select(Publication).execution_options(yield_per=100)  # type: ignore
 
-        for pos, row in enumerate(select_session.execute(stmt)):
-            if pos % 100 == 0:
-                logging.info(f"processed {pos} publications")
+        for row in select_session.execute(stmt):
+            count += 1
+            if count % 100 == 0:
+                logging.info(f"processed {count} publications")
 
             pub = row[0]
 
@@ -30,9 +32,6 @@ def distill(snapshot: Snapshot) -> None:
                 "title": _title(pub),
                 "pub_year": _pub_year(pub),
                 "open_access": _open_access(pub),
-                # These are TBD:
-                # "funders":            _funders(pub),
-                # "federally_funded":   _federally_funded(pub)
             }
 
             # pub_year in cols is needed to determine the apc
@@ -46,6 +45,8 @@ def distill(snapshot: Snapshot) -> None:
                     .values(cols)
                 )
                 update_session.execute(update_stmt)
+
+    return count
 
 
 #
@@ -163,6 +164,7 @@ def _apc_oa_dataset(dim_json, context):
 
 #
 # Classes and functions for representing matching rules and how to apply them.
+# TODO: Maybe these should be in a separate file/module?
 #
 
 
@@ -221,12 +223,3 @@ def _first_int(pub, rules: Rules) -> Optional[int]:
         return int(result)
     else:
         return None
-
-
-# TODO: We need to distill other values but this will involve additional work to
-# get appropriate data:
-#
-# - funders
-# - federally funded
-#
-# See: https://docs.google.com/document/d/1WojtunkzNtidF2JW4ZLcSClbxajMkH36eUdRIl9tk0E/edit?tab=t.0#heading=h.8lc1fr3onylw

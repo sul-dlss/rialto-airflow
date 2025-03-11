@@ -215,7 +215,7 @@ def test_bad_wos_json(test_session, tmp_path, caplog, mock_authors, requests_moc
     assert "uhoh, instead of JSON we got: ffff" in caplog.text
 
 
-def test_get_doi():
+def test_get_doi(caplog):
     wos_json_id_list = {
         "dynamic_data": {
             "cluster_related": {
@@ -250,3 +250,27 @@ def test_get_doi():
 
     wos_json_no_id: dict = {"dynamic_data": {"cluster_related": {"identifiers": {}}}}
     assert wos.get_doi(wos_json_no_id) is None
+
+    wos_json_identifiers_empty_string: dict = {
+        "UID": "WOS:000089165000013",
+        "dynamic_data": {"cluster_related": {"identifiers": ""}},
+    }
+    assert wos.get_doi(wos_json_identifiers_empty_string) is None
+    assert "WOS:000089165000013" not in caplog.text
+
+    wos_json_identifiers_nonempty_string: dict = {
+        "UID": "WOS:000089165000014",
+        "dynamic_data": {"cluster_related": {"identifiers": "abc123"}},
+    }
+    assert wos.get_doi(wos_json_identifiers_nonempty_string) == "abc123"
+    assert "WOS:000089165000014" not in caplog.text
+
+    wos_json_no_cluster_related_empty_string: dict = {
+        "UID": "WOS:000012345000067",
+        "dynamic_data": {"cluster_related": ""},
+    }
+    assert wos.get_doi(wos_json_no_cluster_related_empty_string) is None
+    assert (
+        "error 'str' object has no attribute 'get' trying to parse identifiers from {'UID': 'WOS:000012345000067'"
+        in caplog.text
+    )

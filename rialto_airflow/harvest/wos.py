@@ -183,20 +183,28 @@ def check_status(resp):
 
 
 def get_doi(pub) -> Optional[str]:
-    ids = (
-        pub.get("dynamic_data", {})
-        .get("cluster_related", {})
-        .get("identifiers", {})
-        .get("identifier", [])
-    )
+    try:
+        identifiers_field = (
+            pub.get("dynamic_data", {})
+            .get("cluster_related", {})
+            .get("identifiers", {})
+        )
 
-    # sometimes there is just one id instead of a list of ids
-    # as an examle see record for WOS:000299597104419
-    if isinstance(ids, dict):
-        ids = [ids]
+        if isinstance(identifiers_field, dict):
+            # The "identifier" field (from "identifiers" above) is usually a list. But sometimes
+            # there is just one string value instead. (as an examle, see record for WOS:000299597104419)
+            ids = identifiers_field.get("identifier", [])
+            ids = [ids] if isinstance(ids, dict) else ids
 
-    for id in ids:
-        if id["type"] == "doi":
-            return normalize_doi(id["value"])
+            for id in ids:
+                if id["type"] == "doi":
+                    return normalize_doi(id["value"])
+        elif isinstance(identifiers_field, str):
+            # We have seen at least one publication, WOS:000089165000013, where the "identifiers" field is
+            # a str instead of a dict, albeit an empty string in that case. Normalize empty string to None.
+            return identifiers_field or None
+    except AttributeError as e:
+        logging.warn(f"error {e} trying to parse identifiers from {pub}")
+        return None
 
     return None

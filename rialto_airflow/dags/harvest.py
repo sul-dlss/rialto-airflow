@@ -18,21 +18,21 @@ sul_pub_host = Variable.get("sul_pub_host")
 sul_pub_key = Variable.get("sul_pub_key")
 
 # to artificially limit the API activity in development
-dev_limit = None
+harvest_limit = None
 try:
-    dev_limit = int(Variable.get("dev_limit", default_var=None))
+    harvest_limit = int(Variable.get("harvest_limit", default_var=None))
 except TypeError:
     pass
 except ValueError:
     pass
 
-if dev_limit is None:
+if harvest_limit is None:
     logging.info(
-        f"⚠️ dev_limit is set to {dev_limit}, running harvest will stop at the limit number of publications per source"
+        f"⚠️ harvest_limit is set to {harvest_limit}, running harvest will stop at the limit number of publications per source"
     )
 else:
     logging.info(
-        "‼️ no dev_limit is set, running harvest will attempt to retrieve all results"
+        "‼️ no harvest_limit is set, running harvest will attempt to retrieve all results"
     )
 
 
@@ -67,14 +67,14 @@ def harvest():
         """
         Fetch the data by ORCID from Dimensions.
         """
-        return dimensions.harvest(snapshot, limit=dev_limit)
+        return dimensions.harvest(snapshot, limit=harvest_limit)
 
     @task()
     def openalex_harvest(snapshot):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        jsonl_file = openalex.harvest(snapshot, limit=dev_limit)
+        jsonl_file = openalex.harvest(snapshot, limit=harvest_limit)
 
         return jsonl_file
 
@@ -83,7 +83,7 @@ def harvest():
         """
         Fetch the data by ORCID from Web of Science.
         """
-        jsonl_file = wos.harvest(snapshot, limit=dev_limit)
+        jsonl_file = wos.harvest(snapshot, limit=harvest_limit)
 
         return jsonl_file
 
@@ -93,7 +93,7 @@ def harvest():
         Harvest data from SUL-Pub.
         """
         jsonl_file = sul_pub.harvest(
-            snapshot, sul_pub_host, sul_pub_key, limit=dev_limit
+            snapshot, sul_pub_host, sul_pub_key, limit=harvest_limit
         )
 
         return jsonl_file

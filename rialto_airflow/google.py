@@ -34,7 +34,7 @@ def append_rows_to_google_sheet(spreadsheet_id, values, sheet_name="Sheet1"):
         spreadsheet_id=spreadsheet_id,
         range_=sheet_name,
         values=values,
-        value_input_option="RAW",
+        value_input_option="USER_ENTERED",
     )
 
 

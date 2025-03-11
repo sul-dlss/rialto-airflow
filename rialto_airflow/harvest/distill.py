@@ -149,6 +149,10 @@ def _apc_oa_dataset(dim_json, context):
     if pub_year is None:
         return
 
+    # sometimes issn is None instead of a list 🤷
+    if dim_json.get("issn") is None:
+        return
+
     for issn in dim_json.get("issn", []):
         cost = get_apc(issn, pub_year)
         if cost:

@@ -72,6 +72,10 @@ docker compose up -d
 
 ## Development
 
+### Console
+
+$ uv run dotenv run python
+
 ### Set-up
 
 1. Install `uv` for dependency management as described in [the uv docs](https://github.com/astral-sh/uv?tab=readme-ov-file#getting-started).  _NOTE:_ As of Feb 2025, at least one developer has had better luck with dependency management using the `uv` standalone installer, as opposed to installing using `pip` or `pipx`.  YMMV of course, but if you run into hard to explain `pyproject.toml` complaints or dependency resolution issues, consider uninstalling the `pip` managed `uv`, and installing from the `uv` installation script.
@@ -92,6 +96,8 @@ uv lock --upgrade
 docker compose up -d postgres
 uv run pytest
 ```
+
+Note: the test_mais.py file depends on the MaIS API being configured with production credentials.  If no credential are available in the environment variables, the tests will be skipped.  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
 
 ### Test coverage reporting
 

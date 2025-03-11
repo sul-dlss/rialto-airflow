@@ -378,5 +378,32 @@ def test_apc_dataset(test_session, snapshot):
     assert _pub(session).apc == 400
 
 
+def test_missing_dim_issn(test_session, snapshot):
+    """
+    Use APC 2024 dataset to get APC cost when openalex apc_paid isn't there.
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    dim_json={
+                        "year": 2022,
+                        "apc_list": {
+                            # the dataset should be preferred to this value
+                            "value_usd": 123
+                        },
+                        "issn": None,
+                    },
+                ),
+            ]
+        )
+
+    distill(snapshot)
+
+    # issn list of None is ignored
+    assert _pub(session).apc is None
+
+
 def _pub(session, doi="10.1515/9781503624153"):
     return session.query(Publication).where(Publication.doi == doi).first()

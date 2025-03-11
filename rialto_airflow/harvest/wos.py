@@ -183,12 +183,16 @@ def check_status(resp):
 
 
 def get_doi(pub) -> Optional[str]:
-    ids = (
-        pub.get("dynamic_data", {})
-        .get("cluster_related", {})
-        .get("identifiers", {})
-        .get("identifier", [])
-    )
+    try:
+        ids = (
+            pub.get("dynamic_data", {})
+            .get("cluster_related", {})
+            .get("identifiers", {})
+            .get("identifier", [])
+        )
+    except AttributeError as e:
+        logging.warn(f"error {e} trying to parse identifiers from {pub}")
+        return None
 
     # sometimes there is just one id instead of a list of ids
     # as an examle see record for WOS:000299597104419

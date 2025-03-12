@@ -41,18 +41,21 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 
 2. Start up docker locally.
 
-3. Create a `.env` file with the following values. For local development these can usually be:
+3. Create a `.env` file with the following values. For local development these can usually be as below.  To ensure the tests work correctly, look at the section below labeled `Test Setup`, which will tell you exactly which values need to be set and from where in order to have the tests work.
 ```
 AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
 AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
-AIRFLOW_TEST_GOOGLE_SHEET_ID=xxxx # this is the ID of the google sheet called "Test" in the RIALTO Core Team --> Airflow-Test folder
+AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON=xxxx # the google service account JSON from vault
 AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
+AIRFLOW_VAR_GOOGLE_DRIVE_ID=xxxx # this is the ID of the shared google drive that DAGs can write to (e.g. RIALTO Core Team --> Airflow-Prod )
+AIRFLOW_TEST_GOOGLE_DRIVE_ID=xxxx # this is the ID of the shared google drive called "RIALTO Core Team --> Airflow-Test" used by the tests
+AIRFLOW_TEST_GOOGLE_SHEET_ID=xxxx # this is the ID of the google sheet called "Test" in the "RIALTO Core Team --> Airflow-Test" folder used by the tests
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add to the `.env` values for any environment variables used by DAGs. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file:
+4. Add to the `.env` values for any environment variables used by DAGs. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also prod if you really needed to by altering where in puppet you look below):
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
@@ -98,7 +101,31 @@ docker compose up -d postgres
 uv run pytest
 ```
 
-Note: the test_mais.py file depends on the MaIS API being configured with production credentials.  If no credential are available in the environment variables, the tests will be skipped.  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
+### Test Setup
+
+In order for some of the tests to run, they will need to hit actual APIs.  In order to do this,
+they will need to be properly configured with keys and URLs.  These need to be placed in the .env file.
+
+For Google drive tests, update your .env with values shown below / pulled from vault as indicated:
+
+```
+AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
+AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON=${get from vault at `rialto-airflow/prod/google_service_account_json`}
+AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
+AIRFLOW_VAR_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/prod/google_drive_id`}
+AIRFLOW_TEST_GOOGLE_SHEET_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_sheet_id`} # used by CI and tests
+AIRFLOW_TEST_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_drive_id`} # used by CI and tests
+```
+
+For MaIS tests, update your .env with values shown below / pulled from vault as indicated:
+
+```
+AIRFLOW_VAR_MAIS_BASE_URL=https://aswsweb.stanford.edu
+AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
+AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
+```
+
+Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with production (not UAT) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely (which is what happens in CI, since CI cannot talk to the MaIS API).  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
 
 ### Test coverage reporting
 
@@ -146,7 +173,7 @@ bundle exec cap prod deploy  # prod
 
 In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly.
 
-In addition, for the test_google.py test to run correctly, a shared google drive folder and a shared google sheet that can be used for the integration test must be setup and shared out correctly, along with the necessary secrets set correctly in Github Secrets and Variables.
+In addition, for the test_google.py test to run correctly, a shared google drive folder and a shared google sheet that can be used for the integration test must be setup and shared out correctly, along with the necessary secrets set correctly in Github Secrets and Variables.  This should already be setup, with values stored in vault as described above.
 
 ### Using the integration in a DAG
 
@@ -166,7 +193,7 @@ from rialto_airflow.google import (
     upload_file_to_google_drive,
 )
 
-gcp_conn_id = Variable.get("google_connection") # this is already configured in vault/puppet
+gcp_conn_id = Variable.get("google_connection")
 ```
 
 Then in your tasks, you can call the methods like this:
@@ -212,7 +239,7 @@ append_rows_to_google_sheet(
 
 ### GCP Setup
 
-NOTE: This should already by setup for stage and prod and properly configured.  You still need the JSON service account file for localhost development. Ask another developer in Slack to obtain it (you can get it from the VMs, it is setup via a puppet template and vault).
+NOTE: This should already by setup for stage and prod and properly configured.  You still need the JSON service account in your local env file as described above.  It is in vault.
 
 1. You will need a Google Cloud Platform (GCP) project, which has billing enabled and setup.  Look up how to do this or ask for help from Ops if there isn't already an existing DLSS GCP project that can be used.
 2. Ensure all of the needed APIs are enabled for this project.  These are under APIs & Services.  You want to ensure these are enabled:
@@ -226,9 +253,9 @@ NOTE: This should already by setup for stage and prod and properly configured.  
 
 ### Airflow Setup
 
-NOTE: The connection is setup automatically in the compose.yaml file with the `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT` env variable.  It specifies the URL encoded contents of the JSON key file and the other attributes.  For localhost, you will need to have the URL encoded JSON file for the service account set in your .env file.
+NOTE: The connection is setup automatically in the compose.yaml file with the `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT` env variable.  It specifies the URL encoded contents of the JSON key file and the other attributes.  For localhost, you will need to have the URL encoded JSON file for the service account set in your .env file (which you can get from vault)
 
-You can also create manual connections as described below, but this should not be necessary.
+You can also create manual connections as described below, but this should not be necessary and is only here for information purposes.
 
 1. In Airflow, go to the "Admin" menu and select "Connections".
 2. If it doesn't exist, create a connection by clicking the + button.

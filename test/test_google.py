@@ -22,7 +22,7 @@ def gcp_conn_id():
 
 
 def google_drive_id():
-    return os.environ.get("AIRFLOW_VAR_GOOGLE_DRIVE_ID")
+    return os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
 
 
 def google_drive_hook():

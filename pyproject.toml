@@ -8,11 +8,12 @@ description = "Airflow app for harvesting data for open access analysis and rese
 authors = [ {name = "Laura Wrubel", email = "lwrubel@stanford.edu"}, {name = "Ed Summers", email = "edsu@stanford.edu"}, {name = "Jacob Hill", email = "jacob.hill@stanford.edu"}, {name = "Johnathan Martin", email = "john.martin@stanford.edu"}]
 
 # Aligned with what is defined in Dockerfile and CI
-requires-python = "== 3.12.*" 
+requires-python = "== 3.12.*"
 
 package-mode = false
 
 dependencies = [
+    "apache-airflow-providers-google>=14.0.0",
     "dimcli",
     "jsonpath-ng>=1.7.0",
     "more-itertools",

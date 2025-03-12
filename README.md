@@ -41,17 +41,18 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 
 2. Start up docker locally.
 
-3. Create a `.env` file with the `AIRFLOW_UID` and `AIRFLOW_GROUP` values. For local development these can usually be:
+3. Create a `.env` file with the following values. For local development these can usually be:
 ```
 AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
+AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
+AIRFLOW_TEST_GOOGLE_SHEET_ID=xxxx # this is the ID of the google sheet called "Test" in the RIALTO Core Team --> Airflow-Test folder
+AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add to the `.env` values for any environment variables used by DAGs. Not in place yet--they will usually applied to VMs by puppet once productionized.
-
-Here is an script to generate content for your dev .env file:
+4. Add to the `.env` values for any environment variables used by DAGs. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file:
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
@@ -140,3 +141,118 @@ bundle exec cap stage deploy # stage
 bundle exec cap prod deploy  # prod
 # Note: there is no QA
 ```
+
+## Google Drive
+
+In order to access Google Drive (write files to google drive, create/update sheets, etc), several things must be configured correctly.
+
+In addition, for the test_google.py test to run correctly, a shared google drive folder and a shared google sheet that can be used for the integration test must be setup and shared out correctly, along with the necessary secrets set correctly in Github Secrets and Variables.
+
+### Using the integration in a DAG
+
+In cases where a Google folder and file ID is referenced, you can get this ID by opening the Google Drive UI, and then opening the file or folder and looking at the URL.
+
+The google drive folder you are adding to, or sheet you are operating on, or file you are replacing must be shared correctly with the google service account for permissions to work correctly.  This process is described below, though shared drives for use by RIALTO airflow are already setup.
+
+To use the integration from a DAG, import the methods and setup the variables you need:
+
+```
+from airflow.models import Variable
+
+from rialto_airflow.google import (
+    clear_google_sheet,
+    append_rows_to_google_sheet,
+    replace_file_in_google_drive,
+    upload_file_to_google_drive,
+)
+
+gcp_conn_id = Variable.get("google_connection") # this is already configured in vault/puppet
+```
+
+Then in your tasks, you can call the methods like this:
+
+1. To completely replace an existing file in a Google Drive, pass in the name of the local file and the remote Google file ID to replace.  This file must exist and have an ID:
+
+```
+replace_file_in_google_drive(
+    "/opt/airflow/rialto_airflow/dags/google.py",
+    "LONG-GOOGLE-FILE_ID-GOES-HERE",
+)
+```
+
+2. To upload a new file to a Google Drive, pass in the name of the local file and the remote Google drive folder ID to put the file in.  If a file of the same filename exists, you will get a new copy with a new google file ID:
+
+```
+upload_file_to_google_drive(
+    "/opt/airflow/rialto_airflow/dags/harvest.py",
+    "LONG-GOOGLE-FOLDER-ID-GOES-HERE",
+)
+```
+
+3. To clear a Google sheet, pass in the sheet ID:
+
+```
+clear_google_sheet("LONG-GOOGLE-SHEET-ID-GOES-HERE")
+```
+
+4. To add a row an existing Google Sheet, pass in the sheet ID and an array of data to append:
+```
+append_rows_to_google_sheet(
+    "LONG-GOOGLE-SHEET-ID-GOES-HERE",
+    [
+        [
+            "Hello",
+            "World",
+            "Column",
+            "Three",
+        ]
+    ],
+)
+```
+
+### GCP Setup
+
+NOTE: This should already by setup for stage and prod and properly configured.  You still need the JSON service account file for localhost development. Ask another developer in Slack to obtain it (you can get it from the VMs, it is setup via a puppet template and vault).
+
+1. You will need a Google Cloud Platform (GCP) project, which has billing enabled and setup.  Look up how to do this or ask for help from Ops if there isn't already an existing DLSS GCP project that can be used.
+2. Ensure all of the needed APIs are enabled for this project.  These are under APIs & Services.  You want to ensure these are enabled:
+- Cloud Storage
+- Google Drive API
+- Google Sheets API
+3. You need a service account in GCP under this project.  Once the project is selected, go to IAM > Service Accounts to create (or select an existing if appropriate) service account.  Name the service account "RIALTO Airflow Integration" or similar and provide a description.
+4. You will need to create and download a JSON Key file for this service account.  Once you have selected the service account under IAM > Service Accounts, edit it with the pencil icon, find the "Keys" tab and add a key (of type "JSON").  It should offer to let you download the key as a JSON file.  Save this file.
+5. Grant this service account permissions to access Google Drive.  Do this by going to IAM and scrolling down to find the name of the service account.  Edit it by clicking the pencil icon.  Click "Add another role" and then add the role "Storage Object Admin" and save the user.
+6. The JSON key contents are URL encoded and stored in vault, so they can be set in an env variable by puppet.  For localhost development, the value stored in vault is set in your local .env file.  See Airflow setup below.
+
+### Airflow Setup
+
+NOTE: The connection is setup automatically in the compose.yaml file with the `AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT` env variable.  It specifies the URL encoded contents of the JSON key file and the other attributes.  For localhost, you will need to have the URL encoded JSON file for the service account set in your .env file.
+
+You can also create manual connections as described below, but this should not be necessary.
+
+1. In Airflow, go to the "Admin" menu and select "Connections".
+2. If it doesn't exist, create a connection by clicking the + button.
+3. The connection info is below (skip the quotes, they just denote the value to enter):
+
+connection id: "google_cloud_default" # must match what is in docker compose.yaml for AIRFLOW_VAR_GOOGLE_CONNECTION
+connection type: "Google Cloud"
+description: # something useful, e.g. "Google Drive connection"
+project id: # the exact ID of the google project in GCP from step 1 in the GCP Setup, e.g. "sul-rialto"
+keyfile path: # this is the path to the JSON file you downloaded in step 3 in the GCP Setup.  It needs to be put on the VM/docker image and this is the full path to where it is placed
+keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image...but if you use this approach and later come back to edit the connection, you will need to re-paste the JSON before saving again
+credential configuration file: # leave blank
+Scopes: "https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets"
+
+everything else can be left blank/default
+
+Click "Save" to save the connection.
+
+4. Note that the connection id (e.g. "google_cloud_default") is going to referenced in the Airflow DAG definitions, so it needs to match what is in the code.
+
+### Google Drive Setup
+
+1. Find the Google Drive folder you want Airflow to be able to access.  We are using folders called "Airflow-XXX" (for the various environments) within the "RIALTO Core Team" shared Google drive.
+2. Click the sharing setup in Google Drive for the folder.
+3. Copy the full email address of the GCP Service account (e.g.  rialto-airflow-integration@sul-rialto.iam.gserviceaccount.com) and share the Google Drive folder with that user, providing "Admin" or "Content Manager" access.  Save.
+4. Note that google drive ID of the shared folder by opening the folder in Google Drive, and looking at the URL... it will contain the ID (e.g. https://drive.google.com/drive/u/1/folders/THIS_IS_THE_GOOGLE_DRIVE_FOLDER_ID)  This ID will be set in Vault, and then picked up as an environment variable by Puppet.  For local development, you can use the "Airflow-Dev" shared folder or any folder of your choosing (with correct permissions), as long as you correctly configured the folder ID in your local .env file.
+5. For accessing a Google Sheet, you will need to setup a new sheet, share it in the same as the folder in step #3 above, note the ID of the sheet as described in step #4 above, and then use this sheet ID either directly in the code, or set it and reference it as a variable in the Airflow UI, or similarly in Vault/Puppet as is done for the shared Google drive.

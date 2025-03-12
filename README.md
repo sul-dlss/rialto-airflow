@@ -112,17 +112,17 @@ For Google drive tests, update your .env with values shown below / pulled from v
 AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
 AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON=${get from vault at `rialto-airflow/prod/google_service_account_json`}
 AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
-AIRFLOW_VAR_GOOGLE_DRIVE_ID=${get from vault at `rialto-airflow/prod/google_drive_id`}
-AIRFLOW_TEST_GOOGLE_SHEET_ID=${get from vault at `rialto-airflow/test/test_google_sheet_id`} # used by CI and tests
-AIRFLOW_TEST_GOOGLE_DRIVE_ID=${get from vault at `rialto-airflow/test/test_google_drive_id`} # used by CI and tests
+AIRFLOW_VAR_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/prod/google_drive_id`}
+AIRFLOW_TEST_GOOGLE_SHEET_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_sheet_id`} # used by CI and tests
+AIRFLOW_TEST_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_drive_id`} # used by CI and tests
 ```
 
 For MaIS tests, update your .env with values shown below / pulled from vault as indicated:
 
 ```
 AIRFLOW_VAR_MAIS_BASE_URL=https://aswsweb.stanford.edu
-AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `rialto-airflow/prod/mais_client_id`}
-AIRFLOW_VAR_MAIS_SECRET=${get from vault at `rialto-airflow/prod/mais_secret`}
+AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
+AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
 ```
 
 Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with production (not UAT) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely (which is what happens in CI, since CI cannot talk to the MaIS API).  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.

@@ -13,7 +13,6 @@ requires-python = "== 3.12.*"
 package-mode = false
 
 dependencies = [
-    "apache-airflow-providers-google>=14.0.0",
     "dimcli",
     "jsonpath-ng>=1.7.0",
     "more-itertools",
@@ -44,7 +43,7 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "apache-airflow==2.10.4", # aligned with base Docker image
+    "apache-airflow[google]==2.10.4", # aligned with base Docker image
     "mypy>=1.15.0",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",

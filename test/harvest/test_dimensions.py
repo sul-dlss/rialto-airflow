@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import pytest
 
 import dotenv
@@ -12,9 +11,6 @@ from rialto_airflow.database import Publication
 from test.utils import num_jsonl_objects
 
 dotenv.load_dotenv()
-
-dimensions_user = os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_USER")
-dimensions_password = os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_PASS")
 
 
 def test_publications_from_dois():

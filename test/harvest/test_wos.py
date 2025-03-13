@@ -188,6 +188,49 @@ def test_customization_error(
     assert "got a 500 Customization Error" in caplog.text
 
 
+def test_not_found_error(test_session, tmp_path, caplog, mock_authors, requests_mock):
+    """
+    A 404 error from WoS should be logged, but should not stop harvesting.
+    """
+    requests_mock.get(
+        re.compile(".*"),
+        text="Not Found",
+        reason="Not Found",
+        status_code=404,
+        headers={"Content-Type": "application/text"},
+    )
+
+    snapshot = Snapshot(tmp_path, "rialto_test")
+    wos.harvest(snapshot, limit=50)
+    assert test_session().query(Publication).count() == 0, "no publications loaded"
+    assert (
+        "404 Client Error: Not Found for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
+        in caplog.text
+    )
+
+
+def test_server_error(test_session, tmp_path, caplog, mock_authors, requests_mock):
+    """
+    A 500 error from WoS should be logged, but should not stop harvesting.
+    """
+    requests_mock.get(
+        re.compile(".*"),
+        text="shrug",
+        reason="Internal Server Error",
+        status_code=500,
+        headers={"Content-Type": "application/text"},
+    )
+
+    snapshot = Snapshot(tmp_path, "rialto_test")
+    wos.harvest(snapshot, limit=50)
+    assert test_session().query(Publication).count() == 0, "no publications loaded"
+    assert (
+        "500 Server Error: Internal Server Error for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
+        in caplog.text
+    )
+    assert " -- shrug" in caplog.text
+
+
 def test_empty_payload(test_session, tmp_path, caplog, mock_authors, requests_mock):
     """
     A 200 OK from WoS with an empty JSON payload should be skipped over.

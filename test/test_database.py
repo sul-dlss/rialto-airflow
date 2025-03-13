@@ -134,6 +134,30 @@ def test_create_schema(
             )
             association_columns = [row[0] for row in association_result]
             assert set(association_columns) == {"publication_id", "author_id"}
+
+            funder_result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='funder'"
+                )
+            )
+            author_columns = [row[0] for row in funder_result]
+            assert set(author_columns) == {
+                "id",
+                "name",
+                "grid_id",
+                "ror_id",
+                "federal",
+                "created_at",
+                "updated_at",
+            }
+
+            funder_association = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='pub_funder_association'"
+                )
+            )
+            association_columns = [row[0] for row in funder_association]
+            assert set(association_columns) == {"publication_id", "funder_id"}
     finally:
         # even if exception raised, tear down the database
         teardown_database(snapshot.database_name)

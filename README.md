@@ -152,6 +152,14 @@ One line for running the linter, the type checker, and the test suite (failing f
 uv run ruff format --diff . && uv run ruff check && uv run mypy . && uv run pytest
 ```
 
+### Troubleshooting
+
+Getting errors with dependencies when trying to run the tests that look something like this?
+
+`AttributeError: module 'psycopg2' has no attribute 'paramstyle'`
+
+Try clearing the virtual env folder and let it rebuild on the next run: `rm -rf .venv`
+
 ## Deployment
 
 First you'll need to build a Docker image and publish it DockerHub:

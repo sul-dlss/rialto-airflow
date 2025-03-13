@@ -16,10 +16,6 @@ dotenv.load_dotenv()
 ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
 
-TOTAL_USERS_CONSTANT = (
-    72000  # Where does this come from? It's in the stats spreadsheet.
-)
-
 BASE_URL = os.environ.get("AIRFLOW_VAR_MAIS_BASE_URL")
 CLIENT_ID = os.environ.get("AIRFLOW_VAR_MAIS_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("AIRFLOW_VAR_MAIS_SECRET")
@@ -167,19 +163,9 @@ def get_orcid_stats(current_records: list[ORCIDRecord]) -> ORCIDStats:
     read_scope_count = (
         read_limited_count - read_write_count
     )  # Users with ONLY read access
-    total_scoped = read_scope_count + read_write_count
-    total_users = TOTAL_USERS_CONSTANT - total_scoped
-    write_scope = read_limited_count - read_scope_count
-    percent_write_scope = (
-        round((read_write_count / total_scoped), 2) if total_scoped else 0.0
-    )
 
     return [
         today_str,
-        total_users,
-        percent_write_scope,
         read_scope_count,
         read_write_count,
-        write_scope,
-        total_scoped,
     ]

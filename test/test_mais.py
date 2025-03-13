@@ -9,8 +9,6 @@ from rialto_airflow import mais
 ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
 
-TOTAL_USERS_CONSTANT = 72000
-
 
 @pytest.fixture(scope="module")
 def base_url():
@@ -156,18 +154,10 @@ def test_get_orcid_stats_with_data():
     read_scope_count = (
         read_limited_count - read_write_count
     )  # Read without write access
-    total_scoped = read_scope_count + read_write_count
-    expected_percent_write_scope = (
-        round((read_write_count / total_scoped), 2) if total_scoped else 0.0
-    )
     today_str = date.today().strftime("%m/%d/%Y")
 
     assert stats == [
         today_str,
-        TOTAL_USERS_CONSTANT - total_scoped,
-        expected_percent_write_scope,
         read_scope_count,
         read_write_count,
-        read_write_count,
-        total_scoped,
     ]

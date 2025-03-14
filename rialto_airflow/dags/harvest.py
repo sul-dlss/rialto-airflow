@@ -5,6 +5,7 @@ import shutil
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
@@ -27,7 +28,7 @@ except TypeError:
 except ValueError:
     pass
 
-if harvest_limit is None:
+if harvest_limit:
     logging.info(
         f"⚠️ harvest_limit is set to {harvest_limit}, running harvest will stop at the limit number of publications per source"
     )
@@ -37,10 +38,28 @@ else:
     )
 
 
+honeybadger.configure(
+    api_key=Variable.get("honeybadger_api_key"),
+    environment=Variable.get("honeybadger_env"),
+    force_sync=True,
+)  # type: ignore
+
+
+def task_failure_notify(context):
+    task = context["task"].task_id
+    logging.error(f"Task {task} failed.")
+    honeybadger.notify(
+        error_class="Task failure",
+        error_message=f"Task {task} failed in {context.get('task_instance_key_str')}",
+        context=context,
+    )
+
+
 @dag(
     schedule=None,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
+    default_args={"on_failure_callback": task_failure_notify},
 )
 def harvest():
     @task()

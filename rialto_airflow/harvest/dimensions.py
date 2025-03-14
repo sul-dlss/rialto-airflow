@@ -139,9 +139,8 @@ def login():
     Login to Dimensions API and cache the result.
     """
     dimcli.login(
-        os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_USER"),
-        os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_PASS"),
-        "https://app.dimensions.ai",
+        key=os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_KEY"),
+        endpoint="https://app.dimensions.ai/api/dsl/v2",
     )
 
 

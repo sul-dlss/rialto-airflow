@@ -24,7 +24,7 @@ def _normalize_name(name: str) -> str:
 
 
 # read in the federal funders dataset
-dataset_path = Path(__file__).parent / "239_US_Federal_Funders_for_filter.csv"
+dataset_path = Path(__file__).parent / "239_US_Federal_Funders_for_filter_with_ror.csv"
 df = pandas.read_csv(dataset_path, encoding="ISO-8859-1")
 
 # remove parenthethical acronyms

@@ -24,14 +24,14 @@ def _normalize_name(name: str) -> str:
 
 
 # read in the federal funders dataset
-dataset_path = Path(__file__).parent / "239_US_Federal_Funders_for_filter.csv"
+dataset_path = Path(__file__).parent / "239_US_Federal_Funders_for_filter_with_ror.csv"
 df = pandas.read_csv(dataset_path, encoding="ISO-8859-1")
 
 # remove parenthethical acronyms
-df["Name"] = df["Name"].apply(_normalize_name)
+df["name"] = df["name"].apply(_normalize_name)
 
 # create a dictionary mapping of name to grid id
-name_to_grid_id = df.set_index("Name").to_dict()["ID"]
+name_to_grid_id = df.set_index("name").to_dict()["id"]
 
 # create a dictionary mapping of grid_id to name
-grid_id_to_name = df.set_index("ID").to_dict()["Name"]
+grid_id_to_name = df.set_index("id").to_dict()["name"]

@@ -168,17 +168,26 @@ def get_json(resp: requests.Response) -> Optional[dict]:
             raise e
 
 
-def check_status(resp):
+def check_status(resp: requests.Response) -> bool:
     # see https://github.com/sul-dlss/rialto-airflow/issues/208
     if (
         resp.status_code == 500
         and resp.headers.get("Content-Type") == "application/json"
         and "Customization error" in resp.json().get("message", "")
     ):
+        # TODO: this would be a good place for a honeybadger alert, so missing data doesn't fall through the cracks
         logging.error(f"got a 500 Customization Error when looking up {resp.url}")
         return False
     else:
-        resp.raise_for_status()
+        # try raise_for_status() is pretty much what requests.Response.ok() does. But
+        # doing similar, instead of a conditional on the ok() result, allows us to leverage
+        # the error message building that raise_for_status() already does.
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            # TODO: this would be a good place for a honeybadger alert, so missing data doesn't fall through the cracks
+            logging.error(f"{e} -- {resp.text}")
+            return False
         return True
 
 

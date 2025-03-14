@@ -5,7 +5,7 @@ import shutil
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
-from honeybadger import honeybadger # type: ignore
+from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
@@ -41,21 +41,17 @@ else:
 honeybadger.configure(
     api_key=Variable.get("honeybadger_api_key"),
     environment=Variable.get("honeybadger_env"),
-) # type: ignore
-logging.info(f"Honeybadger configured with API key {Variable.get('honeybadger_api_key')}")
-# This will work:
-# honeybadger.notify(
-#     error_class="Testing configuration",
-#     error_message=f"Testing configuration for HB",
-# )
+    force_sync=True,
+)  # type: ignore
+
 
 def task_failure_notify(context):
-    task = context['task'].task_id
+    task = context["task"].task_id
     logging.error(f"Task {task} failed.")
     honeybadger.notify(
         error_class="Task failure",
-        error_message=f"Task {task} failed in {context.get('dag_run')}",
-        context=context
+        error_message=f"Task {task} failed in {context.get('task_instance_key_str')}",
+        context=context,
     )
 
 
@@ -76,7 +72,6 @@ def harvest():
         create_database(snapshot.database_name)
         create_schema(snapshot.database_name)
 
-        raise Exception("Testing a callback")
         return snapshot
 
     @task()

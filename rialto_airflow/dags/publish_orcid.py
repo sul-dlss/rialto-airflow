@@ -11,7 +11,10 @@ from rialto_airflow.mais import (
 
 from rialto_airflow.google import (
     append_rows_to_google_sheet,
+    replace_file_in_google_drive,
 )
+
+from rialto_airflow.utils import rialto_active_authors_file
 
 data_dir = Variable.get("data_dir")
 mais_base_url = Variable.get("mais_base_url")
@@ -19,6 +22,7 @@ mais_client_id = Variable.get("mais_client_id")
 mais_client_secret = Variable.get("mais_secret")
 gcp_conn_id = Variable.get("google_connection")
 orcid_integration_sheet_id = Variable.get("orcid_integration_sheet_id")
+orcid_authors_file_id = Variable.get("orcid_authors_file_id")
 
 
 @dag(
@@ -28,7 +32,18 @@ orcid_integration_sheet_id = Variable.get("orcid_integration_sheet_id")
 )
 def publish_orcid():
     @task
-    def orcid_integration_stats():
+    def update_authors():
+        """
+        Update the authors.csv file in Google Drive with the latest authors data CSV file.
+        """
+        replace_file_in_google_drive(
+            rialto_active_authors_file(data_dir),
+            orcid_authors_file_id,
+        )
+        return True
+
+    @task
+    def update_orcid_integration_stats():
         """
         Get current ORCID integration stats from the ORCID integration API and write to file in Google Drive.
         """
@@ -40,7 +55,9 @@ def publish_orcid():
         )
         return orcid_stats
 
-    orcid_integration_stats()
+    update_authors()
+
+    update_orcid_integration_stats()
 
 
 publish_orcid()

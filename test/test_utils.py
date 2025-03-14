@@ -27,6 +27,14 @@ def test_rialto_authors_file():
         utils.rialto_authors_file("/no/authors/file/here")
 
 
+def test_rialto_active_authors_file():
+    csv_file = utils.rialto_active_authors_file("test/data")
+    assert Path(csv_file).is_file()
+
+    with pytest.raises(Exception):
+        utils.rialto_active_authors_file("/no/authors/file/here")
+
+
 def test_normalize_doi():
     assert utils.normalize_doi("https://doi.org/10.1234/5678") == "10.1234/5678"
     assert utils.normalize_doi("https://dx.doi.org/10.1234/5678") == "10.1234/5678"

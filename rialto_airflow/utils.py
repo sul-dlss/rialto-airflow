@@ -12,6 +12,16 @@ def rialto_authors_file(data_dir):
         raise Exception(f"authors file missing at {authors_file}")
 
 
+def rialto_active_authors_file(data_dir):
+    """Get the path to the rialto-orgs authors_active.csv"""
+    authors_file = Path(data_dir) / "authors_active.csv"
+
+    if authors_file.is_file():
+        return str(authors_file)
+    else:
+        raise Exception(f"authors file missing at {authors_file}")
+
+
 def normalize_doi(doi):
     if doi is None:
         return None

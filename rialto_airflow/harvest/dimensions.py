@@ -75,12 +75,12 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
 
 
 def orcid_publications(orcid: str) -> Generator[dict, None, None]:
+    logging.info("looking up publications for orcid {orcid}")
     dois = dois_from_orcid(orcid)
     yield from publications_from_dois(dois)
 
 
 def dois_from_orcid(orcid):
-    logging.info(f"looking up dois for orcid {orcid}")
     q = """
         search publications where researchers.orcid_id = "{}"
         return publications [doi]
@@ -122,7 +122,13 @@ def publication_fields():
     Get a list of all possible fields for publications.
     """
     result = dsl().query("describe schema")
-    return list(result.data["sources"]["publications"]["fields"].keys())
+    fields = list(result.data["sources"]["publications"]["fields"].keys())
+
+    # for some reason "researchers" causes 408 errors when harvesting, maybe we
+    # can add it back when this is resolved?
+    fields.remove("researchers")
+
+    return fields
 
 
 def normalize_publication(pub) -> dict:

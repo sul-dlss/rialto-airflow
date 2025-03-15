@@ -1,8 +1,11 @@
 import json
 import logging
+import os
 import pytest
 
 import dotenv
+import dimcli
+import requests
 
 from rialto_airflow.harvest import dimensions
 from rialto_airflow.snapshot import Snapshot
@@ -21,22 +24,27 @@ def test_publications_from_dois():
         )
     )
     assert len(pubs) == 2
-    assert len(pubs[0].keys()) == 74, "first publication has 74 columns"
-    assert len(pubs[1].keys()) == 74, "second publication has 74 columns"
+    assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
+    assert len(pubs[1].keys()) == 73, "second publication has 73 columns"
 
 
 def test_publication_fields():
     fields = dimensions.publication_fields()
-    assert len(fields) == 74
+    assert len(fields) == 73
     assert "title" in fields
+
+    # For some reason including the "researchers" field can cause the Dimensions
+    # API to throw an HTTP 408 error. Maybe this can be altered once this issue is
+    # addressed: https://github.com/digital-science/dimcli/issues/90
+    assert "researchers" not in fields
 
 
 def test_orcid_publications():
     pubs = list(dimensions.orcid_publications("0000-0002-2317-1967"))
     assert len(pubs) == 16
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
-    assert len(pubs[0].keys()) == 74, "first publication has 74 columns"
-    assert len(pubs[1].keys()) == 74, "second publication has 74 columns"
+    assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
+    assert len(pubs[1].keys()) == 73, "second publication has 73 columns"
 
 
 @pytest.fixture
@@ -275,3 +283,30 @@ def test_fill_in_no_doi(
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
     assert "filled in 0 publications" in caplog.text
     assert "No data found for 10.1515/9781503624199" in caplog.text
+
+
+def test_408_errors():
+    """
+    The Dimensions API can intermittently throw HTTP 408 errors when we include
+    "researchers" in the list of fields that we want to return.
+
+    If this test starts to fail that should be a flag that we can consider adding
+    "researchers" back to the list of fields that we query Dimensions for.
+
+    See: https://github.com/digital-science/dimcli/issues/90
+    """
+    dimcli.login(
+        key=os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_KEY"),
+        endpoint="https://app.dimensions.ai/api/dsl/v2",
+    )
+
+    dsl = dimcli.Dsl()
+
+    q = """
+    search publications where doi in ["10.3847/1538-4357/ad9749","10.1103/physrevd.111.042005","10.3847/1538-4357/ad8de0","10.1364/fio.2024.jtu4a.2","10.3847/1538-4357/ad65ce","10.1364/cleo_si.2024.sm1d.3","10.1103/physrevd.110.042001","10.3847/1538-4357/ad3e83","10.3847/2041-8213/ad5beb"]
+    return publications [researchers]
+    limit 1000
+    """
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        dsl.query(q)

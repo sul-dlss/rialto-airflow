@@ -64,9 +64,8 @@ def mock_dimensions(monkeypatch):
     monkeypatch.setattr(dimensions, "orcid_publications", f)
 
 
-def test_harvest(tmp_path, test_session, mock_authors, mock_dimensions):
+def test_harvest(snapshot, test_session, mock_authors, mock_dimensions):
     # harvest from dimensions
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     dimensions.harvest(snapshot)
 
     # the mocked openalex api returns the same publication for both authors
@@ -85,10 +84,9 @@ def test_harvest(tmp_path, test_session, mock_authors, mock_dimensions):
 
 
 def test_harvest_when_doi_exists(
-    tmp_path, test_session, mock_publication, mock_authors, mock_dimensions
+    snapshot, test_session, mock_publication, mock_authors, mock_dimensions
 ):
     # harvest from dimensions
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     dimensions.harvest(snapshot)
 
     # jsonl file is there and has two lines (one for each author)
@@ -110,7 +108,7 @@ def test_harvest_when_doi_exists(
 
 
 def test_harvest_when_pub_author_association_exists(
-    tmp_path,
+    snapshot,
     test_session,
     mock_publication,
     mock_authors,
@@ -118,7 +116,6 @@ def test_harvest_when_pub_author_association_exists(
     mock_dimensions,
 ):
     # harvest from dimensions
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     dimensions.harvest(snapshot)
 
     # jsonl file is there and has two lines (one for each author)
@@ -156,9 +153,8 @@ def mock_many_dimensions(monkeypatch):
     monkeypatch.setattr(dimensions, "orcid_publications", f)
 
 
-def test_log_message(tmp_path, mock_authors, mock_many_dimensions, caplog):
+def test_log_message(snapshot, mock_authors, mock_many_dimensions, caplog):
     caplog.set_level(logging.INFO)
-    snapshot = Snapshot(tmp_path, "rialto_test")
     dimensions.harvest(snapshot, limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
 
@@ -214,10 +210,9 @@ def mock_dimensions_doi(monkeypatch):
 
 
 def test_fill_in(
-    tmp_path, test_session, mock_no_dim_publication, mock_dimensions_doi, caplog
+    snapshot, test_session, mock_no_dim_publication, mock_dimensions_doi, caplog
 ):
     caplog.set_level(logging.INFO)
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     # set up a pre-existing jsonl file
     jsonl_file = snapshot.path / "dimensions.jsonl"
     mock_jsonl(jsonl_file)
@@ -242,29 +237,21 @@ def test_fill_in(
     assert "filled in 1 publications" in caplog.text
 
 
-@pytest.fixture
-def mock_dimensions_not_found(monkeypatch):
-    """
-    Mock our function for fetching publications by DOI from Dimensions.
-    """
-
-    def f(*args, **kwargs):
-        raise StopIteration
-
-    monkeypatch.setattr(dimensions, "publications_from_dois", f)
-
-
-def test_fill_in_no_doi(
-    tmp_path,
+def test_fill_in_no_dimensions(
+    snapshot,
     test_session,
     mock_publication,
     mock_no_dim_publication,
-    mock_dimensions_not_found,
     caplog,
     monkeypatch,
 ):
     caplog.set_level(logging.INFO)
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+
+    # make it look like Dimensions returns no publications by DOI
+    monkeypatch.setattr(
+        dimensions, "publications_from_dois", lambda *args, **kwargs: []
+    )
+
     # set up a pre-existing jsonl file
     jsonl_file = snapshot.path / "dimensions.jsonl"
     mock_jsonl(jsonl_file)
@@ -282,7 +269,6 @@ def test_fill_in_no_doi(
     # adds 0 publications to the jsonl file
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
     assert "filled in 0 publications" in caplog.text
-    assert "No data found for 10.1515/9781503624199" in caplog.text
 
 
 def test_408_errors():
@@ -310,3 +296,44 @@ def test_408_errors():
 
     with pytest.raises(requests.exceptions.HTTPError):
         dsl.query(q)
+
+
+def test_fill_in_no_doi(
+    snapshot,
+    test_session,
+    mock_no_dim_publication,
+    caplog,
+    monkeypatch,
+):
+    """
+    Test that a publication coming back from Dimensions without DOI doesn't
+    cause an exception.
+    """
+
+    monkeypatch.setattr(
+        dimensions,
+        "publications_from_dois",
+        lambda *args, **kwargs: [{"title": "Example"}],
+    )
+
+    caplog.set_level(logging.INFO)
+
+    # set up a pre-existing jsonl file
+    jsonl_file = snapshot.path / "dimensions.jsonl"
+    mock_jsonl(jsonl_file)
+    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
+
+    dimensions.fill_in(snapshot, jsonl_file)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624199")
+            .first()
+        )
+        assert pub.dim_json is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
+    assert "unable to determine what DOI to update" in caplog.text
+    assert "filled in 0 publications" in caplog.text

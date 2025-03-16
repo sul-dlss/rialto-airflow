@@ -87,7 +87,9 @@ def harvest():
         """
         Fetch the data by ORCID from Dimensions.
         """
-        return dimensions.harvest(snapshot, limit=harvest_limit)
+        jsonl_file = dimensions.harvest(snapshot, limit=harvest_limit)
+
+        return jsonl_file
 
     @task()
     def openalex_harvest(snapshot):

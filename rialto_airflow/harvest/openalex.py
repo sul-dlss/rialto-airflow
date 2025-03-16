@@ -117,26 +117,30 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 .where(Publication.openalex_json.is_(None))
                 .execution_options(yield_per=100)
             )
-            # TODO: consider getting data for more than one DOI at a time
-            for row in select_session.execute(stmt):
-                try:
-                    openalex_pub = Works()[f"https://doi.org/{row.doi}"]
-                    # TODO: get a key so we don't have to sleep!
-                    time.sleep(1)
-                except requests.exceptions.HTTPError as e:
-                    logging.info(f"No data found for {row.doi}: {e}")
-                    continue
 
-                with get_session(snapshot.database_name).begin() as update_session:
-                    update_stmt = (
-                        update(Publication)  # type: ignore
-                        .where(Publication.doi == row.doi)
-                        .values(openalex_json=openalex_pub)
-                    )
-                    update_session.execute(update_stmt)
+            for rows in select_session.execute(stmt).partitions():
+                # since the query uses yield_per=100 we will be looking up 100 DOIs at a time
+                dois = "|".join([normalize_doi(row["doi"]) for row in rows])
 
-                count += 1
-                jsonl_output.write(json.dumps(openalex_pub) + "\n")
+                # we could remove this if we get more API privileges
+                time.sleep(1)
+
+                for openalex_pub in Works().filter(doi=dois).get():
+                    doi = normalize_doi(openalex_pub.get("doi"))
+                    if doi is None:
+                        logging.warn("unable to determine what DOI to update")
+                        continue
+
+                    with get_session(snapshot.database_name).begin() as update_session:
+                        update_stmt = (
+                            update(Publication)  # type: ignore
+                            .where(Publication.doi == doi)
+                            .values(openalex_json=openalex_pub)
+                        )
+                        update_session.execute(update_stmt)
+
+                    count += 1
+                    jsonl_output.write(json.dumps(openalex_pub) + "\n")
 
     logging.info(f"filled in {count} publications")
 

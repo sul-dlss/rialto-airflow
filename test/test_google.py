@@ -144,6 +144,9 @@ def test_replace_file_in_google_drive():
     assert len(df) == 11  # 11 rows in the updated file
     assert df.to_dict("records")[10]["sunetid"] == "sunet11"
 
+    # Clenup the test file
+    delete_google_file(google_drive_id(), "authors.csv")
+
 
 def test_upload_file_to_google_drive():
     # Delete the file if it exists
@@ -157,3 +160,6 @@ def test_upload_file_to_google_drive():
 
     # Confirm the file now exists in the shared google drive
     assert google_file_exists(google_drive_id(), "authors.csv") is True
+
+    # Clenup the test file
+    delete_google_file(google_drive_id(), "authors.csv")

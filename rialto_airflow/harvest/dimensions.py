@@ -42,6 +42,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
 
                 # dimensions doesn't want scheme and host
                 orcid_query_str = normalize_orcid(author.orcid)
+
                 for dimensions_pub_json in orcid_publications(orcid_query_str):
                     count += 1
                     if limit is not None and count > limit:
@@ -75,7 +76,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
 
 
 def orcid_publications(orcid: str) -> Generator[dict, None, None]:
-    logging.info("looking up publications for orcid {orcid}")
+    logging.info(f"looking up publications for orcid {orcid}")
     dois = dois_from_orcid(orcid)
     yield from publications_from_dois(dois)
 
@@ -104,6 +105,7 @@ def publications_from_dois(dois: list, batch_size=200):
     fields = " + ".join(publication_fields())
     for doi_batch in batched(dois, batch_size):
         doi_list = ",".join(['"{}"'.format(doi) for doi in doi_batch])
+        logging.info(f"looking up: {doi_list}")
 
         q = f"""
             search publications where doi in [{doi_list}]
@@ -192,25 +194,28 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 .where(Publication.dim_json.is_(None))
                 .execution_options(yield_per=100)
             )
-            for row in select_session.execute(stmt):
-                try:
-                    dimensions_pub = next(
-                        publications_from_dois([row.doi], batch_size=10)
-                    )
-                except StopIteration:
-                    logging.info(f"No data found for {row.doi}:")
-                    continue
 
-                with get_session(snapshot.database_name).begin() as update_session:
-                    update_stmt = (
-                        update(Publication)  # type: ignore
-                        .where(Publication.doi == row.doi)
-                        .values(dim_json=dimensions_pub)
-                    )
-                    update_session.execute(update_stmt)
+            for rows in select_session.execute(stmt).partitions():
+                dois = [row["doi"] for row in rows]
 
-                count += 1
-                jsonl_output.write(json.dumps(dimensions_pub) + "\n")
+                # note: we could potentially adjust batch_size upwards if we
+                # want to look up more DOIs at a time
+                for dimensions_pub in publications_from_dois(dois, batch_size=50):
+                    doi = dimensions_pub.get("doi")
+                    if doi is None:
+                        logging.warn("unable to determine what DOI to update")
+                        continue
+
+                    with get_session(snapshot.database_name).begin() as update_session:
+                        update_stmt = (
+                            update(Publication)  # type: ignore
+                            .where(Publication.doi == doi)
+                            .values(dim_json=dimensions_pub)
+                        )
+                        update_session.execute(update_stmt)
+
+                    count += 1
+                    jsonl_output.write(json.dumps(dimensions_pub) + "\n")
 
     logging.info(f"filled in {count} publications")
 

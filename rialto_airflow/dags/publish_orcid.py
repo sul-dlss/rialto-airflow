@@ -26,7 +26,7 @@ orcid_authors_file_id = Variable.get("orcid_authors_file_id")
 
 
 @dag(
-    # schedule=@weekly,
+    schedule="@weekly",
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
 )

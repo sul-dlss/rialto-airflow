@@ -9,6 +9,7 @@ from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
+from rialto_airflow.publish import openaccess
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
@@ -158,6 +159,11 @@ def harvest():
 
         return count
 
+    @task()
+    def publish_openaccess(snapshot):
+        openaccess.write_publications(snapshot)
+        openaccess.write_contributions(snapshot)
+
     snapshot = setup()
 
     snapshot = load_authors(snapshot)
@@ -178,9 +184,13 @@ def harvest():
         snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl
     )
 
-    distill_publications(snapshot, openalex_fill_in, dimensions_fill_in)
+    distilled_pubs = distill_publications(
+        snapshot, openalex_fill_in, dimensions_fill_in
+    )
 
-    link_funders(snapshot, openalex_fill_in, dimensions_fill_in)
+    linked_pubs = link_funders(snapshot, openalex_fill_in, dimensions_fill_in)
+
+    (distilled_pubs, linked_pubs) >> publish_openaccess(snapshot)
 
 
 harvest()

@@ -9,12 +9,15 @@ from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
 from airflow.models import Variable
 import dotenv
+import os
 
 # Load environment variables
 dotenv.load_dotenv()
 
 gcp_conn_id = Variable.get("google_connection", "google_cloud_default")
-google_drive_id = Variable.get("google_drive_id")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
 
 
 # The Google Drive folder ID for the open access dashboard

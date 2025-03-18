@@ -72,6 +72,16 @@ def get_csv_file_contents(file_id):
 
 ###############################################
 # Tests
+def test_open_access_dashboard_folder_id():
+    folder_id = google.open_access_dashboard_folder_id()
+    assert folder_id is not None
+
+
+def orcid_dashboard_folder_id():
+    folder_id = google.orcid_dashboard_folder_id()
+    assert folder_id is not None
+
+
 def test_get_file_id():
     # Confirm the file exists in the shared google drive
     assert google_file_exists(google_drive_id(), "Test") is True

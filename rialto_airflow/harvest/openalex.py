@@ -98,7 +98,7 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
     author_id = authors[0]["id"]
 
     # get all the works for the openalex author id
-    for page in Works().filter(author={"id": author_id}).paginate(per_page=200):
+    for page in Works().filter(author={"id": author_id}).paginate(per_page=100):
         # TODO: get a key so we don't have to sleep!
         time.sleep(1)
 

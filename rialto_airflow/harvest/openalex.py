@@ -4,7 +4,6 @@ import os
 import time
 from pathlib import Path
 
-import requests
 from pyalex import Authors, Works, config
 from typing import Generator
 from sqlalchemy import select, update

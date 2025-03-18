@@ -13,8 +13,11 @@ from rialto_airflow.publish import openaccess
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
+from rialto_airflow.google import (
+    replace_file_in_google_drive,
+)
 
-
+gcp_conn_id = Variable.get("google_connection")
 data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
 sul_pub_host = Variable.get("sul_pub_host")
@@ -164,6 +167,24 @@ def harvest():
         openaccess.write_publications(snapshot)
         openaccess.write_contributions(snapshot)
 
+    @task()
+    def upload_publish_files(snapshot):
+        logging.info(
+            f"Uploading {snapshot.path / 'publications.csv'} to file id {Variable.get('open_access_publications_file_id')}"
+        )
+        logging.info(
+            f"Uploading {snapshot.path / 'contributions.csv'} to file id {Variable.get('open_access_contributions_file_id')}"
+        )
+
+        replace_file_in_google_drive(
+            str(snapshot.path / "publications.csv"),
+            Variable.get("open_access_publications_file_id"),
+        )
+        replace_file_in_google_drive(
+            str(snapshot.path / "contributions.csv"),
+            Variable.get("open_access_contributions_file_id"),
+        )
+
     snapshot = setup()
 
     snapshot = load_authors(snapshot)
@@ -190,7 +211,11 @@ def harvest():
 
     linked_pubs = link_funders(snapshot, openalex_fill_in, dimensions_fill_in)
 
-    (distilled_pubs, linked_pubs) >> publish_openaccess(snapshot)
+    (
+        (distilled_pubs, linked_pubs)
+        >> publish_openaccess(snapshot)
+        >> upload_publish_files(snapshot)
+    )
 
 
 harvest()

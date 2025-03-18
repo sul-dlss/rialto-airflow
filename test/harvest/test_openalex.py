@@ -3,9 +3,7 @@ import json
 import logging
 import pytest
 
-import requests
 from rialto_airflow.harvest import openalex
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.database import Publication
 
 from test.utils import num_jsonl_objects

@@ -114,7 +114,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.openalex_json.is_(None))
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=50)
             )
 
             for rows in select_session.execute(stmt).partitions():

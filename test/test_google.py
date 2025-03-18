@@ -56,26 +56,8 @@ def google_file_exists(folder_id, filename):
     return len(results.get("files", [])) > 0
 
 
-def get_file_id(folder_id, filename):
-    results = (
-        google_drive_hook()
-        .files()
-        .list(
-            q=f"'{folder_id}' in parents and name = '{filename}' and trashed = false",
-            spaces="drive",
-            fields="files(id)",
-            pageSize=1,
-            includeItemsFromAllDrives=True,
-            supportsAllDrives=True,
-        )
-        .execute()
-    )
-    files = results.get("files", [])
-    return files[0]["id"] if files else None
-
-
 def delete_google_file(folder_id, filename):
-    file_id = get_file_id(folder_id, filename)
+    file_id = google.get_file_id(folder_id, filename)
     if file_id:
         google_drive_hook().files().update(
             fileId=file_id, supportsAllDrives=True, body={"trashed": True}
@@ -90,6 +72,20 @@ def get_csv_file_contents(file_id):
 
 ###############################################
 # Tests
+def test_get_file_id():
+    # Confirm the file exists in the shared google drive
+    assert google_file_exists(google_drive_id(), "Test") is True
+    # Confirm the file ID of the existing file
+    file_id = google.get_file_id(google_drive_id(), "Test")
+    assert file_id == google_sheet_id()
+
+    # Confirm the file does not exist in the shared google drive
+    assert google_file_exists(google_drive_id(), "bogus.csv") is False
+    # Confirm the file ID of the non-existing file
+    file_id = google.get_file_id(google_drive_id(), "bogus.csv")
+    assert file_id is None
+
+
 def test_append_rows_to_google_sheet():
     # Start with a clear sheet
     google.clear_google_sheet(google_sheet_id())
@@ -121,7 +117,7 @@ def test_replace_file_in_google_drive():
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
 
     # Get the file ID of the uploaded file and ensure it exists
-    file_id = get_file_id(google_drive_id(), "authors.csv")
+    file_id = google.get_file_id(google_drive_id(), "authors.csv")
     assert file_id is not None
 
     # Confirm the file contents are as expected

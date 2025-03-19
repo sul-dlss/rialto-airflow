@@ -405,5 +405,45 @@ def test_missing_dim_issn(test_session, snapshot):
     assert _pub(session).apc is None
 
 
+def test_non_int_year(test_session, snapshot, caplog):
+    """
+    Test that non-integer years don't cause a problem.
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    sulpub_json={"year": "nope"},
+                    dim_json={"year": None}
+                ),
+            ]
+        )
+
+    distill(snapshot)
+    assert _pub(session).pub_year is None
+
+
+def test_non_int_year_fallback(test_session, snapshot, caplog):
+    """
+    Test that sulpub non-integer year doesn't prevent a year coming from
+    dimensions.
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    sulpub_json={"year": "nope"},
+                    dim_json={"year": 2022},
+                ),
+            ]
+        )
+
+    distill(snapshot)
+    assert _pub(session).pub_year == 2022
+    assert 'got "nope" instead of int' in caplog.text
+
+
 def _pub(session, doi="10.1515/9781503624153"):
     return session.query(Publication).where(Publication.doi == doi).first()

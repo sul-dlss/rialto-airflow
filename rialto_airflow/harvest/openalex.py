@@ -114,17 +114,34 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.openalex_json.is_(None))
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=50)
             )
 
             for rows in select_session.execute(stmt).partitions():
-                # since the query uses yield_per=100 we will be looking up 100 DOIs at a time
-                dois = "|".join([normalize_doi(row["doi"]) for row in rows])
+                # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
+                dois = [normalize_doi(row["doi"]) for row in rows]
+
+                # Commas are a reserved character in openalex, so until there is
+                # a way to escape them we will need to drop them
+                # https://docs.openalex.org/how-to-use-the-api/get-lists-of-entities/filter-entity-lists#intersection-and
+                #
+                # Also if a doi starts with 'doi:' that confuses the OpenAlex
+                # API because it interprets it as trying to change the field
+                # that is being matched as trying to do an OR query with
+                # multiple fields.
+
+                dois_filtered = filter(
+                    lambda doi: "," not in doi and not doi.startswith("doi:"), dois
+                )
+
+                # looking up multiple DOIs is supported by pipe separating them
+                dois_joined = "|".join(dois_filtered)
 
                 # we could remove this if we get more API privileges
                 time.sleep(1)
 
-                for openalex_pub in Works().filter(doi=dois).get():
+                logging.info(f"looking up DOIs {dois_joined}")
+                for openalex_pub in Works().filter(doi=dois_joined).get():
                     doi = normalize_doi(openalex_pub.get("doi"))
                     if doi is None:
                         logging.warn("unable to determine what DOI to update")

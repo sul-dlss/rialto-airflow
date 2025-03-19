@@ -73,13 +73,15 @@ def _pub_year(pub):
     """
     Get the pub_year from sulpub, dimensions, openalex and then wos.
     """
-    return _first_int(
+    return _first(
         pub,
         rules=[
-            JsonPathRule("sulpub_json", "year"),
-            JsonPathRule("dim_json", "year"),
-            JsonPathRule("openalex_json", "publication_year"),
-            JsonPathRule("wos_json", "static_data.summary.pub_info.pubyear"),
+            JsonPathRule("sulpub_json", "year", is_int=True),
+            JsonPathRule("dim_json", "year", is_int=True),
+            JsonPathRule("openalex_json", "publication_year", is_int=True),
+            JsonPathRule(
+                "wos_json", "static_data.summary.pub_info.pubyear", is_int=True
+            ),
         ],
     )
 
@@ -172,6 +174,7 @@ def _apc_oa_dataset(dim_json, context):
 class JsonPathRule:
     col: str  # the JSONB column name to apply the rule to
     matcher: str  # a JSON Path to evaluate against the JSON
+    is_int: bool = False
 
 
 @dataclass
@@ -186,7 +189,7 @@ class FuncRule:
 Rules = list[JsonPathRule | FuncRule]
 
 
-def _first(pub, rules: Rules) -> Optional[str]:
+def _first(pub, rules: Rules) -> Optional[str | int]:
     """
     Provide a Publication and a list of rules and return the result of the first rule that matches.
     """
@@ -199,7 +202,15 @@ def _first(pub, rules: Rules) -> Optional[str]:
             jpath = jsonpath_ng.parse(rule.matcher)
             results = jpath.find(data)
             if len(results) > 0:
-                return results[0].value
+                value = results[0].value
+                if rule.is_int:
+                    try:
+                        return int(value)
+                    except ValueError:
+                        # continue matching if the rule wants an int but we don't have one
+                        logging.warn(f'got "{value}" instead of int')
+                else:
+                    return value
 
         # if the rule is a function pass it the json, and optional context
         elif callable(rule.matcher):
@@ -212,14 +223,3 @@ def _first(pub, rules: Rules) -> Optional[str]:
                 return result
 
     return None
-
-
-def _first_int(pub, rules: Rules) -> Optional[int]:
-    """
-    Return the first rule match for the publication as an int.
-    """
-    result = _first(pub, rules)
-    if result:
-        return int(result)
-    else:
-        return None

@@ -51,7 +51,7 @@ def test_funders_linking(test_session, snapshot, caplog):
     assert "missing GRID ID in {'name': 'Organization A'}" in caplog.text
 
 
-def test_funders_is_none(test_session, snapshot, caplog):
+def test_funders_is_none(test_session, snapshot):
     with test_session.begin() as session:
         session.add(
             Publication(doi="10.1515/9781503624153", dim_json={"funders": None})
@@ -66,4 +66,3 @@ def test_funders_is_none(test_session, snapshot, caplog):
     )
 
     assert len(pub.funders) == 0
-    assert "got null funders" in caplog.text

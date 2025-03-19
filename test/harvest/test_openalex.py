@@ -3,6 +3,8 @@ import json
 import logging
 import pytest
 
+import pyalex
+from pyalex import Works
 from rialto_airflow.harvest import openalex
 from rialto_airflow.database import Publication
 
@@ -262,3 +264,28 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
     assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_comma():
+    """
+    The Dimensions API doesn't allow you to look up DOIs with commas in them. If
+    this starts working again we can stop ignoring them when looking them up by
+    DOI when doing the fill-in process.
+    """
+    with pytest.raises(pyalex.api.QueryError, match="Invalid query parameter"):
+        dois = "10.1103/physrevd.72,031101"
+        pyalex.Works().filter(doi=dois).get()
+
+
+def test_colon():
+    """
+    The Dimensions API doesn't allow you to look up multiple DOIs if they start with
+    'doi:' since it confuses their query syntax into thinking you are trying to
+    filter using an OR boolean. If this test starts passing we can consider
+    stopping ignoring them.
+    """
+    with pytest.raises(
+        pyalex.api.QueryError, match="It looks like you're trying to do an OR query"
+    ):
+        dois = "abc123|doi:abc123"
+        pyalex.Works().filter(doi=dois).get()

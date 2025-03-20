@@ -415,6 +415,7 @@ def test_non_int_year(test_session, snapshot, caplog):
                 Publication(
                     doi="10.1515/9781503624153",
                     sulpub_json={"year": "nope"},
+                    dim_json={"year": None},
                 ),
             ]
         )

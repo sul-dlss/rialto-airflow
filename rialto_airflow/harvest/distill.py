@@ -206,7 +206,7 @@ def _first(pub, rules: Rules) -> Optional[str | int]:
                 if rule.is_int:
                     try:
                         return int(value)
-                    except ValueError:
+                    except (ValueError, TypeError):
                         # continue matching if the rule wants an int but we don't have one
                         logging.warn(f'got "{value}" instead of int')
                 else:

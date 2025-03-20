@@ -28,7 +28,7 @@ def normalize_doi(doi):
 
     doi = doi.strip().lower()
     doi = doi.replace("https://doi.org/", "").replace("https://dx.doi.org/", "")
-    doi = re.sub("^doi: ", "", doi)
+    doi = re.sub(r"^doi:\s?", "", doi)
 
     return doi
 

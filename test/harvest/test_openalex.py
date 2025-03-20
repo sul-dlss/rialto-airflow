@@ -4,7 +4,6 @@ import logging
 import pytest
 
 import pyalex
-from pyalex import Works
 from rialto_airflow.harvest import openalex
 from rialto_airflow.database import Publication
 

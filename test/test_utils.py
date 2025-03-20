@@ -42,7 +42,9 @@ def test_normalize_doi():
         utils.normalize_doi("10.1103/PhysRevLett.96.07390")
         == "10.1103/physrevlett.96.07390"
     )
+    assert utils.normalize_doi(" 10.1234/5678 ") == "10.1234/5678"
     assert utils.normalize_doi(" doi: 10.1234/5678 ") == "10.1234/5678"
+    assert utils.normalize_doi("doi:10.1234/5678") == "10.1234/5678"
     assert utils.normalize_doi(None) is None
 
 

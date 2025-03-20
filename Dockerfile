@@ -17,7 +17,6 @@ COPY README.md uv.lock pyproject.toml .
 # By building the wheels and then installing them with `uv pip install` we will
 # ensure that uv gets the dependencies (from uv.lock) and puts them in
 # /home/airflow/.local
- 
+
 RUN uv build
 RUN uv pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" dist/*.whl
-

@@ -3,7 +3,6 @@ from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm.session import Session
 
 
 from rialto_airflow.database import (

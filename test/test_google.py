@@ -7,6 +7,7 @@ from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
 
 from rialto_airflow import google
+import time
 
 dotenv.load_dotenv()
 
@@ -126,6 +127,9 @@ def test_replace_file_in_google_drive():
     # Upload the file
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
 
+    # give it some time to upload to google before checking it exists
+    time.sleep(2)
+
     # Get the file ID of the uploaded file and ensure it exists
     file_id = google.get_file_id(google_drive_id(), "authors.csv")
     assert file_id is not None
@@ -163,6 +167,9 @@ def test_upload_file_to_google_drive():
 
     # Upload the file
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
+
+    # give it some time to upload to google before checking it exists
+    time.sleep(2)
 
     # Confirm the file now exists in the shared google drive
     assert google_file_exists(google_drive_id(), "authors.csv") is True

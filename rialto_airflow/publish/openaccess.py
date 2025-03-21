@@ -83,14 +83,11 @@ def write_contributions(snapshot) -> Path:
         "academic_council",
         "primary_school",
         "primary_department",
-        "all_schools",
-        "all_departments",
         "doi",
         "pub_year",
         "apc",
         "open_access",
         "types",
-        "funders",
         "federally_funded",
     ]
 
@@ -120,15 +117,12 @@ def write_contributions(snapshot) -> Path:
                     Author.academic_council,  # type: ignore
                     Author.primary_school,
                     Author.primary_dept,
-                    Author.schools,
-                    Author.departments,  # type: ignore
                     Publication.doi,  # type: ignore
                     Publication.pub_year,  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.open_access,  # type: ignore
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
-                    func.jsonb_agg_strict(Funder.name).label("funders"),
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
@@ -146,14 +140,11 @@ def write_contributions(snapshot) -> Path:
                         "academic_council": row.academic_council,
                         "primary_school": row.primary_school,
                         "primary_department": row.primary_dept,
-                        "all_schools": "|".join(row.schools),
-                        "all_departments": "|".join(row.departments),
                         "doi": row.doi,
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
                         "types": "|".join(_get_types(row)),
-                        "funders": "|".join(row.funders),
                         "federally_funded": any(row.federal),
                     }
                 )

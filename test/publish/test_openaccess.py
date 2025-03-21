@@ -112,17 +112,11 @@ def test_write_contributions(test_session, snapshot, dataset, caplog):
     assert bool(row.academic_council) is True
     assert row.primary_school == "School of Humanities and Sciences"
     assert row.primary_department == "Social Sciences"
-    assert (
-        row.all_schools
-        == "Vice Provost for Undergraduate Education|School of Humanities and Sciences"
-    )
-    assert row.all_departments == "Inter-Departmental Programs|Social Sciences"
     assert row.doi == "10.000/000001"
     assert row.pub_year == 2023
     assert row.apc == 123
     assert row.open_access == "gold"
     assert row.types == "article|preprint"
-    assert row.funders == "National Institutes of Health|Andrew Mellon Foundation"
     assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
 
     # second row of contributions.csv should look like this
@@ -132,14 +126,11 @@ def test_write_contributions(test_session, snapshot, dataset, caplog):
     assert bool(row.academic_council) is False
     assert row.primary_school == "School of Humanities and Sciences"
     assert row.primary_department == "Social Sciences"
-    assert row.all_schools == "School of Humanities and Sciences"
-    assert row.all_departments == "Social Sciences"
     assert row.doi == "10.000/000001"
     assert row.pub_year == 2023
     assert row.apc == 123
     assert row.open_access == "gold"
     assert row.types == "article|preprint"
-    assert row.funders == "National Institutes of Health|Andrew Mellon Foundation"
     assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
 
     assert "starting to write contributions" in caplog.text

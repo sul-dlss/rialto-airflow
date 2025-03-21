@@ -23,8 +23,10 @@
 # This configuration supports basic configuration using environment variables or an .env file
 # The following variables are supported:
 #
-# AIRFLOW_IMAGE_NAME           - Docker image name used to run Airflow.
-#                                Default: apache/airflow:2.9.3
+# AIRFLOW_IMAGE_NAME           (Per boilerplate instructions, the 'image' field that references this env var is
+#                              commented out and swapped for our own image build)
+#                              - Docker image name used to run Airflow.
+#                                Default: suldlss/rialto-airflow:latest
 # AIRFLOW_UID                  - User ID in Airflow containers
 #                                Default: 50000
 # AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
@@ -47,9 +49,9 @@
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
-  # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
-  # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.3}
+  # Comment the image line, place your Dockerfile in the directory where you placed the compose.yaml
+  # and uncomment the "build" line below, then run `docker compose build` to build the images.
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.3} # ours is e.g. suldlss/rialto-airflow:latest
   build: .
   environment:
     &airflow-common-env

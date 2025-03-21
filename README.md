@@ -88,11 +88,15 @@ To add a dependency, e.g. flask:
 1. `uv add flask`
 3. Then commit `pyproject.toml` and `uv.lock` files.
 
+You'll have to rebuild and restart containers for new dependencies to get picked up (both locally and in deployed envs), since the dependency installations are baked into the container image at build time (unlike the DAG/task code). Like our Rails apps, a redeploy should take care of rebuild and restart in deployed environments.
+
 ### Upgrading dependencies
 To upgrade Python dependencies:
 ```
 uv lock --upgrade
 ```
+
+Like dependency additions, dependency updates require container rebuild/restart.
 
 ## Run Tests
 
@@ -170,13 +174,6 @@ Try clearing the virtual env folder and let it rebuild on the next run: `rm -rf 
 
 ## Deployment
 
-First you'll need to build a Docker image and publish it DockerHub:
-
-```
-DOCKER_DEFAULT_PLATFORM="linux/amd64" docker build . -t suldlss/rialto-airflow:latest
-docker push suldlss/rialto-airflow
-```
-
 Deployment to https://sul-rialto-airflow-XXXX.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:
 
 ```
@@ -184,6 +181,10 @@ bundle exec cap stage deploy # stage
 bundle exec cap prod deploy  # prod
 # Note: there is no QA
 ```
+
+By default, deployment will use the deployed branch's code to build a fresh Docker image locally, and will restart `docker compose`, which will cause it to pick up the new image.
+
+If you'd like to push an image to Docker Hub (or any other registry) for deployment, consider reserving the `latest` tag for builds from the `main` branch, and pushing a branch-specific image tag if deploying a branch other than `main`.  See `compose.yaml` (for local dev) and `compose.prod.yaml` (for stage/prod deployment) for more detail on using the registry image instead of a build from `Dockerfile`.
 
 ## Google Drive
 

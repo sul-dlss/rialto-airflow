@@ -8,8 +8,51 @@ from airflow.providers.google.suite.transfers.local_to_drive import (
 from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
 from airflow.models import Variable
+import dotenv
+import os
+
+# Load environment variables
+dotenv.load_dotenv()
 
 gcp_conn_id = Variable.get("google_connection", "google_cloud_default")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
+
+
+# The Google Drive folder ID for the open access dashboard
+def open_access_dashboard_folder_id():
+    return get_file_id(google_drive_id, "open-access-dashboard")
+
+
+# The Google Drive folder ID for the ORCID dashboard
+def orcid_dashboard_folder_id():
+    return get_file_id(google_drive_id, "orcid-dashboard")
+
+
+def get_file_id(folder_id, filename):
+    """
+    Fetch the file id of a Google Drive file given the filename and the folder_id
+    to look in. Note that the filename may not be unique in the folder, in which
+    case the first file ID found will be returned.
+    The service account must have access to the folder.
+    """
+    results = (
+        GoogleDriveHook(gcp_conn_id=gcp_conn_id)
+        .get_conn()
+        .files()
+        .list(
+            q=f"'{folder_id}' in parents and name = '{filename}' and trashed = false",
+            spaces="drive",
+            fields="files(id)",
+            pageSize=1,
+            includeItemsFromAllDrives=True,
+            supportsAllDrives=True,
+        )
+        .execute()
+    )
+    files = results.get("files", [])
+    return files[0]["id"] if files else None
 
 
 def clear_google_sheet(spreadsheet_id, sheet_name="Sheet1"):

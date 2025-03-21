@@ -13,9 +13,7 @@ from rialto_airflow.publish import openaccess
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
-from rialto_airflow.google import (
-    replace_file_in_google_drive,
-)
+import rialto_airflow.google as google
 
 gcp_conn_id = Variable.get("google_connection")
 data_dir = Variable.get("data_dir")
@@ -169,20 +167,29 @@ def harvest():
 
     @task()
     def upload_publish_files(snapshot):
-        logging.info(
-            f"Uploading {snapshot.path / 'publications.csv'} to file id {Variable.get('open_access_publications_file_id')}"
+        open_access_publications_filename = "publications.csv"
+        open_access_contributions_filename = "contributions.csv"
+        open_access_publications_file_id = google.get_file_id(
+            google.open_access_dashboard_folder_id(), open_access_publications_filename
         )
-        logging.info(
-            f"Uploading {snapshot.path / 'contributions.csv'} to file id {Variable.get('open_access_contributions_file_id')}"
+        open_access_contributions_file_id = google.get_file_id(
+            google.open_access_dashboard_folder_id(), open_access_contributions_filename
         )
 
-        replace_file_in_google_drive(
-            str(snapshot.path / "publications.csv"),
-            Variable.get("open_access_publications_file_id"),
+        logging.info(
+            f"Uploading {snapshot.path / open_access_publications_filename} to file id {open_access_publications_file_id}"
         )
-        replace_file_in_google_drive(
-            str(snapshot.path / "contributions.csv"),
-            Variable.get("open_access_contributions_file_id"),
+        google.replace_file_in_google_drive(
+            str(snapshot.path / open_access_publications_filename),
+            open_access_publications_file_id,
+        )
+
+        logging.info(
+            f"Uploading {snapshot.path / open_access_contributions_filename} to file id {open_access_contributions_file_id}"
+        )
+        google.replace_file_in_google_drive(
+            str(snapshot.path / open_access_contributions_filename),
+            open_access_contributions_file_id,
         )
 
     snapshot = setup()

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'honeybadger'
 
 set :application, 'rialto-airflow'
 set :repo_url, 'https://github.com/sul-dlss-labs/rialto-airflow.git'
@@ -39,6 +40,11 @@ set :log_level, :info
 # Uncomment the following to require manually verifying the host key before first deploy.
 # set :ssh_options, verify_host_key: :secure
 
+# Honeybadger configuration uses alternative env variables for airflow availability
+Honeybadger.configure do |config|
+  config.api_key = ENV['AIRFLOW_VAR_HONEYBADGER_API_KEY']
+  config.env = ENV['AIRFLOW_VAR_HONEYBADGER_ENV']
+end
 # honeybadger_env otherwise defaults to rails_env
 set :honeybadger_env, fetch(:stage)
 
@@ -52,4 +58,4 @@ set :docker_compose_rabbitmq_use_hooks, false
 set :docker_compose_build_use_hooks, false
 set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
-set :honeybadger_use_hooks, false
+# set :honeybadger_use_hooks, false

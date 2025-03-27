@@ -12,6 +12,8 @@ require 'stringio'
 require 'capistrano/maintenance'
 
 require 'dlss/docker/capistrano'
+require 'capistrano/bundler'
+require 'dlss/capistrano'
 require 'capistrano/honeybadger'
 
 # Load custom tasks from `lib/capistrano/tasks` if you have any defined

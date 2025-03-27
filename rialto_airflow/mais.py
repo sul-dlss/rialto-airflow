@@ -17,6 +17,7 @@ ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
 
 BASE_URL = os.environ.get("AIRFLOW_VAR_MAIS_BASE_URL")
+TOKEN_URL = os.environ.get("AIRFLOW_VAR_MAIS_TOKEN_URL")
 CLIENT_ID = os.environ.get("AIRFLOW_VAR_MAIS_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("AIRFLOW_VAR_MAIS_SECRET")
 
@@ -34,7 +35,7 @@ class TokenFetchError(LookupError):
 def get_token(client_id: str, client_secret: str, base_url: str) -> str:
     """Retrieves an OAuth2 access token."""
 
-    token_url = f"{base_url}/api/oauth/token"
+    token_url = f"{token_url}/oauth2/token"
     auth = f"{client_id}:{client_secret}"
 
     headers = {
@@ -88,7 +89,7 @@ def fetch_orcid_users(
 
     orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
-    url = f"{base_url}/mais/orcid/v1{path}"
+    url = f"{base_url}/orcid/v1{path}"
     params = {"page": 1, "per_page": per_page}
 
     while True:
@@ -106,7 +107,7 @@ def fetch_orcid_users(
             break
 
         params["page"] += 1  # Increment for next page
-        url = f"{base_url}/mais/orcid/v1{next_link}"  # Construct url using next link value
+        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
 
     return orcid_users[:limit] if limit else orcid_users
 
@@ -114,7 +115,7 @@ def fetch_orcid_users(
 def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRecord:
     """Fetches a single ORCID user record by ORCID iD or SUNet ID from the MAIS ORCID API."""
     cleaned_id = normalize_orcid(user_id)
-    return get_response(access_token, f"{base_url}/mais/orcid/v1/users/{cleaned_id}")
+    return get_response(access_token, f"{base_url}/orcid/v1/users/{cleaned_id}")
 
 
 def current_orcid_users(access_token: str) -> list[ORCIDRecord]:

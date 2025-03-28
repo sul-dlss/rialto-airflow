@@ -5,6 +5,11 @@ from rialto_airflow.harvest.distill import distill
 
 sulpub_json = {"title": "On the dangers of stochastic parrots (sulpub)", "year": "2020"}
 
+sulpub_json_future_year = {
+    "title": "On the dangers of stochastic parrots (sulpub)",
+    "year": "2105",
+}
+
 dim_json = {
     "title": "On the dangers of stochastic parrots (dim)",
     "year": 2021,
@@ -151,6 +156,28 @@ def test_pub_year_sulpub(test_session, snapshot):
     distill(snapshot)
 
     assert _pub(session).pub_year == 2020
+
+
+def test_pub_year_sulpub_future(test_session, snapshot):
+    """
+    pub_year should not come from sulpub since it is in the future (get from another source)
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json=sulpub_json_future_year,
+                dim_json=dim_json,
+                openalex_json=openalex_json,
+                wos_json=wos_json,
+            )
+        )
+
+    distill(snapshot)
+
+    assert (
+        _pub(session).pub_year == 2021
+    )  # comes from dimensions, not the 2105 from sul-pub!
 
 
 def test_pub_year_dim(test_session, snapshot):

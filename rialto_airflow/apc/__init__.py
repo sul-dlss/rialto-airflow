@@ -20,7 +20,7 @@ def get_apc(issn: str, year: int) -> Optional[int]:
     ]
     if len(matches) >= 1:
         if len(matches) > 1:
-            logging.warn(f"more than one APC match for {issn} and {year}")
+            logging.warning(f"more than one APC match for {issn} and {year}")
         return int(matches.iloc[0].APC_USD)
     else:
         return None

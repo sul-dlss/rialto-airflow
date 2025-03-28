@@ -213,7 +213,7 @@ def get_doi(pub) -> Optional[str]:
             # a str instead of a dict, albeit an empty string in that case. Normalize empty string to None.
             return identifiers_field or None
     except AttributeError as e:
-        logging.warn(f"error {e} trying to parse identifiers from {pub}")
+        logging.warning(f"error {e} trying to parse identifiers from {pub}")
         return None
 
     return None

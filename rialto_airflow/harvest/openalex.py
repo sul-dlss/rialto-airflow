@@ -144,7 +144,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 for openalex_pub in Works().filter(doi=dois_joined).get():
                     doi = normalize_doi(openalex_pub.get("doi"))
                     if doi is None:
-                        logging.warn("unable to determine what DOI to update")
+                        logging.warning("unable to determine what DOI to update")
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:

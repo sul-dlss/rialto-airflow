@@ -203,7 +203,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 for dimensions_pub in publications_from_dois(dois, batch_size=50):
                     doi = dimensions_pub.get("doi")
                     if doi is None:
-                        logging.warn("unable to determine what DOI to update")
+                        logging.warning("unable to determine what DOI to update")
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:

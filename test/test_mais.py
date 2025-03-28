@@ -99,16 +99,16 @@ def test_fetch_orcid_users_invalid_path(
 def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    orcid_id = "https://orcid.org/0009-0008-2120-5722"  # Example Valid ID
+    orcid_id = "https://sandbox.orcid.org/0000-0002-4589-7232"  # Example Valid ID
     user_data = mais.fetch_orcid_user(access_token, base_url, orcid_id)
     assert isinstance(user_data, dict)
 
 
 @pytest.mark.mais_tests
-def test_current_orcid_users(access_token, mais_base_url, client_id, client_secret):
+def test_current_orcid_users(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    current_users = mais.current_orcid_users(access_token, mais_base_url)
+    current_users = mais.current_orcid_users(access_token, base_url)
     assert isinstance(current_users, list)
     assert len(current_users) > 0
     seen_orcids = set()

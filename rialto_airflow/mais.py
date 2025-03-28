@@ -32,7 +32,7 @@ class TokenFetchError(LookupError):
     pass
 
 
-def get_token(client_id: str, client_secret: str, base_url: str) -> str:
+def get_token(client_id: str, client_secret: str, token_url: str) -> str:
     """Retrieves an OAuth2 access token."""
 
     token_url = f"{token_url}/oauth2/token"
@@ -89,7 +89,7 @@ def fetch_orcid_users(
 
     orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
-    url = f"{base_url}/orcid/v1{path}"
+    url = f"{base_url}/mais/v1{path}"
     params = {"page": 1, "per_page": per_page}
 
     while True:
@@ -107,7 +107,7 @@ def fetch_orcid_users(
             break
 
         params["page"] += 1  # Increment for next page
-        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
+        url = f"{base_url}/mais/v1{next_link}"  # Construct url using next link value
 
     return orcid_users[:limit] if limit else orcid_users
 

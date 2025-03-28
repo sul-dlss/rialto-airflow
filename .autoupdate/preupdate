@@ -3,7 +3,7 @@
 # This script is called by our weekly dependency update job in Jenkins
 
 pip3 install --upgrade uv > rialto-airflow.txt &&
-    ~/.local/bin/uv lock --upgrade >> rialto-airflow.txt
+    ~/.local/bin/uv lock --upgrade --quiet --no-progress --color never >> rialto-airflow.txt
 
 retVal=$?
 

@@ -105,10 +105,10 @@ def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_sec
 
 
 @pytest.mark.mais_tests
-def test_current_orcid_users(access_token, client_id, client_secret):
+def test_current_orcid_users(access_token, mais_base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    current_users = mais.current_orcid_users(access_token)
+    current_users = mais.current_orcid_users(access_token, mais_base_url)
     assert isinstance(current_users, list)
     assert len(current_users) > 0
     seen_orcids = set()

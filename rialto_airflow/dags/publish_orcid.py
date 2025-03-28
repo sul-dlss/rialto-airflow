@@ -54,7 +54,7 @@ def publish_orcid():
             google.orcid_dashboard_folder_id(), "orcid-integration-stats"
         )
         access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
-        current_users = current_orcid_users(access_token)
+        current_users = current_orcid_users(access_token, mais_base_url)
         orcid_stats = get_orcid_stats(current_users)
         logging.info(f"Adding orcid stats row to {orcid_integration_sheet_id}")
         google.append_rows_to_google_sheet(

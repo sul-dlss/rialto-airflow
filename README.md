@@ -133,6 +133,7 @@ For MaIS tests, update your .env with values shown below / pulled from vault as 
 
 ```
 AIRFLOW_VAR_MAIS_BASE_URL=https://mais.suapi.stanford.edu
+AIRFLOW_VAR_MAIS_TOKEN_URL=https://mais.auth.us-west-2.amazoncognito.com
 AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
 AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
 ```

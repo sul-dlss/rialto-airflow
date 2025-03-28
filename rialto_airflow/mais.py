@@ -1,4 +1,3 @@
-import os
 import logging
 from collections import defaultdict
 from datetime import date
@@ -7,19 +6,10 @@ from rialto_airflow.utils import normalize_orcid
 
 import requests
 from requests_oauthlib import OAuth2Session
-import dotenv
-
-# Load environment variables
-dotenv.load_dotenv()
 
 # Type aliases for clarity
 ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
-
-BASE_URL = os.environ.get("AIRFLOW_VAR_MAIS_BASE_URL")
-TOKEN_URL = os.environ.get("AIRFLOW_VAR_MAIS_TOKEN_URL")
-CLIENT_ID = os.environ.get("AIRFLOW_VAR_MAIS_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("AIRFLOW_VAR_MAIS_SECRET")
 
 # Configure logging
 logging.basicConfig(
@@ -32,25 +22,14 @@ class TokenFetchError(LookupError):
     pass
 
 
-def get_token(client_id: str, client_secret: str, token_url: str) -> str:
+def get_token(client_id: str, client_secret: str, base_url: str) -> str:
     """Retrieves an OAuth2 access token."""
 
-    token_url = f"{token_url}/oauth2/token"
-    auth = f"{client_id}:{client_secret}"
-
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {auth}",
-    }
-
-    data = {
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret,
-    }
+    token_url = f"{base_url}/oauth2/token"
+    data = {"grant_type": "client_credentials"}
 
     try:
-        response = requests.post(token_url, headers=headers, data=data)
+        response = requests.post(token_url, auth=(client_id, client_secret), data=data)
         response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
 
         data = response.json()
@@ -89,7 +68,7 @@ def fetch_orcid_users(
 
     orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
-    url = f"{base_url}/mais/v1{path}"
+    url = f"{base_url}/orcid/v1{path}"
     params = {"page": 1, "per_page": per_page}
 
     while True:
@@ -107,7 +86,7 @@ def fetch_orcid_users(
             break
 
         params["page"] += 1  # Increment for next page
-        url = f"{base_url}/mais/v1{next_link}"  # Construct url using next link value
+        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
 
     return orcid_users[:limit] if limit else orcid_users
 
@@ -118,13 +97,13 @@ def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRec
     return get_response(access_token, f"{base_url}/orcid/v1/users/{cleaned_id}")
 
 
-def current_orcid_users(access_token: str) -> list[ORCIDRecord]:
+def current_orcid_users(access_token: str, base_url: str) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
 
-    if BASE_URL is None:
+    if base_url is None:
         raise ValueError("AIRFLOW_VAR_MAIS_BASE_URL is a required value")
 
-    all_users = fetch_orcid_users(access_token, BASE_URL, "/users?scope=ANY")
+    all_users = fetch_orcid_users(access_token, base_url, "/users?scope=ANY")
 
     # Create a dictionary to store the most recent record for each ORCID iD
     current_users_by_orcid: dict[str, ORCIDRecord] = {}

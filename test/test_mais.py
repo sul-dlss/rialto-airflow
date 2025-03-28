@@ -16,6 +16,11 @@ def base_url():
 
 
 @pytest.fixture(scope="module")
+def token_url():
+    return os.environ.get("AIRFLOW_VAR_MAIS_TOKEN_URL")
+
+
+@pytest.fixture(scope="module")
 def client_id():
     return os.environ.get("AIRFLOW_VAR_MAIS_CLIENT_ID")
 
@@ -26,38 +31,38 @@ def client_secret():
 
 
 @pytest.fixture(scope="module")
-def access_token(client_id, client_secret, base_url):
+def access_token(client_id, client_secret, token_url):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    return mais.get_token(client_id, client_secret, base_url)
+    return mais.get_token(client_id, client_secret, token_url)
 
 
 @pytest.mark.mais_tests
-def test_get_token_success(base_url, client_id, client_secret):
+def test_get_token_success(token_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    token = mais.get_token(client_id, client_secret, base_url)
+    token = mais.get_token(client_id, client_secret, token_url)
     assert token is not None
     assert isinstance(token, str)
     assert len(token) > 0
 
 
 @pytest.mark.mais_tests
-def test_get_token_failure(base_url, client_id, client_secret):
+def test_get_token_failure(token_url, client_id, client_secret):
     # It's true, this test specifically doesn't use a valid client_id or client_secret, but
     # the presence of those values indicates we're able to reach the service in question (which
     # is not possible from e.g. CI).
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     with pytest.raises(mais.TokenFetchError):
-        mais.get_token("dummy_invalid_id", "dummy_invalid_secret", base_url)
+        mais.get_token("dummy_invalid_id", "dummy_invalid_secret", token_url)
 
 
 @pytest.mark.mais_tests
 def test_get_response_success(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    test_url = f"{base_url}/mais/orcid/v1/users"
+    test_url = f"{base_url}/orcid/v1/users"
     params = {"page": 1, "per_page": 1}
     try:
         response_data = mais.get_response(access_token, test_url, params=params)

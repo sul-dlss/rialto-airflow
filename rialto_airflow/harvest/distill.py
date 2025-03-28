@@ -210,9 +210,12 @@ def _first(pub, rules: Rules) -> Optional[str | int]:
                         if year_val <= datetime.datetime.now().year:
                             return year_val
                         else:
-                            logging.warn(f"got a year {year_val} that is in the future")
+                            logging.warning(
+                                f"got a year {year_val} that is in the future"
+                            )
                     except (ValueError, TypeError):
-                        logging.warn(f'got "{value}" instead of int')
+                        # continue matching if the rule wants an int but we don't have one
+                        logging.warning(f'got "{value}" instead of int')
                 else:
                     return value
 

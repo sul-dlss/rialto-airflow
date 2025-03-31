@@ -8,6 +8,7 @@ from sqlalchemy import select, update
 from rialto_airflow.database import Publication, get_session
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.apc import get_apc
+import datetime
 
 
 def distill(snapshot: Snapshot) -> int:
@@ -76,11 +77,11 @@ def _pub_year(pub):
     return _first(
         pub,
         rules=[
-            JsonPathRule("sulpub_json", "year", is_int=True),
-            JsonPathRule("dim_json", "year", is_int=True),
-            JsonPathRule("openalex_json", "publication_year", is_int=True),
+            JsonPathRule("sulpub_json", "year", is_valid_year=True),
+            JsonPathRule("dim_json", "year", is_valid_year=True),
+            JsonPathRule("openalex_json", "publication_year", is_valid_year=True),
             JsonPathRule(
-                "wos_json", "static_data.summary.pub_info.pubyear", is_int=True
+                "wos_json", "static_data.summary.pub_info.pubyear", is_valid_year=True
             ),
         ],
     )
@@ -174,7 +175,7 @@ def _apc_oa_dataset(dim_json, context):
 class JsonPathRule:
     col: str  # the JSONB column name to apply the rule to
     matcher: str  # a JSON Path to evaluate against the JSON
-    is_int: bool = False
+    is_valid_year: bool = False
 
 
 @dataclass
@@ -203,12 +204,18 @@ def _first(pub, rules: Rules) -> Optional[str | int]:
             results = jpath.find(data)
             if len(results) > 0:
                 value = results[0].value
-                if rule.is_int:
+                if rule.is_valid_year:
                     try:
-                        return int(value)
+                        year_val = int(value)
+                        if year_val <= datetime.datetime.now().year:
+                            return year_val
+                        else:
+                            logging.warning(
+                                f"got a year {year_val} that is in the future"
+                            )
                     except (ValueError, TypeError):
                         # continue matching if the rule wants an int but we don't have one
-                        logging.warn(f'got "{value}" instead of int')
+                        logging.warning(f'got "{value}" instead of int')
                 else:
                     return value
 

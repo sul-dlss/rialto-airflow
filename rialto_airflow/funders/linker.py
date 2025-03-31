@@ -1,6 +1,8 @@
 import logging
+import os
 from typing import Optional
 
+from pyalex import Funders, config
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -12,9 +14,26 @@ from rialto_airflow.database import (
     pub_funder_association,
 )
 from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id
+from rialto_airflow.funders.ror_grid_dataset import convert_ror_to_grid
+
+
+config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
+config.max_retries = 5
+config.retry_backoff_factor = 0.1
+config.retry_http_codes = [429, 500, 503]
 
 
 def link_publications(snapshot) -> int:
+    dim_count = _link_dim_publications(snapshot)
+    openalex_count = _link_openalex_publications(snapshot)
+
+    return dim_count + openalex_count
+
+
+def _link_dim_publications(snapshot) -> int:
+    """
+    Get funder info from Dimensions and link them to publications
+    """
     count = 0
     with get_session(snapshot.database_name).begin() as session:
         stmt = (
@@ -26,7 +45,7 @@ def link_publications(snapshot) -> int:
         for row in session.execute(stmt):
             count += 1
             if count % 100 == 0:
-                logging.info(f"processed {count} publications")
+                logging.info(f"processed {count} publications from Dimensions")
 
             pub = row[0]
 
@@ -42,7 +61,52 @@ def link_publications(snapshot) -> int:
                             .values(publication_id=pub.id, funder_id=funder_id)
                             .on_conflict_do_nothing()
                         )
+    logging.info(f"processed {count} publications from Dimensions")
+    return count
 
+
+def _link_openalex_publications(snapshot) -> int:
+    """
+    For publications with no funders, get funder info from OpenAlex and link to publications
+    """
+    count = 0
+    with get_session(snapshot.database_name).begin() as session:
+        stmt = (
+            select(Publication)
+            .where(Publication.funders is None)  # type: ignore
+            .where(Publication.openalex_json.is_not(None))  # type: ignore
+            .execution_options(yield_per=100)
+        )
+
+    for row in session.execute(stmt):
+        count += 1
+        if count % 100 == 0:
+            logging.info(f"processed {count} publications from OpenAlex")
+
+        pub = row[0]
+
+        funders = pub.openalex_json.get("grants", [])
+        if funders is None:
+            continue
+
+        with get_session(snapshot.database_name).begin() as update_session:
+            for funder in pub.openalex_json.get("grants", []):
+                # look up funder in OpenAlex to get ROR
+                openalex_funder = Funders()[funder.get("funder")]
+                name = openalex_funder.get("display_name")
+                if ror := openalex_funder.get("ids", {}).get("ror", None):
+                    grid = convert_ror_to_grid(ror)
+                    if grid is None:
+                        logging.info(f"missing GRID ID for {funder}")
+                        continue
+                funder = {"id:": grid, "name": name}
+                if funder_id := _find_or_create_funder(snapshot, funder):
+                    update_session.execute(
+                        insert(pub_funder_association)
+                        .values(publication_id=pub.id, funder_id=funder_id)
+                        .on_conflict_do_nothing()
+                    )
+    logging.info(f"processed {count} publications from OpenAlex")
     return count
 
 

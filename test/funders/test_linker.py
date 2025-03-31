@@ -2,6 +2,9 @@ from rialto_airflow.database import Publication
 from rialto_airflow.funders.linker import link_publications
 
 
+# test link_publications?
+
+
 def test_funders_linking(test_session, snapshot, caplog):
     with test_session.begin() as session:
         session.add(

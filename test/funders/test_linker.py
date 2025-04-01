@@ -130,6 +130,7 @@ def test_openalex_funders_linking(test_session, snapshot, caplog):
     assert pub.funders[1].grid_id == "grid.453405.3"
     assert pub.funders[1].federal is False
 
+    assert "processed 1 publications from OpenAlex" in caplog.text
     assert "found funder data in openalex for grid.431093.c" in caplog.text, (
         "funder logged"
     )
@@ -154,9 +155,8 @@ def test_openalex_funders_is_none(test_session, snapshot):
 
 def test_openalex_no_ror(test_session, snapshot, caplog, monkeypatch):
     """
-    Test that we can handle a funder with no ROR ID
+    Test that hadnling a funder with no ROR ID in OpenAlex
     """
-
     # mock Funder to not have a ROR
     def mock_get(*args, **kwargs):
         return {
@@ -196,8 +196,49 @@ def test_openalex_no_ror(test_session, snapshot, caplog, monkeypatch):
         .first()
     )
 
-    assert len(pub.funders) == 0
+    assert len(pub.funders) == 0, "no funder added"
     assert (
         "no ROR ID for {'funder': 'https://openalex.org/F00000', 'funder_display_name': 'A Small Foundation'}"
         in caplog.text
     )
+
+def test_no_ror_in_mapping(test_session, snapshot, caplog, monkeypatch):
+    # mock Funder to have an unknown ROR
+    def mock_get(*args, **kwargs):
+        return {
+            "https://openalex.org/F00000": {
+                "id": "https://openalex.org/F00000",
+                "display_name": "A Small Foundation",
+                "ids": {
+                    "ror": "https://ror.org/0000000",
+                },
+            }
+        }
+
+    monkeypatch.setattr(linker, "Funders", mock_get)
+
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                dim_json={"funders": None},
+                openalex_json={
+                    "grants": [
+                        {
+                            "funder": "https://openalex.org/F00000",
+                            "funder_display_name": "A Small Foundation",
+                        },
+                    ]
+                },
+            )
+        )
+
+    linker.link_openalex_publications(snapshot)
+    pub = (
+        session.query(Publication)
+        .where(Publication.doi == "10.1515/9781503624153")
+        .first()
+    )
+
+    assert len(pub.funders) == 0, "no funder added"
+    assert "missing GRID ID for {'funder': 'https://openalex.org/F00000', 'funder_display_name': 'A Small Foundation'}" in caplog.text

@@ -378,6 +378,27 @@ def test_apc_openalex_fallback(test_session, snapshot):
     assert _pub(session).apc == 1234
 
 
+def test_apc_negative(test_session, snapshot):
+    """
+    negative apc values are not returned
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    openalex_json={
+                        "apc_paid": {"value_usd": -123},
+                    },
+                ),
+            ]
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc is None
+
+
 def test_apc_dataset(test_session, snapshot):
     """
     Use APC 2024 dataset to get APC cost when openalex apc_paid isn't there.

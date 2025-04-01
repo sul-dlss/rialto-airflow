@@ -16,5 +16,11 @@ def test_warning(caplog):
     assert "more than one APC match for 1440-1703 and 2019" in caplog.text
 
 
+def test_negative(caplog):
+    assert (
+        apc.get_apc(issn="1234-5678", year=2022) is None
+    )  # fake test entry set to a negative number
+
+
 def test_nan():
     assert apc.get_apc(issn="2173-5735", year=2023) is None

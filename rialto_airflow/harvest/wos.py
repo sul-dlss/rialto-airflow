@@ -100,6 +100,7 @@ def orcid_publications(orcid) -> Generator[dict, None, None]:
         "usrQuery": f"AI=({orcid})",
         "count": batch_size,
         "firstRecord": 1,
+        "optionView": "SR",  # SR = Short Records, which gives us the most basic info about the publication, skipping authors, to keep
     }
 
     http = requests.Session()

@@ -24,13 +24,13 @@ config.retry_http_codes = [429, 500, 503]
 
 
 def link_publications(snapshot) -> int:
-    dim_count = _link_dim_publications(snapshot)
-    openalex_count = _link_openalex_publications(snapshot)
+    dim_count = link_dim_publications(snapshot)
+    openalex_count = link_openalex_publications(snapshot)
 
     return dim_count + openalex_count
 
 
-def _link_dim_publications(snapshot) -> int:
+def link_dim_publications(snapshot) -> int:
     """
     Get funder info from Dimensions and link them to publications
     """
@@ -65,15 +65,14 @@ def _link_dim_publications(snapshot) -> int:
     return count
 
 
-def _link_openalex_publications(snapshot) -> int:
+def link_openalex_publications(snapshot) -> int:
     """
-    For publications with no funders, get funder info from OpenAlex and link to publications
+    Get funder info from OpenAlex and link to publications
     """
     count = 0
     with get_session(snapshot.database_name).begin() as session:
         stmt = (
             select(Publication)
-            .where(Publication.funders is None)  # type: ignore
             .where(Publication.openalex_json.is_not(None))  # type: ignore
             .execution_options(yield_per=100)
         )
@@ -86,26 +85,21 @@ def _link_openalex_publications(snapshot) -> int:
         pub = row[0]
 
         funders = pub.openalex_json.get("grants", [])
-        if funders is None:
+        if not funders:
             continue
 
         with get_session(snapshot.database_name).begin() as update_session:
-            for funder in pub.openalex_json.get("grants", []):
-                # look up funder in OpenAlex to get ROR
-                openalex_funder = Funders()[funder.get("funder")]
-                name = openalex_funder.get("display_name")
-                if ror := openalex_funder.get("ids", {}).get("ror", None):
-                    grid = convert_ror_to_grid(ror)
-                    if grid is None:
-                        logging.info(f"missing GRID ID for {funder}")
-                        continue
-                funder = {"id:": grid, "name": name}
-                if funder_id := _find_or_create_funder(snapshot, funder):
-                    update_session.execute(
-                        insert(pub_funder_association)
-                        .values(publication_id=pub.id, funder_id=funder_id)
-                        .on_conflict_do_nothing()
+            for funder in funders:
+                if openalex_funder := _lookup_openalex_funder(funder):
+                    logging.info(
+                        f"found funder data in openalex for {openalex_funder['id']}"
                     )
+                    if funder_id := _find_or_create_funder(snapshot, openalex_funder):
+                        update_session.execute(
+                            insert(pub_funder_association)
+                            .values(publication_id=pub.id, funder_id=funder_id)
+                            .on_conflict_do_nothing()
+                        )
     logging.info(f"processed {count} publications from OpenAlex")
     return count
 
@@ -132,4 +126,25 @@ def _find_or_create_funder(snapshot, funder: dict) -> Optional[int]:
             .returning(Funder.id)
         ).scalar_one()
 
-        return funder_id
+    return funder_id
+
+
+def _lookup_openalex_funder(funder: dict) -> Optional[dict]:
+    """
+    Look up funder in OpenAlex to get ROR and then map to GRID ID
+    """
+    openalex_funder = Funders()[funder.get("funder")]
+    name = openalex_funder.get("display_name")
+    ror = openalex_funder.get("ids", {}).get("ror", None)
+    if ror:
+        grid = convert_ror_to_grid(ror)
+        if grid is None:
+            logging.info(f"missing GRID ID for {funder}")
+            return None
+        # TODO: add ROR ID to funder
+        funder_data = {"id": grid, "name": name}
+
+        return funder_data
+    else:
+        logging.info(f"no ROR ID for {funder}")
+        return None

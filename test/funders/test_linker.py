@@ -157,6 +157,7 @@ def test_openalex_no_ror(test_session, snapshot, caplog, monkeypatch):
     """
     Test that hadnling a funder with no ROR ID in OpenAlex
     """
+
     # mock Funder to not have a ROR
     def mock_get(*args, **kwargs):
         return {
@@ -202,6 +203,7 @@ def test_openalex_no_ror(test_session, snapshot, caplog, monkeypatch):
         in caplog.text
     )
 
+
 def test_no_ror_in_mapping(test_session, snapshot, caplog, monkeypatch):
     # mock Funder to have an unknown ROR
     def mock_get(*args, **kwargs):
@@ -241,4 +243,7 @@ def test_no_ror_in_mapping(test_session, snapshot, caplog, monkeypatch):
     )
 
     assert len(pub.funders) == 0, "no funder added"
-    assert "missing GRID ID for {'funder': 'https://openalex.org/F00000', 'funder_display_name': 'A Small Foundation'}" in caplog.text
+    assert (
+        "missing GRID ID for {'funder': 'https://openalex.org/F00000', 'funder_display_name': 'A Small Foundation'}"
+        in caplog.text
+    )

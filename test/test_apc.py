@@ -1,3 +1,6 @@
+from io import StringIO
+import pandas
+
 from rialto_airflow import apc
 
 
@@ -16,10 +19,6 @@ def test_warning(caplog):
     assert "more than one APC match for 1440-1703 and 2019" in caplog.text
 
 
-from io import StringIO
-import pandas
-
-
 def test_negative(monkeypatch):
     def mock_dataset():
         mock_file_content = """unique_id	Publisher	ISSN_1	ISSN_2	Journal	OA_status	APC_provided	APC_order	APC_USD	APC_USD-originalORconverted	APC_EUR	APC_EUR-originalORconverted	APC_GBP	APC_GBP-originalORconverted	APC_JPY	APC_JPY-originalORconverted	APC_CHF	APC_CHF-originalORconverted	APC_CAD	APC_CAD-originalORconverted	APC_date	APC_year	APC_source	Collector	Comment
@@ -33,7 +32,6 @@ def test_negative(monkeypatch):
     monkeypatch.setattr(apc, "df", mock_dataset())
 
     assert apc.get_apc(issn="0000-0000", year=2022) is None
-
 
     assert (
         apc.get_apc(issn="1234-5678", year=2022) is None

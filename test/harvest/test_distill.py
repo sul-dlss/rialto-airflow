@@ -401,7 +401,7 @@ def test_apc_negative(test_session, snapshot):
 
 def test_apc_not_a_number(test_session, snapshot):
     """
-    negative apc values are not returned
+    non numeric apc values are not returned
     """
     with test_session.begin() as session:
         session.bulk_save_objects(

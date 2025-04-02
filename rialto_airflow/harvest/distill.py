@@ -109,9 +109,13 @@ def _apc(pub, context):
     return _first(
         pub,
         rules=[
-            JsonPathRule("openalex_json", "apc_paid.value_usd"),
+            JsonPathRule(
+                "openalex_json", "apc_paid.value_usd", only_positive_number=True
+            ),
             FuncRule("dim_json", _apc_oa_dataset, context),
-            JsonPathRule("openalex_json", "apc_list.value_usd"),
+            JsonPathRule(
+                "openalex_json", "apc_list.value_usd", only_positive_number=True
+            ),
         ],
     )
 
@@ -175,7 +179,10 @@ def _apc_oa_dataset(dim_json, context):
 class JsonPathRule:
     col: str  # the JSONB column name to apply the rule to
     matcher: str  # a JSON Path to evaluate against the JSON
-    is_valid_year: bool = False
+    is_valid_year: bool = False  # if True, will validate the result as a year (int) and ensure it is <= current year
+    only_positive_number: bool = (
+        False  # if True, will ensure the result is a positive number
+    )
 
 
 @dataclass
@@ -204,6 +211,20 @@ def _first(pub, rules: Rules) -> Optional[str | int]:
             results = jpath.find(data)
             if len(results) > 0:
                 value = results[0].value
+                if rule.only_positive_number:
+                    try:
+                        # ensure it's a positive number
+                        num_val = int(value)
+                        if num_val >= 0:
+                            return num_val
+                        else:
+                            logging.warning(
+                                f"got a non-positive number {value} for JSON Path {rule.matcher}"
+                            )
+                            return None
+                    except (ValueError, TypeError):
+                        logging.warning(f'got "{value}" instead of a positive number')
+                        return None
                 if rule.is_valid_year:
                     try:
                         year_val = int(value)

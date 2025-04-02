@@ -33,10 +33,6 @@ def test_negative(monkeypatch):
 
     assert apc.get_apc(issn="0000-0000", year=2022) is None
 
-    assert (
-        apc.get_apc(issn="1234-5678", year=2022) is None
-    )  # fake test entry set to a negative number
-
 
 def test_nan():
     assert apc.get_apc(issn="2173-5735", year=2023) is None

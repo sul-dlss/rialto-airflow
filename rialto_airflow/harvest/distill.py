@@ -35,7 +35,7 @@ def distill(snapshot: Snapshot) -> int:
                 "open_access": _open_access(pub),
             }
 
-            # pub_year in cols is needed to determine the apc
+            # pub_year and open_access in cols is needed to determine the apc
             cols["apc"] = _apc(pub, cols)
 
             # update the publication with the new columns
@@ -102,11 +102,11 @@ def _open_access(pub):
 
 def _apc(pub, context):
     """
-    Get the APC cost from one place in the openalex data , an external dataset, or another place in
+    Get the APC cost from one place in the openalex data, an external dataset, or another place in
     OpenAlex data.
     """
     # https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CR1MMV
-    return _first(
+    first_match_apc = _first(
         pub,
         rules=[
             JsonPathRule(
@@ -118,6 +118,11 @@ def _apc(pub, context):
             ),
         ],
     )
+    # non-OA publications should not have an APC charge recorded
+    if isinstance(first_match_apc, int) and context["open_access"] == "closed":
+        return 0
+    else:
+        return first_match_apc
 
 
 #

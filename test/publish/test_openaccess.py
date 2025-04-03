@@ -110,6 +110,7 @@ def test_write_contributions(test_session, snapshot, dataset, caplog):
     assert row.sunet == "janes"
     assert row.role == "faculty"
     assert bool(row.academic_council) is True
+    assert bool(row.faculty_authored) is True
     assert row.primary_school == "School of Humanities and Sciences"
     assert row.primary_department == "Social Sciences"
     assert row.doi == "10.000/000001"
@@ -124,6 +125,7 @@ def test_write_contributions(test_session, snapshot, dataset, caplog):
     assert row.sunet == "lelands"
     assert row.role == "staff"
     assert bool(row.academic_council) is False
+    assert bool(row.faculty_authored) is False
     assert row.primary_school == "School of Humanities and Sciences"
     assert row.primary_department == "Social Sciences"
     assert row.doi == "10.000/000001"

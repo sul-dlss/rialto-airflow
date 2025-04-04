@@ -270,9 +270,9 @@ def test_fill_in_no_dimensions(
     assert "filled in 0 publications" in caplog.text
 
 
-def test_408_errors():
+def test_researchers_error():
     """
-    The Dimensions API can intermittently throw HTTP 408 errors when we include
+    The Dimensions API can intermittently throw Service Unavailable errors when we include
     "researchers" in the list of fields that we want to return.
 
     If this test starts to fail that should be a flag that we can consider adding
@@ -293,8 +293,8 @@ def test_408_errors():
     limit 1000
     """
 
-    with pytest.raises(requests.exceptions.HTTPError):
-        dsl.query(q)
+    results = dsl.query(q)
+    assert results.errors["query"]["header"] == "Service unavailable"
 
 
 def test_fill_in_no_doi(

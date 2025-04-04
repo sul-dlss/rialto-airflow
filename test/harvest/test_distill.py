@@ -447,6 +447,30 @@ def test_apc_dataset(test_session, snapshot):
     assert _pub(session).apc == 400
 
 
+def test_apc_closed_oa(test_session, snapshot):
+    """
+    pubs with a closed open access status should not have an APC
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                dim_json={
+                    "year": 2021,
+                    "open_access": ["closed"],
+                    "issn": None,
+                },
+                openalex_json={
+                    "apc_paid": {"value_usd": 123},
+                },
+            ),
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 0
+
+
 def test_missing_dim_issn(test_session, snapshot):
     """
     Use APC 2024 dataset to get APC cost when openalex apc_paid isn't there.

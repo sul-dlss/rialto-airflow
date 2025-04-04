@@ -19,6 +19,8 @@ def write_publications(snapshot) -> Path:
         "types",
         "funders",
         "federally_funded",
+        "academic_council_authored",
+        "faculty_authored",
     ]
 
     csv_path = snapshot.path / "publications.csv"
@@ -45,9 +47,14 @@ def write_publications(snapshot) -> Path:
                     Publication.open_access,
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
+                    func.jsonb_agg_strict(Author.academic_council).label(
+                        "academic_council"
+                    ),
+                    func.jsonb_agg_strict(Author.primary_role).label("primary_role"),
                     func.jsonb_agg_strict(Funder.name).label("funders"),
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                 )
+                .join(Author, Publication.authors)  # type: ignore
                 .join(Funder, Publication.funders, isouter=True)  # type: ignore
                 .where(Publication.pub_year >= 2018)
                 .group_by(Publication.id)
@@ -61,9 +68,11 @@ def write_publications(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(_get_types(row)) or None,
-                        "funders": "|".join(row.funders) or None,
+                        "types": "|".join(sorted(_get_types(row))) or None,
+                        "funders": "|".join(sorted(set(row.funders))) or None,
                         "federally_funded": any(row.federal),
+                        "academic_council_authored": any(row.academic_council),
+                        "faculty_authored": "faculty" in row.primary_role,
                     }
                 )
 
@@ -144,7 +153,7 @@ def write_contributions(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(_get_types(row)),
+                        "types": "|".join(sorted(_get_types(row))),
                         "federally_funded": any(row.federal),
                     }
                 )
@@ -155,10 +164,10 @@ def write_contributions(snapshot) -> Path:
 
 
 def _get_types(row):
-    types = []
+    types = set()
     if row.dim_type:
-        types.append(row.dim_type)
+        types.add(row.dim_type)
     if row.openalex_type:
-        types.append(row.openalex_type)
+        types.add(row.openalex_type)
 
     return types

@@ -471,6 +471,69 @@ def test_apc_closed_oa(test_session, snapshot):
     assert _pub(session).apc == 0
 
 
+def test_diamond_apc(test_session, snapshot):
+    """
+    diamond openaccess publications with no apc are assigned $0
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                dim_json={
+                    "year": 2021,
+                    "open_access": ["diamond"],
+                    "issn": None,
+                },
+            ),
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 0
+
+
+def test_hybrid_apc(test_session, snapshot):
+    """
+    hybrid openaccess publications with no apc are assigned $3600
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                dim_json={
+                    "year": 2021,
+                    "open_access": ["hybrid"],
+                    "issn": None,
+                },
+            ),
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 3600
+
+
+def test_gold_apc(test_session, snapshot):
+    """
+    gold openaccess publications with no apc are assigned $2450
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                dim_json={
+                    "year": 2021,
+                    "open_access": ["gold"],
+                    "issn": None,
+                },
+            ),
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).apc == 2450
+
+
 def test_missing_dim_issn(test_session, snapshot):
     """
     Use APC 2024 dataset to get APC cost when openalex apc_paid isn't there.

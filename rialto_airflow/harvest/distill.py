@@ -119,10 +119,21 @@ def _apc(pub, context):
         ],
     )
     # non-OA publications should not have an APC charge recorded
-    if isinstance(first_match_apc, int) and context["open_access"] == "closed":
+    oa = (context.get("open_access") or "").lower()
+    is_int = isinstance(first_match_apc, int)
+
+    if is_int and oa == "closed":
         return 0
-    else:
+    elif is_int:
         return first_match_apc
+    elif oa == "diamond":
+        return 0
+    elif oa == "gold":
+        return 2450
+    elif oa == "hybrid":
+        return 3600
+    else:
+        return None
 
 
 #

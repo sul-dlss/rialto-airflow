@@ -90,8 +90,10 @@ def test_write_publications(test_session, snapshot, dataset, caplog):
     assert row.apc == 123
     assert row.open_access == "gold"
     assert row.types == "article|preprint"
-    assert row.funders == "National Institutes of Health|Andrew Mellon Foundation"
+    assert row.funders == "Andrew Mellon Foundation|National Institutes of Health"
     assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council_authored) is True
+    assert bool(row.faculty_authored) is True
 
     assert "started writing publications" in caplog.text
     assert "finished writing publications" in caplog.text

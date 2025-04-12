@@ -1,21 +1,22 @@
 import logging
 import os
+import time
 from typing import Optional
 
+import requests
 from pyalex import Funders, config
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
-
 from rialto_airflow.database import (
-    get_session,
-    Publication,
     Funder,
+    Publication,
+    get_session,
     pub_funder_association,
 )
 from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id
 from rialto_airflow.funders.ror_grid_dataset import convert_ror_to_grid
-
 
 config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
@@ -55,7 +56,7 @@ def link_dim_publications(snapshot) -> int:
 
             with get_session(snapshot.database_name).begin() as update_session:
                 for funder in pub.dim_json.get("funders", []):
-                    if funder_id := _find_or_create_funder(snapshot, funder):
+                    if funder_id := _find_or_create_dim_funder(update_session, funder):
                         update_session.execute(
                             insert(pub_funder_association)
                             .values(publication_id=pub.id, funder_id=funder_id)
@@ -90,23 +91,20 @@ def link_openalex_publications(snapshot) -> int:
 
         with get_session(snapshot.database_name).begin() as update_session:
             for funder in funders:
-                if openalex_funder := _lookup_openalex_funder(funder):
-                    logging.info(
-                        f"found funder data in openalex for {openalex_funder['id']}"
+                openalex_funder_id = funder["funder"]
+                if funder_id := _find_or_create_openalex_funder(
+                    update_session, openalex_funder_id
+                ):
+                    update_session.execute(
+                        insert(pub_funder_association)
+                        .values(publication_id=pub.id, funder_id=funder_id)
+                        .on_conflict_do_nothing()
                     )
-                    if funder_id := _find_or_create_funder(snapshot, openalex_funder):
-                        update_session.execute(
-                            insert(pub_funder_association)
-                            .values(publication_id=pub.id, funder_id=funder_id)
-                            .on_conflict_do_nothing()
-                        )
     logging.info(f"processed {count} publications from OpenAlex")
     return count
 
 
-def _find_or_create_funder(snapshot, funder: dict) -> Optional[int]:
-    # TODO: handle adding ROR ID? When we do we'll want to also handle unique
-    # constraint errors on insert like we are with grid_id.
+def _find_or_create_dim_funder(session: Session, funder: dict) -> Optional[int]:
     grid_id = funder.get("id")
     name = funder.get("name")
 
@@ -116,35 +114,80 @@ def _find_or_create_funder(snapshot, funder: dict) -> Optional[int]:
 
     federal = is_federal_grid_id(grid_id) or is_federal(name)
 
-    with get_session(snapshot.database_name).begin() as session:
-        funder_id = session.execute(
-            insert(Funder)
-            .values(name=name, grid_id=grid_id, federal=federal)
-            .on_conflict_do_update(
-                constraint="funder_grid_id_key", set_=dict(name=name, federal=federal)
-            )
-            .returning(Funder.id)
-        ).scalar_one()
+    funder_id = session.execute(
+        insert(Funder)
+        .values(name=name, grid_id=grid_id, federal=federal)
+        .on_conflict_do_update(
+            constraint="funder_grid_id_key", set_=dict(name=name, federal=federal)
+        )
+        .returning(Funder.id)
+    ).scalar_one()
 
     return funder_id
 
 
-def _lookup_openalex_funder(funder: dict) -> Optional[dict]:
-    """
-    Look up funder in OpenAlex to get ROR and then map to GRID ID
-    """
-    openalex_funder = Funders()[funder.get("funder")]
-    name = openalex_funder.get("display_name")
-    ror = openalex_funder.get("ids", {}).get("ror", None)
-    if ror:
-        grid = convert_ror_to_grid(ror)
-        if grid is None:
-            logging.info(f"missing GRID ID for {funder}")
-            return None
-        # TODO: add ROR ID to funder
-        funder_data = {"id": grid, "name": name}
+def _find_or_create_openalex_funder(
+    session: Session, openalex_id: str
+) -> Optional[int]:
+    # if the funder is in the database aleady return it
+    funder = session.execute(
+        select(Funder).where(Funder.openalex_id == openalex_id)
+    ).scalar_one_or_none()
+    if funder:
+        return funder.id
 
-        return funder_data
-    else:
-        logging.info(f"no ROR ID for {funder}")
+    # otherwise look it up with the api
+    funder = _lookup_openalex_funder(openalex_id)
+    if not funder:
+        logging.warning(f"No funder found in OpenAlex for {openalex_id}")
         return None
+
+    funder_id = session.execute(
+        insert(Funder)
+        .values(**funder)
+        .on_conflict_do_update(
+            constraint="funder_grid_id_key",
+            set_={k: v for k, v in funder.items() if v is not None},
+        )
+        .returning(Funder.id)
+    ).scalar_one()
+
+    return funder_id
+
+
+def _lookup_openalex_funder(openalex_id: str) -> Optional[dict]:
+    """
+    Look up funder in OpenAlex and return it after trying to map it to GRID ID
+    and looking up whether it appears to be a federal funder.
+    """
+    try:
+        # TODO: get a key so we don't need to do this
+        time.sleep(1)
+        funder = Funders()[openalex_id]
+        logging.info(f"found funder data in openalex for {openalex_id}")
+    except requests.exceptions.HTTPError:
+        logging.warning(f"OpenAlex API returned error for {openalex_id}")
+        return None
+
+    # a ror_id is required
+    ror_id = funder.get("ids", {}).get("ror")
+    if ror_id is None:
+        logging.warning(f"no ROR ID for {openalex_id}")
+        return None
+
+    # a grid_id is required
+    grid_id = convert_ror_to_grid(ror_id)
+    if grid_id is None:
+        logging.warning(f"no GRID ID could be determined for {openalex_id}")
+        return None
+
+    name = funder.get("display_name")
+    federal = is_federal_grid_id(grid_id) or is_federal(name)
+
+    return {
+        "openalex_id": openalex_id,
+        "grid_id": grid_id,
+        "ror_id": ror_id,
+        "name": name,
+        "federal": federal,
+    }

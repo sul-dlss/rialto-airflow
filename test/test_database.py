@@ -146,6 +146,7 @@ def test_create_schema(
                 "name",
                 "grid_id",
                 "ror_id",
+                "openalex_id",
                 "federal",
                 "created_at",
                 "updated_at",

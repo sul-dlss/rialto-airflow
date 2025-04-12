@@ -141,6 +141,7 @@ class Funder(Base):  # type: ignore
     name = Column(String, nullable=False)
     grid_id = Column(String, unique=True)
     ror_id = Column(String, unique=True)
+    openalex_id = Column(String, unique=True)
     federal = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())

@@ -38,8 +38,8 @@ def test_publication_fields():
     assert "researchers" not in fields
 
 
-def test_orcid_publications():
-    pubs = list(dimensions.orcid_publications("0000-0002-2317-1967"))
+def test_publications_from_orcid():
+    pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 16
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
     assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
@@ -60,7 +60,7 @@ def mock_dimensions(monkeypatch):
             "publication_year": 1891,
         }
 
-    monkeypatch.setattr(dimensions, "orcid_publications", f)
+    monkeypatch.setattr(dimensions, "publications_from_orcid", f)
 
 
 def test_harvest(snapshot, test_session, mock_authors, mock_dimensions):
@@ -149,7 +149,7 @@ def mock_many_dimensions(monkeypatch):
                 "publication_year": 1891,
             }
 
-    monkeypatch.setattr(dimensions, "orcid_publications", f)
+    monkeypatch.setattr(dimensions, "publications_from_orcid", f)
 
 
 def test_log_message(snapshot, mock_authors, mock_many_dimensions, caplog):

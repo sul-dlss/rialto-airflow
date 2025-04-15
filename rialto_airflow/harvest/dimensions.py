@@ -40,10 +40,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                     logging.info(f"Reached limit of {limit} publications stopping")
                     break
 
-                # dimensions doesn't want scheme and host
-                orcid_query_str = normalize_orcid(author.orcid)
-
-                for dimensions_pub_json in orcid_publications(orcid_query_str):
+                for dimensions_pub_json in publications_from_orcid(author.orcid):
                     count += 1
                     if limit is not None and count > limit:
                         stop = True
@@ -75,29 +72,6 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
     return jsonl_file
 
 
-def orcid_publications(orcid: str) -> Generator[dict, None, None]:
-    logging.info(f"looking up publications for orcid {orcid}")
-    dois = dois_from_orcid(orcid)
-    yield from publications_from_dois(dois)
-
-
-def dois_from_orcid(orcid):
-    q = """
-        search publications where researchers.orcid_id = "{}"
-        return publications [doi]
-        limit 1000
-        """.format(orcid)
-
-    result = query_with_retry(q, 20)
-
-    if len(result["publications"]) == 1000:
-        logging.warning("Truncated results for ORCID %s", orcid)
-    for pub in result["publications"]:
-        if pub.get("doi"):
-            doi_id = normalize_doi(pub["doi"])
-            yield doi_id
-
-
 def publications_from_dois(dois: list, batch_size=200):
     """
     Get the publications metadata for the provided list of DOIs.
@@ -110,12 +84,29 @@ def publications_from_dois(dois: list, batch_size=200):
         q = f"""
             search publications where doi in [{doi_list}]
             return publications [{fields}]
-            limit 1000
             """
 
         result = query_with_retry(q, retry=5)
         for pub in result["publications"]:
             yield normalize_publication(pub)
+
+
+def publications_from_orcid(orcid: str, batch_size=200):
+    """
+    Get the publications metadata for a given ORCID.
+    """
+    logging.info(f"looking up publications for orcid {orcid}")
+    orcid = normalize_orcid(orcid)
+    fields = " + ".join(publication_fields())
+
+    q = f"""
+        search publications where researchers.orcid_id = "{orcid}"
+        return publications [{fields}]
+        """
+
+    result = query_with_retry(q, retry=5)
+    for pub in result["publications"]:
+        yield normalize_publication(pub)
 
 
 @cache
@@ -167,9 +158,11 @@ def query_with_retry(q, retry=5):
     while True:
         try_count += 1
 
+        # dimcli will retry HTTP level errors, but not ones involving the connection
         try:
-            # dimcli will retry HTTP level errors, but not ones involving the connection
-            return dsl().query(q, retry=retry)
+            # use query_iterative which will page responses but aggregate them
+            # into a complete result set. The maximum number of results is 50,000.
+            return dsl().query_iterative(q, show_results=False)
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(
@@ -200,7 +193,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
 
                 # note: we could potentially adjust batch_size upwards if we
                 # want to look up more DOIs at a time
-                for dimensions_pub in publications_from_dois(dois, batch_size=50):
+                for dimensions_pub in publications_from_dois(dois, batch_size=100):
                     doi = dimensions_pub.get("doi")
                     if doi is None:
                         logging.warning("unable to determine what DOI to update")

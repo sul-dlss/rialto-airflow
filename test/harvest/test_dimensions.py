@@ -270,6 +270,7 @@ def test_fill_in_no_dimensions(
     assert "filled in 0 publications" in caplog.text
 
 
+@pytest.mark.skip(reason="this test appears to be inconsistent")
 def test_researchers_error():
     """
     The Dimensions API can intermittently throw Service Unavailable errors when we include
@@ -294,6 +295,7 @@ def test_researchers_error():
     """
 
     results = dsl.query(q)
+    breakpoint()
     assert results.errors["query"]["header"] == "Service unavailable"
 
 

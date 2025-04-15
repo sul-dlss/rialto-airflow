@@ -267,7 +267,7 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
 
 def test_comma():
     """
-    The Dimensions API doesn't allow you to look up DOIs with commas in them. If
+    The OpenAlex API doesn't allow you to look up DOIs with commas in them. If
     this starts working again we can stop ignoring them when looking them up by
     DOI when doing the fill-in process.
     """
@@ -278,7 +278,7 @@ def test_comma():
 
 def test_colon():
     """
-    The Dimensions API doesn't allow you to look up multiple DOIs if they start with
+    The OpenAlex API doesn't allow you to look up multiple DOIs if they start with
     'doi:' since it confuses their query syntax into thinking you are trying to
     filter using an OR boolean. If this test starts passing we can consider
     stopping ignoring them.

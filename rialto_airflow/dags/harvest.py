@@ -58,7 +58,8 @@ def task_failure_notify(context):
 
 
 @dag(
-    schedule=None,
+    schedule="@weekly",
+    max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
     default_args={"on_failure_callback": task_failure_notify},

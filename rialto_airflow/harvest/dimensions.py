@@ -4,7 +4,6 @@ import os
 import time
 from functools import cache
 from pathlib import Path
-from typing import Generator
 
 import dimcli
 import requests

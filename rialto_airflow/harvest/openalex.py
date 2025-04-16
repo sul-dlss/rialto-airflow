@@ -121,18 +121,8 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
                 # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
                 dois = [normalize_doi(row["doi"]) for row in rows]
 
-                # Commas are a reserved character in openalex, so until there is
-                # a way to escape them we will need to drop them
-                # https://docs.openalex.org/how-to-use-the-api/get-lists-of-entities/filter-entity-lists#intersection-and
-                #
-                # Also if a doi starts with 'doi:' that confuses the OpenAlex
-                # API because it interprets it as trying to change the field
-                # that is being matched as trying to do an OR query with
-                # multiple fields.
-
-                dois_filtered = filter(
-                    lambda doi: "," not in doi and not doi.startswith("doi:"), dois
-                )
+                # drop dois that are problematic for the openalex api
+                dois_filtered = _clean_dois_for_query(dois)
 
                 # looking up multiple DOIs is supported by pipe separating them
                 dois_joined = "|".join(dois_filtered)
@@ -161,3 +151,35 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
     logging.info(f"filled in {count} publications")
 
     return snapshot.path
+
+
+def _clean_dois_for_query(dois: list[str]) -> list[str]:
+    """
+    Commas are a reserved character in openalex filter queries, so until there is
+    a way to escape them we will need to drop them
+    https://docs.openalex.org/how-to-use-the-api/get-lists-of-entities/filter-entity-lists#intersection-and
+
+    If a DOI starts with 'doi:' that confuses the OpenAlex API because it interprets
+    it as trying to do an OR query with multiple fields.
+
+    If the DOI contains a field name prefix and a colon that needs to be ignored,
+    or else OpenAlex thinks it is a OR query.
+
+    For example:
+
+    doi: 10.1093/noajnl/vdad070.013 pmcid: pmc10402389
+    """
+
+    new_dois = []
+
+    for doi in dois:
+        if "," in doi:
+            continue
+        elif doi.startswith("doi:"):
+            continue
+        elif " pmcid:" in doi:
+            continue
+        else:
+            new_dois.append(doi)
+
+    return new_dois

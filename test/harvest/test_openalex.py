@@ -278,8 +278,8 @@ def test_comma():
 
 def test_colon():
     """
-    The OpenAlex API doesn't allow you to look up multiple DOIs if they start with
-    'doi:' since it confuses their query syntax into thinking you are trying to
+    The OpenAlex API doesn't allow you to look up multiple DOIs if they contain
+    a name prefix like 'doi:' since it confuses their query syntax into thinking you are trying to
     filter using an OR boolean. If this test starts passing we can consider
     stopping ignoring them.
     """
@@ -288,3 +288,9 @@ def test_colon():
     ):
         dois = "abc123|doi:abc123"
         pyalex.Works().filter(doi=dois).get()
+
+
+def test_clean_dois_for_query():
+    assert openalex._clean_dois_for_query(
+        ["doi:123", "abc/123,45", "aaa/111", "123/abc pmcid:123", "abc/123"]
+    ) == ["aaa/111", "abc/123"]

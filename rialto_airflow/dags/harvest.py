@@ -164,33 +164,34 @@ def harvest():
     def publish_openaccess(snapshot):
         openaccess.write_publications(snapshot)
         openaccess.write_contributions(snapshot)
+        openaccess.write_contributions_by_school(snapshot)
+        openaccess.write_contributions_by_department(snapshot)
 
     @task()
     def upload_publish_files(snapshot):
-        open_access_publications_filename = "publications.csv"
-        open_access_contributions_filename = "contributions.csv"
-        open_access_publications_file_id = google.get_file_id(
-            google.open_access_dashboard_folder_id(), open_access_publications_filename
-        )
-        open_access_contributions_file_id = google.get_file_id(
-            google.open_access_dashboard_folder_id(), open_access_contributions_filename
-        )
+        csv_files = [
+            "publications.csv",
+            "contributions.csv",
+            "contributions-by-school.csv",
+            "contributions-by-department.csv",
+        ]
 
-        logging.info(
-            f"Uploading {snapshot.path / open_access_publications_filename} to file id {open_access_publications_file_id}"
-        )
-        google.replace_file_in_google_drive(
-            str(snapshot.path / open_access_publications_filename),
-            open_access_publications_file_id,
-        )
+        google_folder_id = google.open_access_dashboard_folder_id()
 
-        logging.info(
-            f"Uploading {snapshot.path / open_access_contributions_filename} to file id {open_access_contributions_file_id}"
-        )
-        google.replace_file_in_google_drive(
-            str(snapshot.path / open_access_contributions_filename),
-            open_access_contributions_file_id,
-        )
+        for csv_file in csv_files:
+            file_path = snapshot.path / csv_file
+            google_file_id = google.get_file_id(google_folder_id, csv_file)
+
+            if google_file_id:
+                logging.info(
+                    f"Uploading {file_path} to Google file id {google_file_id}"
+                )
+                google.replace_file_in_google_drive(str(file_path), google_file_id)
+            else:
+                logging.info(
+                    f"Adding {file_path} to Google folder id {google_folder_id}"
+                )
+                google.upload_file_to_google_drive(str(file_path), google_folder_id)
 
     snapshot = setup()
 

@@ -87,7 +87,7 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
     """
     # TODO: I think we can maybe have this function take a list of orcids and
     # batch process them since we can filter by multiple orcids in one request?
-    logging.info(f"looking up dois for orcid {orcid}")
+    logging.info(f"looking up publications for orcid {orcid}")
 
     # get the first (and hopefully only) openalex id for the orcid
     authors = Authors().filter(orcid=orcid).get()

@@ -5,7 +5,6 @@ import pytest
 
 import dotenv
 import dimcli
-import requests
 
 from rialto_airflow.harvest import dimensions
 from rialto_airflow.database import Publication

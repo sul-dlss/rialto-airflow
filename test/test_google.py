@@ -159,6 +159,9 @@ def test_replace_file_in_google_drive():
     # Delete the file if it exists
     delete_google_file(google_drive_id(), "authors.csv")
 
+    # give it some time to delete
+    time.sleep(2)
+
     # Upload the file
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
 
@@ -196,6 +199,9 @@ def test_replace_file_in_google_drive():
 def test_upload_file_to_google_drive():
     # Delete the file if it exists
     delete_google_file(google_drive_id(), "authors.csv")
+
+    # give it some time to delete
+    time.sleep(2)
 
     # Confirm the file does not exist in the shared google drive
     assert google_file_exists(google_drive_id(), "authors.csv") is False

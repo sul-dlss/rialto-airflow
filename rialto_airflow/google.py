@@ -81,6 +81,25 @@ def append_rows_to_google_sheet(spreadsheet_id, values, sheet_name="Sheet1"):
     )
 
 
+def upload_or_replace_file_in_google_drive(local_filename, google_drive_id):
+    """
+    Upload a file to a Google Drive folder and replace it if it already exists.
+    Provide the local filename (with path) and the drive folder ID for the folder in Google Drive.
+    The folder ID must exist in google drive and the service account must have access to the folder.
+    If an existing file of the same name exists in the folder, it will be replaced.
+    """
+
+    # Check if the file already exists in the folder
+    existing_file_id = get_file_id(google_drive_id, os.path.basename(local_filename))
+
+    if existing_file_id:
+        # If it exists, replace it
+        replace_file_in_google_drive(local_filename, existing_file_id)
+    else:
+        # If it doesn't exist, upload it
+        upload_file_to_google_drive(local_filename, google_drive_id)
+
+
 def replace_file_in_google_drive(local_filename, google_file_id):
     """
     Replace an existing file in Google Drive, and preserve the file ID.

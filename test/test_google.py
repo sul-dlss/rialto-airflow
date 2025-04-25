@@ -120,9 +120,47 @@ def test_clear_google_sheet():
     assert num_rows_google_sheet(google_sheet_id()) == 0
 
 
+def test_upload_or_replace_file_in_google_drive():
+    # Delete the file if it exists
+    delete_google_file(google_drive_id(), "authors.csv")
+
+    # Upload the file
+    google.upload_or_replace_file_in_google_drive(
+        "test/data/authors.csv", google_drive_id()
+    )
+
+    # give it some time to upload to google before checking it exists
+    time.sleep(4)
+
+    # Get the file ID of the uploaded file and ensure it exists
+    file_id = google.get_file_id(google_drive_id(), "authors.csv")
+    assert file_id is not None
+
+    # Replace this file with a new one, preserving the file ID
+    google.upload_or_replace_file_in_google_drive(
+        "test/data/authors.csv", google_drive_id()
+    )
+
+    time.sleep(4)
+
+    # Confirm the file still exists in the shared google drive
+    assert google_file_exists(google_drive_id(), "authors.csv") is True
+
+    # Confirm the file id contents are as expected, including the new row
+    df = get_csv_file_contents(file_id)
+    assert len(df) == 10  # 10 rows in the file still
+    assert df.to_dict("records")[9]["sunetid"] == "sunet10"
+
+    # Clenup the test file
+    delete_google_file(google_drive_id(), "authors.csv")
+
+
 def test_replace_file_in_google_drive():
     # Delete the file if it exists
     delete_google_file(google_drive_id(), "authors.csv")
+
+    # give it some time to delete
+    time.sleep(2)
 
     # Upload the file
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
@@ -161,6 +199,9 @@ def test_replace_file_in_google_drive():
 def test_upload_file_to_google_drive():
     # Delete the file if it exists
     delete_google_file(google_drive_id(), "authors.csv")
+
+    # give it some time to delete
+    time.sleep(2)
 
     # Confirm the file does not exist in the shared google drive
     assert google_file_exists(google_drive_id(), "authors.csv") is False

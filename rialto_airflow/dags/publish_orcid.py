@@ -33,14 +33,14 @@ def publish_orcid():
         """
         Update the authors.csv file in Google Drive with the latest authors data CSV file.
         """
-        authors_filename = "authors.csv"
-        orcid_authors_file_id = google.get_file_id(
-            google.orcid_dashboard_folder_id(), authors_filename
+        authors_file = rialto_active_authors_file(data_dir)
+        google_folder_id = google.orcid_dashboard_folder_id()
+        logging.info(
+            f"Uploading {authors_file} to google drive folder id {google_folder_id}"
         )
-        logging.info(f"Uploading {authors_filename} to file id {orcid_authors_file_id}")
-        google.replace_file_in_google_drive(
-            rialto_active_authors_file(data_dir),
-            orcid_authors_file_id,
+        google.upload_or_replace_file_in_google_drive(
+            authors_file,
+            google_folder_id,
         )
         return True
 

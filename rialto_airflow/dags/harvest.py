@@ -181,18 +181,10 @@ def harvest():
 
         for csv_file in csv_files:
             file_path = snapshot.path / csv_file
-            google_file_id = google.get_file_id(google_folder_id, csv_file)
 
-            if google_file_id:
-                logging.info(
-                    f"Uploading {file_path} to Google file id {google_file_id}"
-                )
-                google.replace_file_in_google_drive(str(file_path), google_file_id)
-            else:
-                logging.info(
-                    f"Adding {file_path} to Google folder id {google_folder_id}"
-                )
-                google.upload_file_to_google_drive(str(file_path), google_folder_id)
+            google.upload_or_replace_file_in_google_drive(
+                str(file_path), google_folder_id
+            )
 
     snapshot = setup()
 

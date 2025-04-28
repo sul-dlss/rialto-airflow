@@ -206,6 +206,7 @@ from rialto_airflow.google import (
     append_rows_to_google_sheet,
     replace_file_in_google_drive,
     upload_file_to_google_drive,
+    upload_or_replace_file_in_google_drive
 )
 
 gcp_conn_id = Variable.get("google_connection")
@@ -249,6 +250,15 @@ append_rows_to_google_sheet(
             "Three",
         ]
     ],
+)
+```
+
+5. To upload or replace a file in Google Drive, pass in the filename and google drive folder.  This is useful when you are uploading a file for the first time, but then later replacing that exact same file:
+
+```
+upload_or_replace_file_in_google_drive(
+    "/opt/airflow/rialto_airflow/dags/harvest.py",
+    "LONG-GOOGLE-FOLDER-ID-GOES-HERE",
 )
 ```
 

@@ -62,10 +62,9 @@ def test_get_token_failure(token_url, client_id, client_secret):
 def test_get_response_success(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    test_url = f"{base_url}/orcid/v1/users"
-    params = {"page": 1, "per_page": 1}
+    test_url = f"{base_url}/orcid/v1/users?scope=ANY&page_number=1&page_size=100"
     try:
-        response_data = mais.get_response(access_token, test_url, params=params)
+        response_data = mais.get_response(access_token, test_url)
         assert isinstance(response_data, dict)
         assert "results" in response_data
         assert isinstance(response_data["results"], list)

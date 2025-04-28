@@ -27,6 +27,7 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> str:
 
     token_url = f"{base_url}/oauth2/token"
     data = {"grant_type": "client_credentials"}
+    logger.info(f"Fetching token from {token_url}")
 
     try:
         response = requests.post(token_url, auth=(client_id, client_secret), data=data)
@@ -72,7 +73,7 @@ def fetch_orcid_users(
     params = {"page": 1, "per_page": per_page}
 
     while True:
-        logger.info(f"Fetching page {params['page']}")
+        logger.info(f"Fetching page {params['page']} from {url}")
         data = get_response(access_token, url, params=params)
 
         results = data.get("results", [])

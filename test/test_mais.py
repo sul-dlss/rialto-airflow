@@ -16,6 +16,11 @@ def base_url():
 
 
 @pytest.fixture(scope="module")
+def token_url():
+    return os.environ.get("AIRFLOW_VAR_MAIS_TOKEN_URL")
+
+
+@pytest.fixture(scope="module")
 def client_id():
     return os.environ.get("AIRFLOW_VAR_MAIS_CLIENT_ID")
 
@@ -26,38 +31,38 @@ def client_secret():
 
 
 @pytest.fixture(scope="module")
-def access_token(client_id, client_secret, base_url):
+def access_token(client_id, client_secret, token_url):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    return mais.get_token(client_id, client_secret, base_url)
+    return mais.get_token(client_id, client_secret, token_url)
 
 
 @pytest.mark.mais_tests
-def test_get_token_success(base_url, client_id, client_secret):
+def test_get_token_success(token_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    token = mais.get_token(client_id, client_secret, base_url)
+    token = mais.get_token(client_id, client_secret, token_url)
     assert token is not None
     assert isinstance(token, str)
     assert len(token) > 0
 
 
 @pytest.mark.mais_tests
-def test_get_token_failure(base_url, client_id, client_secret):
+def test_get_token_failure(token_url, client_id, client_secret):
     # It's true, this test specifically doesn't use a valid client_id or client_secret, but
     # the presence of those values indicates we're able to reach the service in question (which
     # is not possible from e.g. CI).
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
     with pytest.raises(mais.TokenFetchError):
-        mais.get_token("dummy_invalid_id", "dummy_invalid_secret", base_url)
+        mais.get_token("dummy_invalid_id", "dummy_invalid_secret", token_url)
 
 
 @pytest.mark.mais_tests
 def test_get_response_success(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    test_url = f"{base_url}/mais/orcid/v1/users"
+    test_url = f"{base_url}/orcid/v1/users"
     params = {"page": 1, "per_page": 1}
     try:
         response_data = mais.get_response(access_token, test_url, params=params)
@@ -94,16 +99,16 @@ def test_fetch_orcid_users_invalid_path(
 def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    orcid_id = "https://orcid.org/0009-0008-2120-5722"  # Example Valid ID
+    orcid_id = "https://sandbox.orcid.org/0000-0002-4589-7232"  # Example Valid ID
     user_data = mais.fetch_orcid_user(access_token, base_url, orcid_id)
     assert isinstance(user_data, dict)
 
 
 @pytest.mark.mais_tests
-def test_current_orcid_users(access_token, client_id, client_secret):
+def test_current_orcid_users(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    current_users = mais.current_orcid_users(access_token)
+    current_users = mais.current_orcid_users(access_token, base_url)
     assert isinstance(current_users, list)
     assert len(current_users) > 0
     seen_orcids = set()

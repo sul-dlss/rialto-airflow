@@ -50,14 +50,12 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> str:
         raise TokenFetchError("Error during token request, see logs") from e
 
 
-def get_response(
-    access_token: str, url: str, params: Optional[dict[str, Any]] = None
-) -> dict[str, Any]:
+def get_response(access_token: str, url: str) -> dict[str, Any]:
     """Retrieves a JSON response from the MAIS ORCID API."""
     oauth_session = OAuth2Session(
         token={"access_token": access_token, "token_type": "Bearer"}
     )
-    response = oauth_session.get(url, params=params)
+    response = oauth_session.get(url)
     response.raise_for_status()  # Raise HTTPError for bad responses
     return response.json()
 
@@ -69,12 +67,11 @@ def fetch_orcid_users(
 
     orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
-    url = f"{base_url}/orcid/v1{path}"
-    params = {"page": 1, "per_page": per_page}
+    url = f"{base_url}/orcid/v1{path}&page_number=1&page_size={per_page}"  # first page url
 
     while True:
-        logger.info(f"Fetching page {params['page']} from {url}")
-        data = get_response(access_token, url, params=params)
+        logger.info(f"Fetching {url}")
+        data = get_response(access_token, url)
 
         results = data.get("results", [])
         orcid_users.extend(results)
@@ -82,11 +79,15 @@ def fetch_orcid_users(
         if limit and len(orcid_users) >= limit:
             break
 
-        next_link = data.get("links", {}).get("next")
-        if not next_link:
+        self_link = data.get("links", {}).get("self")
+        last_link = data.get("links", {}).get("last")
+        # if we have reached the last page, the self and last links will be the same
+        if self_link == last_link:
             break
 
-        params["page"] += 1  # Increment for next page
+        next_link = data.get("links", {}).get("next")
+        logger.info(f"Self: {self_link}, Last: {last_link}, Next: {next_link}")
+
         url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
 
     return orcid_users[:limit] if limit else orcid_users

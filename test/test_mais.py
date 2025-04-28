@@ -1,3 +1,4 @@
+import dotenv
 import os
 import pytest
 import requests
@@ -8,6 +9,8 @@ from rialto_airflow import mais
 
 ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
+
+dotenv.load_dotenv()
 
 
 @pytest.fixture(scope="module")

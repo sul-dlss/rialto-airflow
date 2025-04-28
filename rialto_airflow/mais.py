@@ -61,13 +61,19 @@ def get_response(access_token: str, url: str) -> dict[str, Any]:
 
 
 def fetch_orcid_users(
-    access_token: str, base_url: str, path: str, limit: Optional[int] = None
+    mais_client_id: str,
+    mais_client_secret: str,
+    mais_token_url: str,
+    base_url: str,
+    path: str,
+    limit: Optional[int] = None,
 ) -> list[ORCIDRecord]:
     """Fetches ORCID user records from the MAIS ORCID API, handling pagination."""
 
     orcid_users: list[ORCIDRecord] = []
     per_page = 100  # This max value from the API.
     url = f"{base_url}/orcid/v1{path}&page_number=1&page_size={per_page}"  # first page url
+    access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
 
     while True:
         logger.info(f"Fetching {url}")
@@ -99,13 +105,17 @@ def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRec
     return get_response(access_token, f"{base_url}/orcid/v1/users/{cleaned_id}")
 
 
-def current_orcid_users(access_token: str, base_url: str) -> list[ORCIDRecord]:
+def current_orcid_users(
+    mais_client_id: str, mais_client_secret: str, mais_token_url: str, base_url: str
+) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
 
     if base_url is None:
         raise ValueError("AIRFLOW_VAR_MAIS_BASE_URL is a required value")
 
-    all_users = fetch_orcid_users(access_token, base_url, "/users?scope=ANY")
+    all_users = fetch_orcid_users(
+        mais_client_id, mais_client_secret, mais_token_url, base_url, "/users?scope=ANY"
+    )
 
     # Create a dictionary to store the most recent record for each ORCID iD
     current_users_by_orcid: dict[str, ORCIDRecord] = {}

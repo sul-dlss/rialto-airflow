@@ -50,31 +50,60 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> str:
         raise TokenFetchError("Error during token request, see logs") from e
 
 
-def get_response(
-    access_token: str, url: str, params: Optional[dict[str, Any]] = None
-) -> dict[str, Any]:
+def get_response(access_token: str, url: str) -> dict[str, Any]:
     """Retrieves a JSON response from the MAIS ORCID API."""
     oauth_session = OAuth2Session(
         token={"access_token": access_token, "token_type": "Bearer"}
     )
-    response = oauth_session.get(url, params=params)
+    response = oauth_session.get(url)
     response.raise_for_status()  # Raise HTTPError for bad responses
     return response.json()
 
 
+def page_size() -> int:
+    """Returns the page size for the API request."""
+    return 100  # This is the max value from the API.
+
+
 def fetch_orcid_users(
-    access_token: str, base_url: str, path: str, limit: Optional[int] = None
+    mais_client_id: str,
+    mais_client_secret: str,
+    mais_token_url: str,
+    base_url: str,
+    limit: Optional[int] = None,
 ) -> list[ORCIDRecord]:
     """Fetches ORCID user records from the MAIS ORCID API, handling pagination."""
 
     orcid_users: list[ORCIDRecord] = []
-    per_page = 100  # This max value from the API.
-    url = f"{base_url}/orcid/v1{path}"
-    params = {"page": 1, "per_page": per_page}
+    url = f"{base_url}/orcid/v1/users?scope=ANY&page_number=1&page_size={page_size()}"  # first page url
+    access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
 
-    while True:
-        logger.info(f"Fetching page {params['page']} from {url}")
-        data = get_response(access_token, url, params=params)
+    while True:  # paging
+        logger.info(f"Fetching {url}")
+        tries = 0
+        while True:  # retry loop for token expiration
+            try:
+                # Try to get the response
+                data = get_response(access_token, url)
+                break  # break out of the retry loop if we get a successful response
+            except requests.exceptions.HTTPError as e:
+                # if we get a 401 unathorized error from the API call, try to get a new token
+                if e.response.status_code == 401:
+                    tries += 1
+                    logger.warning(
+                        f"Attempt {tries}: Access token expired. Retrying..."
+                    )
+                    access_token = get_token(
+                        mais_client_id, mais_client_secret, mais_token_url
+                    )
+                    if tries >= 3:
+                        logger.error(
+                            "Failed to fetch new access token after multiple attempts."
+                        )
+                        raise e  # break out of the retry loop if we fail three times to get a new token
+                    continue  # Retry the current request with the new token
+                else:
+                    raise e  # Re-raise the exception if it's not a 401 error
 
         results = data.get("results", [])
         orcid_users.extend(results)
@@ -86,8 +115,7 @@ def fetch_orcid_users(
         if not next_link:
             break
 
-        params["page"] += 1  # Increment for next page
-        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
+        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value, and then loop again
 
     return orcid_users[:limit] if limit else orcid_users
 
@@ -98,13 +126,17 @@ def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRec
     return get_response(access_token, f"{base_url}/orcid/v1/users/{cleaned_id}")
 
 
-def current_orcid_users(access_token: str, base_url: str) -> list[ORCIDRecord]:
+def current_orcid_users(
+    mais_client_id: str, mais_client_secret: str, mais_token_url: str, base_url: str
+) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
 
     if base_url is None:
         raise ValueError("AIRFLOW_VAR_MAIS_BASE_URL is a required value")
 
-    all_users = fetch_orcid_users(access_token, base_url, "/users?scope=ANY")
+    all_users = fetch_orcid_users(
+        mais_client_id, mais_client_secret, mais_token_url, base_url
+    )
 
     # Create a dictionary to store the most recent record for each ORCID iD
     current_users_by_orcid: dict[str, ORCIDRecord] = {}

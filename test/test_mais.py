@@ -79,24 +79,12 @@ def test_get_response_success(access_token, base_url, client_id, client_secret):
 def test_fetch_orcid_users_with_limit(client_id, client_secret, token_url, base_url):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    path = "/users?scope=ANY"
     limit = 5
     users = mais.fetch_orcid_users(
-        client_id, client_secret, token_url, base_url, path, limit=limit
+        client_id, client_secret, token_url, base_url, limit=limit
     )
     assert isinstance(users, list)
     assert len(users) == limit
-
-
-@pytest.mark.mais_tests
-def test_fetch_orcid_users_invalid_path(client_id, client_secret, token_url, base_url):
-    if not (client_secret and client_id):
-        pytest.skip("No MAIS credentials available")
-    invalid_path = "/invalid_path"
-    with pytest.raises(requests.exceptions.HTTPError):
-        mais.fetch_orcid_users(
-            client_id, client_secret, token_url, base_url, invalid_path
-        )
 
 
 @pytest.mark.mais_tests
@@ -123,6 +111,19 @@ def test_current_orcid_users(client_id, client_secret, token_url, base_url):
         assert orcid_id is not None
         assert orcid_id not in seen_orcids
         seen_orcids.add(orcid_id)
+
+
+@pytest.mark.mais_tests
+def test_invalid_token_retry(
+    client_id, client_secret, token_url, base_url, monkeypatch
+):
+    if not (client_secret and client_id):
+        pytest.skip("No MAIS credentials available")
+    monkeypatch.setattr(
+        mais, "get_token", lambda *args: "invalid_token"
+    )  # monkey patch an invalid token
+    with pytest.raises(requests.exceptions.HTTPError):
+        mais.current_orcid_users(client_id, client_secret, token_url, base_url)
 
 
 def test_count_scopes_empty_list():

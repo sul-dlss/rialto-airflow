@@ -60,6 +60,11 @@ def get_response(access_token: str, url: str) -> dict[str, Any]:
     return response.json()
 
 
+def page_size() -> int:
+    """Returns the page size for the API request."""
+    return 100  # This is the max value from the API.
+
+
 def fetch_orcid_users(
     mais_client_id: str,
     mais_client_secret: str,
@@ -70,8 +75,7 @@ def fetch_orcid_users(
     """Fetches ORCID user records from the MAIS ORCID API, handling pagination."""
 
     orcid_users: list[ORCIDRecord] = []
-    per_page = 100  # This max value from the API.
-    url = f"{base_url}/orcid/v1/users?scope=ANY&page_number=1&page_size={per_page}"  # first page url
+    url = f"{base_url}/orcid/v1/users?scope=ANY&page_number=1&page_size={page_size()}"  # first page url
     access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
 
     while True:  # paging

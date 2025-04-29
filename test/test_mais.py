@@ -97,9 +97,14 @@ def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_sec
 
 
 @pytest.mark.mais_tests
-def test_current_orcid_users(client_id, client_secret, token_url, base_url):
+def test_current_orcid_users(
+    client_id, client_secret, token_url, base_url, monkeypatch
+):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
+    monkeypatch.setattr(
+        mais, "page_size", lambda *args: 5
+    )  # monkey patch a smaller page size so we can hit the paging code in UAT
     current_users = mais.current_orcid_users(
         client_id, client_secret, token_url, base_url
     )

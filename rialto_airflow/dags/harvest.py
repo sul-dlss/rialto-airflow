@@ -144,6 +144,15 @@ def harvest():
         return snapshot
 
     @task()
+    def fill_in_wos(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl):
+        """
+        Fill in WebOfScience data for DOIs from other publication sources.
+        """
+        wos.fill_in(snapshot, wos_jsonl)
+
+        return snapshot
+
+    @task()
     def distill_publications(snapshot, openalex_fill_in, dimensions_fill_in):
         """
         Distill the publication metadata into publication table columns.
@@ -153,7 +162,7 @@ def harvest():
         return count
 
     @task()
-    def link_funders(snapshot, openalex_fill_in, dimensions_fill_in):
+    def link_funders(snapshot, openalex_fill_in, dimensions_fill_in, wos_fill_in):
         """
         Link all the publications to funders.
         """
@@ -206,11 +215,15 @@ def harvest():
         snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl
     )
 
+    wos_fill_in = fill_in_wos(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl)
+
     distilled_pubs = distill_publications(
         snapshot, openalex_fill_in, dimensions_fill_in
     )
 
-    linked_pubs = link_funders(snapshot, openalex_fill_in, dimensions_fill_in)
+    linked_pubs = link_funders(
+        snapshot, openalex_fill_in, dimensions_fill_in, wos_fill_in
+    )
 
     (
         (distilled_pubs, linked_pubs)

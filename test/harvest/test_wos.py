@@ -1,9 +1,11 @@
+import json
 import logging
 import os
 import re
 from dataclasses import dataclass
 
 import dotenv
+import pandas
 import pytest
 import requests
 
@@ -73,6 +75,56 @@ def existing_publication(test_session):
         )
         session.add(pub)
         return pub
+
+
+@pytest.fixture
+def mock_no_wos_publication(test_session):
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.1515/9781503624199",
+            sulpub_json={"sulpub": "data"},
+            dim_json={"dim": "data"},
+        )
+        session.add(pub)
+        return pub
+
+
+@pytest.fixture
+def mock_wos_doi(monkeypatch):
+    """
+    Mock our function for fetching publications by DOI from Web of Science.
+    """
+
+    def f(*args, **kwargs):
+        yield {
+            "doi": "10.1515/9781503624199",
+            "title": "An example title",
+            "type": "article",
+            "publication_year": 1891,
+        }
+
+    monkeypatch.setattr(wos, "publications_from_dois", f)
+
+
+def mock_jsonl(path):
+    """
+    Mock the existing jsonl file for Web of Science
+    """
+    records = [
+        {
+            "doi": "10.1515/9781503624150",
+            "title": "An example title",
+            "publication_year": 1891,
+        },
+        {
+            "doi": "10.1515/9781503624151",
+            "title": "Another example title",
+            "publication_year": 1892,
+        },
+    ]
+    with open(path, "w") as f:
+        for record in records:
+            f.write(f"{json.dumps(record)}\n")
 
 
 @pytest.mark.skipif(wos_key is None, reason="no Web of Science key")
@@ -317,3 +369,71 @@ def test_get_doi(caplog):
         "error 'str' object has no attribute 'get' trying to parse identifiers from {'UID': 'WOS:000012345000067'"
         in caplog.text
     )
+
+
+def test_fill_in(snapshot, test_session, mock_no_wos_publication, mock_wos_doi, caplog):
+    caplog.set_level(logging.INFO)
+    # set up a pre-existing jsonl file
+    jsonl_file = snapshot.path / "wos.jsonl"
+    mock_jsonl(jsonl_file)
+
+    wos.fill_in(snapshot, jsonl_file)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624199")
+            .first()
+        )
+        assert pub.wos_json == {
+            "doi": "10.1515/9781503624199",
+            "title": "An example title",
+            "type": "article",
+            "publication_year": 1891,
+        }
+
+    # adds 1 publication to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 3
+    assert "filled in 1 publications" in caplog.text
+
+
+def test_fill_in_no_wos(
+    snapshot,
+    test_session,
+    mock_publication,
+    mock_no_wos_publication,
+    caplog,
+    monkeypatch,
+):
+    caplog.set_level(logging.INFO)
+
+    # make it look like wos returns no publications by DOI
+    monkeypatch.setattr(wos, "publications_from_dois", lambda *args, **kwargs: [])
+
+    # set up a pre-existing jsonl file
+    jsonl_file = snapshot.path / "wos.jsonl"
+    mock_jsonl(jsonl_file)
+    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
+
+    wos.fill_in(snapshot, jsonl_file)
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624199")
+            .first()
+        )
+        assert pub.wos_json is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
+    assert "filled in 0 publications" in caplog.text
+
+
+def test_publications_from_dois():
+    # there are 231 DOIs in this list and publications_from_dois look them up in batches of 50
+    dois = list(pandas.read_csv("test/data/dois.csv").doi)
+
+    pubs = list(wos.publications_from_dois(dois))
+
+    # the number of pubs we get back should exceed the batch size if the paging is working
+    assert len(pubs) > 50

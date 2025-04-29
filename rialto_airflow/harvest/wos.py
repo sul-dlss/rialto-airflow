@@ -2,10 +2,12 @@ import json
 import logging
 import os
 import re
+from itertools import batched
 from pathlib import Path
 
 import requests
 from typing import Generator, Optional, Dict, Union
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import (
@@ -77,28 +79,81 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     return jsonl_file
 
 
+def fill_in(snapshot: Snapshot, jsonl_file: Path):
+    """Harvest WebOfScience data for DOIs from other publication sources."""
+    count = 0
+    with jsonl_file.open("a") as jsonl_output:
+        with get_session(snapshot.database_name).begin() as select_session:
+            stmt = (
+                select(Publication.doi)  # type: ignore
+                .where(Publication.doi.is_not(None))  # type: ignore
+                .where(Publication.wos_json.is_(None))
+                .execution_options(yield_per=50)
+            )
+
+            for rows in select_session.execute(stmt).partitions():
+                # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
+                dois = [row["doi"] for row in rows]
+
+                logging.info(f"looking up DOIs {dois}")
+                for wos_pub in publications_from_dois(dois):
+                    doi = normalize_doi(wos_pub.get("doi"))
+                    if doi is None:
+                        continue
+
+                    with get_session(snapshot.database_name).begin() as update_session:
+                        update_stmt = (
+                            update(Publication)  # type: ignore
+                            .where(Publication.doi == doi)
+                            .values(wos_json=wos_pub)
+                        )
+                        update_session.execute(update_stmt)
+
+                    count += 1
+                    jsonl_output.write(json.dumps(wos_pub) + "\n")
+
+    logging.info(f"filled in {count} publications")
+
+    return snapshot.path
+
+
 def orcid_publications(orcid) -> Generator[dict, None, None]:
     """
     A generator that returns publications associated with a given ORCID.
     """
-
-    # For API details see: https://api.clarivate.com/swagger-ui/
-
     # WoS doesn't recognize ORCID URIs which are stored in User table
     if m := re.match(r"^https?://orcid.org/(.+)$", orcid):
         orcid = m.group(1)
+
+    yield from _wos_api(f"AI={orcid}")
+
+
+def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
+    """
+    A generator that returns publications associated a list of DOIs.
+    """
+    for doi_batch in batched(dois, n=50):
+        yield from _wos_api(f"DO=({' '.join(doi_batch)})")
+
+
+def _wos_api(query) -> Generator[dict, None, None]:
+    """
+    A generator that returns publications associated a list of DOIs.
+    """
+
+    # For API details see: https://api.clarivate.com/swagger-ui/?apikey=none&url=https%3A%2F%2Fdeveloper.clarivate.com%2Fapis%2Fwos%2Fswagger
 
     wos_key = os.environ.get("AIRFLOW_VAR_WOS_KEY")
     base_url = "https://wos-api.clarivate.com/api/wos"
     headers = {"Accept": "application/json", "X-ApiKey": wos_key}
 
     # the number of records to get in each request (100 is max)
-    batch_size = 100
+    count = 100
 
     params: Params = {
         "databaseId": "WOK",
-        "usrQuery": f"AI=({orcid})",
-        "count": batch_size,
+        "usrQuery": query,
+        "count": count,
         "firstRecord": 1,
         "optionView": "SR",  # SR = Short Records, which gives us the most basic info about the publication, skipping authors, to keep
     }
@@ -119,7 +174,7 @@ def orcid_publications(orcid) -> Generator[dict, None, None]:
         return
 
     if results["QueryResult"]["RecordsFound"] == 0:
-        logging.info(f"No results found for ORCID {orcid}")
+        logging.info(f"No results found for {query}")
         return
 
     yield from results["Data"]["Records"]["records"]["REC"]
@@ -128,13 +183,13 @@ def orcid_publications(orcid) -> Generator[dict, None, None]:
 
     query_id = results["QueryResult"]["QueryID"]
     records_found = results["QueryResult"]["RecordsFound"]
-    first_record = batch_size + 1  # since the initial set included 100
+    first_record = count + 1  # since the initial set included 100
 
     # if there aren't any more results to fetch this loop will never be entered
 
     logging.info(f"{records_found} records found")
     while first_record < records_found:
-        page_params: Params = {"firstRecord": first_record, "count": batch_size}
+        page_params: Params = {"firstRecord": first_record, "count": count}
         logging.info(f"fetching {base_url}/query/{query_id} with {page_params}")
 
         resp = http.get(
@@ -151,7 +206,7 @@ def orcid_publications(orcid) -> Generator[dict, None, None]:
         yield from records["Records"]["records"]["REC"]
 
         # move the offset along in the results list
-        first_record += batch_size
+        first_record += count
 
 
 def get_json(resp: requests.Response) -> Optional[dict]:
@@ -217,4 +272,5 @@ def get_doi(pub) -> Optional[str]:
         logging.warning(f"error {e} trying to parse identifiers from {pub}")
         return None
 
+    logging.warning(f"unable to determine what DOI to update: {pub}")
     return None

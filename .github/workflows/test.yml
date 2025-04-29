@@ -45,6 +45,10 @@ jobs:
           AIRFLOW_TEST_GOOGLE_DRIVE_ID: ${{ secrets.AIRFLOW_TEST_GOOGLE_DRIVE_ID }}
           AIRFLOW_TEST_GOOGLE_SHEET_ID: ${{ secrets.AIRFLOW_TEST_GOOGLE_SHEET_ID }}
           AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: "google-cloud-platform://?keyfile_dict=${{ secrets.AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON }}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
+          AIRFLOW_VAR_MAIS_TOKEN_URL: ${{ secrets.AIRFLOW_VAR_MAIS_TOKEN_URL }}
+          AIRFLOW_VAR_MAIS_BASE_URL: ${{ secrets.AIRFLOW_VAR_MAIS_BASE_URL }}
+          AIRFLOW_VAR_MAIS_CLIENT_ID: ${{ secrets.AIRFLOW_VAR_MAIS_CLIENT_ID }}
+          AIRFLOW_VAR_MAIS_SECRET: ${{ secrets.AIRFLOW_VAR_MAIS_SECRET }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

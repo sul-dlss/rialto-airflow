@@ -40,7 +40,6 @@ def access_token(client_id, client_secret, token_url):
     return mais.get_token(client_id, client_secret, token_url)
 
 
-@pytest.mark.mais_tests
 def test_get_token_success(token_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
@@ -50,7 +49,6 @@ def test_get_token_success(token_url, client_id, client_secret):
     assert len(token) > 0
 
 
-@pytest.mark.mais_tests
 def test_get_token_failure(token_url, client_id, client_secret):
     # It's true, this test specifically doesn't use a valid client_id or client_secret, but
     # the presence of those values indicates we're able to reach the service in question (which
@@ -61,7 +59,6 @@ def test_get_token_failure(token_url, client_id, client_secret):
         mais.get_token("dummy_invalid_id", "dummy_invalid_secret", token_url)
 
 
-@pytest.mark.mais_tests
 def test_get_response_success(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
@@ -75,7 +72,6 @@ def test_get_response_success(access_token, base_url, client_id, client_secret):
         pytest.fail(f"API request failed: {e}")
 
 
-@pytest.mark.mais_tests
 def test_fetch_orcid_users_with_limit(client_id, client_secret, token_url, base_url):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
@@ -87,7 +83,6 @@ def test_fetch_orcid_users_with_limit(client_id, client_secret, token_url, base_
     assert len(users) == limit
 
 
-@pytest.mark.mais_tests
 def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
@@ -96,7 +91,6 @@ def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_sec
     assert isinstance(user_data, dict)
 
 
-@pytest.mark.mais_tests
 def test_current_orcid_users(
     client_id, client_secret, token_url, base_url, monkeypatch
 ):
@@ -118,7 +112,6 @@ def test_current_orcid_users(
         seen_orcids.add(orcid_id)
 
 
-@pytest.mark.mais_tests
 def test_invalid_token_retry(
     client_id, client_secret, token_url, base_url, monkeypatch
 ):

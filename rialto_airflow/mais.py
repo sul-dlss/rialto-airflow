@@ -111,16 +111,11 @@ def fetch_orcid_users(
         if limit and len(orcid_users) >= limit:
             break
 
-        self_link = data.get("links", {}).get("self")
-        last_link = data.get("links", {}).get("last")
-        # if we have reached the last page, the self and last links will be the same
-        if self_link == last_link:
+        next_link = data.get("links", {}).get("next")
+        if not next_link:
             break
 
-        next_link = data.get("links", {}).get("next")
-        logger.info(f"Self: {self_link}, Last: {last_link}, Next: {next_link}")
-
-        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value
+        url = f"{base_url}/orcid/v1{next_link}"  # Construct url using next link value, and then loop again
 
     return orcid_users[:limit] if limit else orcid_users
 

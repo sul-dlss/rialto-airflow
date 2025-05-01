@@ -51,8 +51,34 @@ def create_database(database_name: str) -> str:
     with engine.connect() as connection:
         connection.execution_options(isolation_level="AUTOCOMMIT")
         connection.execute(text(f"create database {database_name}"))
-    logging.info(f"created database {database_name}")
+    logging.info(f"Created database {database_name}")
     return database_name
+
+
+def drop_database(database_name: str):
+    """Drop a DAG-specific database for publications and author/orgs data"""
+
+    # set up the connection using the default postgres database
+    engine = engine_setup("postgres")
+    with engine.connect() as connection:
+        connection.execution_options(isolation_level="AUTOCOMMIT")
+        connection.execute(text(f"drop database {database_name}"))
+    logging.info(f"Dropped database {database_name}")
+
+
+def database_exists(database_name: str) -> bool:
+    """Checks if a database with the given name exists"""
+
+    engine = engine_setup("postgres")
+    with engine.connect() as connection:
+        result = connection.execute(
+            text(
+                "SELECT datname FROM pg_database WHERE datname = :db_name AND datistemplate = false"
+            ),
+            {"db_name": database_name},
+        )
+        # If the query returns any rows, the database exists
+        return result.fetchone() is not None
 
 
 class utcnow(expression.FunctionElement):

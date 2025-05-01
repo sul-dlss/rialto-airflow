@@ -50,6 +50,9 @@ def test_create_database(
     monkeypatch,
     teardown_database,
 ):
+    if database.database_exists(snapshot.database_name):
+        database.drop_database(snapshot.database_name)
+
     try:
         database.create_database(snapshot.database_name)
 
@@ -59,6 +62,31 @@ def test_create_database(
     finally:
         # even if exception raised, tear down the database
         teardown_database(snapshot.database_name)
+
+
+def test_drop_database(
+    snapshot,
+    mock_rialto_postgres,
+    monkeypatch,
+    teardown_database,
+):
+    try:
+        database.create_database(snapshot.database_name)
+
+        with null_pool_engine(snapshot.database_name).connect() as conn:
+            # Verify that the database exists and a connection was able to be made
+            assert conn
+
+        assert (database.database_exists(snapshot.database_name)) is True
+
+        database.drop_database(snapshot.database_name)
+
+        assert (database.database_exists(snapshot.database_name)) is False
+
+    finally:
+        # even if exception raised, tear down the database
+        if database.database_exists(snapshot.database_name):
+            teardown_database(snapshot.database_name)
 
 
 def test_create_schema(

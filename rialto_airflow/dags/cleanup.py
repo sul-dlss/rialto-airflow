@@ -9,7 +9,7 @@ from rialto_airflow.cleanup import (
 )
 
 data_dir = Variable.get("data_dir")
-cleanup_interval_days = Variable.get("cleanup_interval_days")
+cleanup_interval_days = int(Variable.get("cleanup_interval_days"))
 
 
 @dag(

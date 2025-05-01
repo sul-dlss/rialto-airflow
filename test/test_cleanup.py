@@ -59,24 +59,35 @@ def test_cleanup_snapshots(tmp_path, monkeypatch):
 def test_cleanup_author_files(tmp_path):
     # set up some timestamps
     now = datetime.now()
-    time_format = "%Y%m%d"
+    time_format = "%Y-%m-%d"
     t1 = (now - timedelta(days=1)).strftime(time_format)
     t2 = (now - timedelta(days=40)).strftime(time_format)
 
     # set up some author paths
-    p0 = tmp_path / "authors.csv"
-    p1 = tmp_path / f"authors.csv.{t1}"
-    p2 = tmp_path / f"authors.csv.{t2}"
+    p0 = tmp_path / "authors.csv"  # the current one
+    p1 = tmp_path / f"authors.csv.{t1}"  # the recent one
+    p2 = tmp_path / f"authors.csv.{t2}"  # the far past
+
+    # set up some author paths
+    p3 = tmp_path / "authors_active.csv"  # the current one
+    p4 = tmp_path / f"authors_active.csv.{t1}"  # the recent one
+    p5 = tmp_path / f"authors_active.csv.{t2}"  # the far past
 
     # write some data to the files
     p0.open("w").write("test")
     p1.open("w").write("test")
     p2.open("w").write("test")
+    p3.open("w").write("test")
+    p4.open("w").write("test")
+    p5.open("w").write("test")
 
     # do the cleanup!
     cleanup_author_files(30, tmp_path)
 
-    # the 40 day old file should be gone but the others are still there
+    # the 40 day old files should be gone but the others are still there
     assert p0.is_file()
     assert p1.is_file()
     assert not p2.is_file()
+    assert p3.is_file()
+    assert p4.is_file()
+    assert not p5.is_file()

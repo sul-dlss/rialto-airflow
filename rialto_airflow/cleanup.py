@@ -13,7 +13,7 @@ def cleanup_author_files(cleanup_interval_days: int, data_dir: str):
         Path(data_dir).glob("authors_active.csv.*")
     )
     for file in files:
-        file_time = datetime.strptime(file.name.split(".")[-1], "%Y%m%d")
+        file_time = datetime.strptime(file.name.split(".")[-1], "%Y-%m-%d")
         age = current_time - file_time
         if age.days > cleanup_interval_days:
             logging.info(f"Removing author file: {file} (age: {age.days} days)")

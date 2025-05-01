@@ -78,7 +78,9 @@ docker compose up -d
 
 ### Console
 
-$ uv run dotenv run python
+```
+uv run dotenv run python
+```
 
 ### Set-up
 

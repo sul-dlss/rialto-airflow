@@ -1,15 +1,15 @@
 import datetime
-import os
-import shutil
 import logging
 
-from airflow.decorators import dag, task
 from airflow.models import Variable
-from pathlib import Path
+from airflow.decorators import dag, task
+from rialto_airflow.cleanup import (
+    cleanup_author_files,
+    cleanup_snapshots,
+)
 
 data_dir = Variable.get("data_dir")
-cleanup_interval_days = Variable.get("cleanup_interval_days", default_var=30)
-current_time = datetime.datetime.now()
+cleanup_interval_days = Variable.get("cleanup_interval_days")
 
 
 @dag(
@@ -20,61 +20,30 @@ current_time = datetime.datetime.now()
 )
 def cleanup():
     @task
-    def cleanup_author_files():
+    def author_files():
         """
         Remove author files older than the specified number of days from the data directory.
         """
         logging.info(
-            f"Cleanup any author files older than {cleanup_interval_days} days"
+            f"Cleanup any author files older than {cleanup_interval_days} days from {data_dir}"
         )
-        files = list(Path(data_dir).glob("authors.csv.*")) + list(
-            Path(data_dir).glob("authors_active.csv.*")
-        )
-        for file in files:
-            creation_time = os.path.getmtime(str(file.resolve()))
-            file_time = datetime.datetime.fromtimestamp(creation_time)
-            age = current_time - file_time
-            if age.days > int(cleanup_interval_days):
-                logging.info(f"Removing author file: {file} (age: {age.days} days)")
-                file.unlink()
+        cleanup_author_files(cleanup_interval_days, data_dir)
         return True
 
     @task
-    def cleanup_snapshots():
+    def snapshots():
         """
-        Remove snapshot folders older than the specified number of days from the data directory.
+        Remove snapshot folders and databases older than the specified number of days from the data directory.
         """
         logging.info(
-            f"Cleanup any snapshot folders older than {cleanup_interval_days} days"
+            f"Cleanup any snapshot folders and databases older than {cleanup_interval_days} days from {data_dir}"
         )
-        base_snapshot_folder = Path(data_dir) / "snapshots"
-        snapshots = os.listdir(base_snapshot_folder)
-        for snapshot in snapshots:
-            folder_path = os.path.join(base_snapshot_folder, snapshot)
-            if os.path.isdir(folder_path):
-                creation_time = os.path.getmtime(folder_path)
-                folder_time = datetime.datetime.fromtimestamp(creation_time)
-                age = current_time - folder_time
-                if age.days > int(cleanup_interval_days):
-                    logging.info(
-                        f"Removing snapshot folder: {folder_path} (age: {age.days} days)"
-                    )
-                    shutil.rmtree(folder_path)
+        cleanup_snapshots(cleanup_interval_days, data_dir)
         return True
 
-    @task
-    def cleanup_databases():
-        """
-        Remove snapshot databases older than the specified number of days.
-        """
-        logging.info(f"Cleanup any databases older than {cleanup_interval_days} days")
-        return True
+    author_files()
 
-    cleanup_author_files()
-
-    cleanup_snapshots()
-
-    cleanup_databases()
+    snapshots()
 
 
 cleanup()

@@ -50,6 +50,9 @@ def test_create_database(
     monkeypatch,
     teardown_database,
 ):
+    if database.database_exists(snapshot.database_name):
+        database.drop_database(snapshot.database_name)
+
     try:
         database.create_database(snapshot.database_name)
 

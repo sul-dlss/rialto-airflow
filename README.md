@@ -109,6 +109,7 @@ uv run pytest
 
 In order for some of the tests to run, they will need to hit actual APIs.  In order to do this,
 they will need to be properly configured with keys and URLs.  These need to be placed in the .env file.
+Note that if you have hard-coded values in the compose.yml files, they will override any hardcoded values in the .env file.
 
 For Google drive tests, update your .env with values shown below / pulled from vault as indicated:
 
@@ -138,7 +139,7 @@ AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflo
 AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
 ```
 
-Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with production (not UAT) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely (which is what happens in CI, since CI cannot talk to the MaIS API).  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
+Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with production (not UAT) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely.  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
 
 ### Test coverage reporting
 

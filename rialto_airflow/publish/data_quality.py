@@ -151,7 +151,7 @@ def write_contributions_by_source(snapshot: Snapshot):
     logging.info("finished writing contributions-by-source.csv")
 
 
-def write_publications(snapshot: Snapshot):
+def write_publications(snapshot: Snapshot) -> Path:
     col_names = [
         "any_url",
         "any_apc",
@@ -208,6 +208,8 @@ def write_publications(snapshot: Snapshot):
                 )
 
     logging.info("finished writing publications.csv")
+
+    return output_csv
 
 
 def _get_any_url(row: Row):

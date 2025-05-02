@@ -47,6 +47,9 @@ def write_publications(snapshot) -> Path:
                     Publication.open_access,
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
+                    Publication.wos_json["static_data"]["fullrecord_metadata"][
+                        "normalized_doctypes"
+                    ]["doctype"].label("wos_type"),
                     func.jsonb_agg_strict(Author.academic_council).label(
                         "academic_council"
                     ),
@@ -132,6 +135,9 @@ def write_contributions(snapshot) -> Path:
                     Publication.open_access,  # type: ignore
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
+                    Publication.wos_json["static_data"]["fullrecord_metadata"][
+                        "normalized_doctypes"
+                    ]["doctype"].label("wos_type"),
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
@@ -203,6 +209,9 @@ def write_contributions_by_school(snapshot) -> Path:
                     # for publication types
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
+                    Publication.wos_json["static_data"]["fullrecord_metadata"][
+                        "normalized_doctypes"
+                    ]["doctype"].label("wos_type"),
                     # for federally_funded
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                     # for faculty_authored

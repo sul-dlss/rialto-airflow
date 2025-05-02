@@ -5,8 +5,8 @@ from rialto_airflow.harvest.distill import distill
 
 sulpub_json = {"title": "On the dangers of stochastic parrots (sulpub)", "year": "2020"}
 
-sulpub_json_future_year = {
-    "title": "On the dangers of stochastic parrots (sulpub)",
+dim_json_future_year = {
+    "title": "On the dangers of stochastic parrots (dim future)",
     "year": "2105",
 }
 
@@ -140,16 +140,13 @@ def test_title_none(test_session, snapshot):
 
 def test_pub_year_sulpub(test_session, snapshot):
     """
-    pub_year should come from sulpub before dimensions, openalex and wos
+    pub_year should come from sul_pub if all others are unavailable
     """
     with test_session.begin() as session:
         session.add(
             Publication(
                 doi="10.1515/9781503624153",
                 sulpub_json=sulpub_json,
-                dim_json=dim_json,
-                openalex_json=openalex_json,
-                wos_json=wos_json,
             )
         )
 
@@ -158,16 +155,16 @@ def test_pub_year_sulpub(test_session, snapshot):
     assert _pub(session).pub_year == 2020
 
 
-def test_pub_year_sulpub_future(test_session, snapshot):
+def test_pub_year_dim_future(test_session, snapshot):
     """
-    pub_year should not come from sulpub since it is in the future (get from another source)
+    pub_year should not come from dimensions since it is in the future (get from another source)
     """
     with test_session.begin() as session:
         session.add(
             Publication(
                 doi="10.1515/9781503624153",
-                sulpub_json=sulpub_json_future_year,
-                dim_json=dim_json,
+                sulpub_json=sulpub_json,
+                dim_json=dim_json_future_year,
                 openalex_json=openalex_json,
                 wos_json=wos_json,
             )
@@ -176,13 +173,13 @@ def test_pub_year_sulpub_future(test_session, snapshot):
     distill(snapshot)
 
     assert (
-        _pub(session).pub_year == 2021
-    )  # comes from dimensions, not the 2105 from sul-pub!
+        _pub(session).pub_year == 2022
+    )  # comes from openalex, not the 2105 from dimensions!
 
 
 def test_pub_year_dim(test_session, snapshot):
     """
-    pub_year should come from dimensions before openalex and wos
+    pub_year should come from dimensions before openalex, wos, and sulpub
     """
     with test_session.begin() as session:
         session.add(
@@ -191,6 +188,7 @@ def test_pub_year_dim(test_session, snapshot):
                 dim_json=dim_json,
                 openalex_json=openalex_json,
                 wos_json=wos_json,
+                sulpub_json=sulpub_json,
             )
         )
 
@@ -201,7 +199,7 @@ def test_pub_year_dim(test_session, snapshot):
 
 def test_pub_year_openalex(test_session, snapshot):
     """
-    pub_year should come from openalex before wos
+    pub_year should come from openalex before wos and sulpub
     """
     with test_session.begin() as session:
         session.add(
@@ -209,6 +207,7 @@ def test_pub_year_openalex(test_session, snapshot):
                 doi="10.1515/9781503624153",
                 openalex_json=openalex_json,
                 wos_json=wos_json,
+                sulpub_json=sulpub_json,
             )
         )
 
@@ -219,13 +218,14 @@ def test_pub_year_openalex(test_session, snapshot):
 
 def test_pub_year_wos(test_session, snapshot):
     """
-    pub_year should come from wos if all others are unavailable
+    pub_year should come from wos before sulpub
     """
     with test_session.begin() as session:
         session.add(
             Publication(
                 doi="10.1515/9781503624153",
                 wos_json=wos_json,
+                sulpub_json=sulpub_json,
             )
         )
 
@@ -582,16 +582,15 @@ def test_non_int_year(test_session, snapshot, caplog):
 
 def test_non_int_year_fallback(test_session, snapshot, caplog):
     """
-    Test that sulpub non-integer year doesn't prevent a year coming from
-    dimensions.
+    Test that higher priority non-integer year doesn't prevent a year coming from another source.
     """
     with test_session.begin() as session:
         session.bulk_save_objects(
             [
                 Publication(
                     doi="10.1515/9781503624153",
-                    sulpub_json={"year": "nope"},
-                    dim_json={"year": 2022},
+                    dim_json={"year": "nope"},
+                    openalex_json={"publication_year": 2022},
                 ),
             ]
         )

@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 import jsonpath_ng
 from sqlalchemy import select, update
+from sqlalchemy.engine.row import Row  # type: ignore
 
 from rialto_airflow.database import Publication, get_session
 from rialto_airflow.snapshot import Snapshot
@@ -213,7 +214,7 @@ class FuncRule:
 Rules = list[JsonPathRule | FuncRule]
 
 
-def _first(pub, rules: Rules) -> Optional[str | int]:
+def _first(pub: Row, rules: Rules) -> Optional[str | int]:
     """
     Provide a Publication and a list of rules and return the result of the first rule that matches.
     """

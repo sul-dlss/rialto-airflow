@@ -68,7 +68,7 @@ def write_publications(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(sorted(_get_types(row))) or None,
+                        "types": "|".join(get_types(row)) or None,
                         "funders": "|".join(sorted(set(row.funders))) or None,
                         "federally_funded": any(row.federal),
                         "academic_council_authored": any(row.academic_council),
@@ -153,7 +153,7 @@ def write_contributions(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(sorted(_get_types(row))),
+                        "types": "|".join(get_types(row)),
                         "federally_funded": any(row.federal),
                     }
                 )
@@ -226,7 +226,7 @@ def write_contributions_by_school(snapshot) -> Path:
                         "open_access": row.open_access,
                         "primary_school": row.primary_school,
                         "pub_year": row.pub_year,
-                        "types": "|".join(sorted(_get_types(row))),
+                        "types": "|".join(get_types(row)),
                     }
                 )
 
@@ -278,6 +278,9 @@ def write_contributions_by_department(snapshot) -> Path:
                     # for publication types
                     Publication.dim_json["type"].label("dim_type"),
                     Publication.openalex_json["type"].label("openalex_type"),
+                    Publication.wos_json["static_data"]["fullrecord_metadata"][
+                        "normalized_doctypes"
+                    ]["doctype"].label("wos_type"),
                     # for federally_funded
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                     # for faculty_authored
@@ -302,7 +305,7 @@ def write_contributions_by_department(snapshot) -> Path:
                         "primary_school": row.primary_school,
                         "primary_department": row.primary_dept,
                         "pub_year": row.pub_year,
-                        "types": "|".join(sorted(_get_types(row))),
+                        "types": "|".join(get_types(row)),
                     }
                 )
 
@@ -311,11 +314,18 @@ def write_contributions_by_department(snapshot) -> Path:
     return csv_path
 
 
-def _get_types(row):
+def get_types(row):
     types = set()
     if row.dim_type:
         types.add(row.dim_type)
     if row.openalex_type:
         types.add(row.openalex_type)
+    # the wos type can be a single value or a list
+    if row.wos_type:
+        if isinstance(row.wos_type, list):
+            for wos_type in row.wos_type:
+                types.add(wos_type.lower())
+        else:
+            types.add(row.wos_type.lower())
 
-    return types
+    return sorted(types)

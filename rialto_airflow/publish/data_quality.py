@@ -1,17 +1,18 @@
 import json
 import logging
-from csv import DictWriter
 from collections import defaultdict
+from csv import DictWriter
 from pathlib import Path
 
 import pandas
 from sqlalchemy import select
 from sqlalchemy.engine.row import Row  # type: ignore
 
-from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.database import get_session, Publication, Author, Funder
+from rialto_airflow.database import Author, Publication, get_session
+from rialto_airflow.distiller import JsonPathRule, first
 from rialto_airflow.harvest.sul_pub import extract_doi
 from rialto_airflow.publish.openaccess import get_types
+from rialto_airflow.snapshot import Snapshot
 
 
 def write_authors(snapshot: Snapshot) -> Path:
@@ -107,8 +108,11 @@ def write_contributions_by_source(snapshot: Snapshot):
 
     logging.info("started writing contributions-by-source.csv")
 
-    output_csv = snapshot.path / "contributions-by-source.csv"
-    with output_csv.open("w") as output:
+    csv_path = snapshot.path / "contributions-by-source.csv"
+    with csv_path.open("w") as output:
+        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output.writeheader()
+
         with get_session(snapshot.database_name).begin() as session:
             stmt = (
                 select(  # type: ignore
@@ -132,9 +136,6 @@ def write_contributions_by_source(snapshot: Snapshot):
                 .execution_options(yield_per=100)
             )
 
-        csv_output = DictWriter(output, fieldnames=col_names)
-        csv_output.writeheader()
-
         for row in session.execute(stmt):
             for source in ["dim_json", "openalex_json", "sulpub_json", "wos_json"]:
                 csv_output.writerow(
@@ -149,6 +150,8 @@ def write_contributions_by_source(snapshot: Snapshot):
                 )
 
     logging.info("finished writing contributions-by-source.csv")
+
+    return csv_path
 
 
 def write_publications(snapshot: Snapshot) -> Path:
@@ -166,8 +169,11 @@ def write_publications(snapshot: Snapshot) -> Path:
 
     logging.info("started writing publications.csv")
 
-    output_csv = snapshot.path / "contributions-by-source.csv"
-    with output_csv.open("w") as output:
+    csv_path = snapshot.path / "publications.csv"
+    with csv_path.open("w") as output:
+        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output.writeheader()
+
         with get_session(snapshot.database_name).begin() as session:
             stmt = (
                 select(  # type: ignore
@@ -188,45 +194,71 @@ def write_publications(snapshot: Snapshot) -> Path:
                 .execution_options(yield_per=100)
             )
 
-        csv_output = DictWriter(output, fieldnames=col_names)
-        csv_output.writeheader()
-
         for row in session.execute(stmt):
-            for source in ["dim_json", "openalex_json", "sulpub_json", "wos_json"]:
-                csv_output.writerow(
-                    {
-                        "any_url": _get_any_url(row),
-                        "any_apc": _get_any_apc(row),
-                        "doi": row.doi,
-                        "oa_url": _get_oa_url(row),
-                        "open_access": row.open_access,
-                        "openalex_apc_list": _get_openalex_apc_list(row),
-                        "openalex_apc_paid": _get_openalex_apc_paid(row),
-                        "pub_year": row.pub_year,
-                        "types": "|".join(get_types(row)),
-                    }
-                )
+            csv_output.writerow(
+                {
+                    "any_url": _any_url(row),
+                    "any_apc": _any_apc(row),
+                    "doi": row.doi,
+                    "oa_url": _oa_url(row),
+                    "open_access": row.open_access,
+                    "openalex_apc_list": _openalex_apc_list(row),
+                    "openalex_apc_paid": _openalex_apc_paid(row),
+                    "pub_year": row.pub_year,
+                    "types": "|".join(get_types(row)),
+                }
+            )
 
     logging.info("finished writing publications.csv")
 
-    return output_csv
+    return csv_path
 
 
-def _get_any_url(row: Row):
-    pass
+def _any_url(row: Row):
+    return first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "best_oa_location.pdf_url"),
+            JsonPathRule("openalex_json", "open_access.oa_url"),
+            JsonPathRule("openalex_json", "primary_location.pdf_url"),
+        ],
+    )
 
 
-def _get_any_apc(row: Row):
-    pass
+def _any_apc(row: Row):
+    return first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "apc_paid.value_usd"),
+            JsonPathRule("openalex_json", "apc_list.value_usd"),
+        ],
+    )
 
 
-def _get_oa_url(row: Row):
-    pass
+def _oa_url(row: Row):
+    return first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "best_oa_location.pdf_url"),
+            JsonPathRule("openalex_json", "open_access.oa_url"),
+            JsonPathRule("openalex_json", "primary_location.pdf_url"),
+        ],
+    )
 
 
-def _get_openalex_apc_list(row: Row):
-    pass
+def _openalex_apc_list(row: Row):
+    return first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "apc_list.value_usd"),
+        ],
+    )
 
 
-def _get_openalex_apc_paid(row: Row):
-    pass
+def _openalex_apc_paid(row: Row):
+    return first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "apc_paid.value_usd"),
+        ],
+    )

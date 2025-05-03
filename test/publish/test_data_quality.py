@@ -1,4 +1,5 @@
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas
@@ -183,9 +184,9 @@ def test_write_authors(test_session, snapshot, dataset, caplog):
 
 
 def test_write_contributions_by_source(test_session, snapshot, dataset, caplog):
-    data_quality.write_contributions_by_source(snapshot)
-    csv_path = snapshot.path / "contributions-by-source.csv"
+    csv_path = data_quality.write_contributions_by_source(snapshot)
     assert csv_path.is_file()
+    assert csv_path.name == "contributions-by-source.csv"
 
     df = pandas.read_csv(csv_path)
     assert list(df.columns) == [
@@ -269,13 +270,6 @@ def test_write_contributions_by_source(test_session, snapshot, dataset, caplog):
     assert "finished writing contributions-by-source.csv" in caplog.text
 
 
-def test_write_publications(test_session, snapshot, dataset, caplog):
-    data_quality.write_publications(snapshot)
-
-    assert "started writing publications.csv" in caplog.text
-    assert "finished writing publications.csv" in caplog.text
-
-
 def test_write_sulpub(test_session, snapshot, dataset, caplog):
     # put sample data in place
     test_data = Path("test/data")
@@ -300,3 +294,119 @@ def test_write_sulpub(test_session, snapshot, dataset, caplog):
 
     assert "started writing sulpub.csv" in caplog.text
     assert "finished writing sulpub.csv" in caplog.text
+
+
+def test_write_publications(test_session, snapshot, dataset, caplog):
+    data_quality.write_publications(snapshot)
+
+    csv_path = data_quality.write_publications(snapshot)
+    assert csv_path.is_file()
+    assert csv_path.name == "publications.csv"
+
+    df = pandas.read_csv(csv_path)
+    assert list(df.columns) == [
+        "any_url",
+        "any_apc",
+        "doi",
+        "oa_url",
+        "open_access",
+        "openalex_apc_list",
+        "openalex_apc_paid",
+        "pub_year",
+        "types",
+    ]
+
+    # there's just one publication
+    assert len(df) == 1
+
+    row = df.iloc[0]
+    assert row.doi == "10.000/000001"
+    assert row.pub_year == 2023
+    assert row.open_access == "gold"
+    assert row.types == "abstract|article|preprint"
+
+    # NOTE: the other columns and their combinations are tested below
+
+    assert "started writing publications.csv" in caplog.text
+    assert "finished writing publications.csv" in caplog.text
+
+
+@dataclass
+class TestRow:
+    """
+    An object that simulates a Publication database row.
+    """
+
+    dim_json: dict | None = None
+    openalex_json: dict | None = None
+    sulpub_json: dict | None = None
+    wos_json: dict | None = None
+
+
+def test_any_url():
+    row = TestRow(
+        openalex_json={
+            "best_oa_location": {"pdf_url": "https://example.com/article.pdf"}
+        }
+    )
+    assert data_quality._any_url(row) == "https://example.com/article.pdf"
+
+    row = TestRow(
+        openalex_json={"open_access": {"oa_url": "https://example.com/article.pdf"}}
+    )
+    assert data_quality._any_url(row) == "https://example.com/article.pdf"
+
+    row = TestRow(
+        openalex_json={
+            "primary_location": {"pdf_url": "https://example.com/article.pdf"}
+        }
+    )
+    assert data_quality._any_url(row) == "https://example.com/article.pdf"
+
+
+def test_any_apc():
+    row = TestRow(
+        openalex_json={
+            "apc_paid": {"value": 9750, "currency": "EUR", "value_usd": 11690}
+        }
+    )
+    assert data_quality._any_apc(row) == 11690
+
+    row = TestRow(
+        openalex_json={
+            "apc_list": {"value": 9750, "currency": "EUR", "value_usd": 11690}
+        }
+    )
+    assert data_quality._any_apc(row) == 11690
+
+
+def test_oa_url():
+    row = TestRow(
+        openalex_json={
+            "best_oa_location": {"pdf_url": "https://example.com/article.pdf"}
+        }
+    )
+    assert data_quality._oa_url(row) == "https://example.com/article.pdf"
+
+    row = TestRow(
+        openalex_json={"open_access": {"oa_url": "https://example.com/article.pdf"}}
+    )
+    assert data_quality._oa_url(row) == "https://example.com/article.pdf"
+
+
+def test_openalex_apc_list():
+    row = TestRow(
+        openalex_json={
+            "apc_list": {"value": 9750, "currency": "EUR", "value_usd": 11690}
+        }
+    )
+    assert data_quality._openalex_apc_list(row) == 11690
+
+
+def test_openalex_apc_paid():
+    row = TestRow(
+        openalex_json={
+            "apc_paid": {"value": 9750, "currency": "EUR", "value_usd": 11690}
+        }
+    )
+    assert data_quality._openalex_apc_paid(row) == 11690

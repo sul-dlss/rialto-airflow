@@ -9,7 +9,7 @@ from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
-from rialto_airflow.publish import openaccess
+from rialto_airflow.publish import openaccess, data_quality
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
@@ -171,14 +171,21 @@ def harvest():
         return count
 
     @task()
-    def publish_openaccess(snapshot):
+    def publish_open_access(snapshot):
         openaccess.write_publications(snapshot)
         openaccess.write_contributions(snapshot)
         openaccess.write_contributions_by_school(snapshot)
         openaccess.write_contributions_by_department(snapshot)
 
     @task()
-    def upload_publish_files(snapshot):
+    def publish_data_quality(snapshot):
+        data_quality.write_authors(snapshot)
+        data_quality.write_sulpub(snapshot)
+        data_quality.write_contributions_by_source(snapshot)
+        data_quality.write_publications(snapshot)
+
+    @task()
+    def upload_open_access_files(snapshot):
         csv_files = [
             "publications.csv",
             "contributions.csv",
@@ -189,11 +196,31 @@ def harvest():
         google_folder_id = google.open_access_dashboard_folder_id()
 
         for csv_file in csv_files:
-            file_path = snapshot.path / csv_file
+            file_path = snapshot.path / "open-access-dashboard" / csv_file
 
             google.upload_or_replace_file_in_google_drive(
                 str(file_path), google_folder_id
             )
+
+    @task()
+    def upload_data_quality_files(snapshot):
+        csv_files = [
+            "authors.csv",
+            "sulpub.csv",
+            "contributions-by-source.csv",
+            "publications.csv",
+        ]
+
+        google_folder_id = google.data_quality_dashboard_folder_id()
+
+        for csv_file in csv_files:
+            file_path = snapshot.path / "data-quality-dashboard" / csv_file
+
+            google.upload_or_replace_file_in_google_drive(
+                str(file_path), google_folder_id
+            )
+
+    # link up dag tasks using their outputs as dependencies
 
     snapshot = setup()
 
@@ -225,10 +252,18 @@ def harvest():
         snapshot, openalex_fill_in, dimensions_fill_in, wos_fill_in
     )
 
+    # link up the renaming tasks running the ones in tuples in parallel
+
     (
         (distilled_pubs, linked_pubs)
-        >> publish_openaccess(snapshot)
-        >> upload_publish_files(snapshot)
+        >> publish_open_access(snapshot)
+        >> upload_open_access_files(snapshot)
+    )
+
+    (
+        (distilled_pubs, linked_pubs)
+        >> publish_data_quality(snapshot)
+        >> upload_data_quality_files(snapshot)
     )
 
 

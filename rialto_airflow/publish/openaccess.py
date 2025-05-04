@@ -23,7 +23,8 @@ def write_publications(snapshot) -> Path:
         "faculty_authored",
     ]
 
-    csv_path = snapshot.path / "publications.csv"
+    csv_path = snapshot.path / "open-access-dashboard" / "publications.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
     logging.info(f"started writing publications {csv_path}")
 
     with csv_path.open("w") as output:
@@ -103,7 +104,8 @@ def write_contributions(snapshot) -> Path:
         "federally_funded",
     ]
 
-    csv_path = snapshot.path / "contributions.csv"
+    csv_path = snapshot.path / "open-access-dashboard" / "contributions.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"starting to write contributions {csv_path}")
 
@@ -186,7 +188,8 @@ def write_contributions_by_school(snapshot) -> Path:
         "types",
     ]
 
-    csv_path = snapshot.path / "contributions-by-school.csv"
+    csv_path = snapshot.path / "open-access-dashboard" / "contributions-by-school.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"starting to write contributions by school {csv_path}")
 
@@ -263,7 +266,10 @@ def write_contributions_by_department(snapshot) -> Path:
         "types",
     ]
 
-    csv_path = snapshot.path / "contributions-by-department.csv"
+    csv_path = (
+        snapshot.path / "open-access-dashboard" / "contributions-by-department.csv"
+    )
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"starting to write contributions by department {csv_path}")
 

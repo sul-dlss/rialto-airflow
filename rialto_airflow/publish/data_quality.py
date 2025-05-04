@@ -20,8 +20,7 @@ def write_authors(snapshot: Snapshot) -> Path:
     Read in existing authors.csv and write it out with additional columns useful
     for data quality reporting.
     """
-    logging.info("started writing authors")
-    csv_path = snapshot.path / "authors-data-quality.csv"
+    logging.info("started writing authors.csv")
 
     authors = pandas.read_csv(snapshot.path / "authors.csv")
 
@@ -64,8 +63,11 @@ def write_authors(snapshot: Snapshot) -> Path:
         lambda a: unknown_count.get(a.cap_profile_id, 0), axis=1
     )
 
+    csv_path = snapshot.path / "data-quality-dashboard" / "authors.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
     authors.to_csv(csv_path, index=False)
-    logging.info("finished writing authors")
+    logging.info("finished writing authors.csv")
 
     return csv_path
 
@@ -75,7 +77,8 @@ def write_sulpub(snapshot: Snapshot) -> Path:
 
     logging.info("started writing sulpub.csv")
 
-    csv_path = snapshot.path / "sulpub.csv"
+    csv_path = snapshot.path / "data-quality-dashboard" / "sulpub.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     with csv_path.open("w") as output:
         csv_output = DictWriter(output, fieldnames=col_names)
@@ -89,7 +92,7 @@ def write_sulpub(snapshot: Snapshot) -> Path:
                     "doi": extract_doi(pub),
                     "year": pub.get("year"),
                     "cap_profile_id": "|".join(
-                        [a["cap_profile_id"] for a in pub["authorship"]]
+                        [str(a["cap_profile_id"]) for a in pub["authorship"]]
                     ),
                     "status": "|".join([a["status"] for a in pub["authorship"]]),
                     "visibility": "|".join(
@@ -108,7 +111,9 @@ def write_contributions_by_source(snapshot: Snapshot):
 
     logging.info("started writing contributions-by-source.csv")
 
-    csv_path = snapshot.path / "contributions-by-source.csv"
+    csv_path = snapshot.path / "data-quality-dashboard" / "contributions-by-source.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
     with csv_path.open("w") as output:
         csv_output = DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
@@ -169,7 +174,9 @@ def write_publications(snapshot: Snapshot) -> Path:
 
     logging.info("started writing publications.csv")
 
-    csv_path = snapshot.path / "publications.csv"
+    csv_path = snapshot.path / "data-quality-dashboard" / "publications.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
     with csv_path.open("w") as output:
         csv_output = DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()

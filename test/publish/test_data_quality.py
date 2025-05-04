@@ -131,6 +131,7 @@ def test_write_authors(test_session, snapshot, dataset, caplog):
 
     # generate the publications csv file
     csv_path = data_quality.write_authors(snapshot)
+    assert csv_path.name == "authors.csv"
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
@@ -277,11 +278,11 @@ def test_write_sulpub(test_session, snapshot, dataset, caplog):
         test_data / "sulpub-data-quality.jsonl", snapshot.path / "sulpub.jsonl"
     )
 
-    data_quality.write_sulpub(snapshot)
+    csv_path = data_quality.write_sulpub(snapshot)
+    assert csv_path.name == "sulpub.csv"
+    assert csv_path.is_file()
 
-    sulpub_csv = snapshot.path / "sulpub.csv"
-    assert sulpub_csv.is_file()
-    df = pandas.read_csv(sulpub_csv, dtype={"year": str})
+    df = pandas.read_csv(csv_path, dtype={"year": str})
 
     assert len(df) == 1986
     assert list(df.columns) == ["doi", "year", "cap_profile_id", "status", "visibility"]

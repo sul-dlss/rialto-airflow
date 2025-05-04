@@ -2,14 +2,15 @@
 # Use these methods in your own DAGs.
 # Configuration and authentication to google is described in the README.
 
+import os
+
+import dotenv
+from airflow.models import Variable
+from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
+from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.transfers.local_to_drive import (
     LocalFilesystemToGoogleDriveOperator,
 )
-from airflow.providers.google.suite.hooks.sheets import GSheetsHook
-from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
-from airflow.models import Variable
-import dotenv
-import os
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -28,6 +29,10 @@ def open_access_dashboard_folder_id():
 # The Google Drive folder ID for the ORCID dashboard
 def orcid_dashboard_folder_id():
     return get_file_id(google_drive_id, "orcid-dashboard")
+
+
+def data_quality_dashboard_folder_id():
+    return get_file_id(google_drive_id, "data-quality-dashboard")
 
 
 def get_file_id(folder_id, filename):

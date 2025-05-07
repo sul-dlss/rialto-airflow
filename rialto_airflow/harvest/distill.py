@@ -1,6 +1,4 @@
 import logging
-from dataclasses import dataclass
-from typing import Callable, Optional
 
 import jsonpath_ng
 from sqlalchemy import select, update
@@ -8,7 +6,7 @@ from sqlalchemy import select, update
 from rialto_airflow.database import Publication, get_session
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.apc import get_apc
-import datetime
+from rialto_airflow.distiller import first, JsonPathRule, FuncRule
 
 
 def distill(snapshot: Snapshot) -> int:
@@ -53,13 +51,16 @@ def distill(snapshot: Snapshot) -> int:
 #
 # Functions for determining publication attributes.
 #
+# TODO: would it speed things up to define the list of rules outside of the
+# function so they aren't being reinstantiated all the time?
+#
 
 
 def _title(pub):
     """
     Get the title from sulpub, dimensions, openalex, then wos.
     """
-    return _first(
+    return first(
         pub,
         rules=[
             JsonPathRule("sulpub_json", "title"),
@@ -74,7 +75,7 @@ def _pub_year(pub):
     """
     Get the pub_year from sulpub, dimensions, openalex and then wos.
     """
-    return _first(
+    return first(
         pub,
         rules=[
             JsonPathRule("dim_json", "year", is_valid_year=True),
@@ -91,7 +92,7 @@ def _open_access(pub):
     """
     Get the _open_access value from openalex and then dimensions.
     """
-    return _first(
+    return first(
         pub,
         rules=[
             JsonPathRule("openalex_json", "open_access.oa_status"),
@@ -106,7 +107,7 @@ def _apc(pub, context):
     OpenAlex data.
     """
     # https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CR1MMV
-    first_match_apc = _first(
+    first_match_apc = first(
         pub,
         rules=[
             JsonPathRule(
@@ -181,89 +182,5 @@ def _apc_oa_dataset(dim_json, context):
         cost = get_apc(issn, pub_year)
         if cost:
             return cost
-
-    return None
-
-
-#
-# Classes and functions for representing matching rules and how to apply them.
-# TODO: Maybe these should be in a separate file/module?
-#
-
-
-@dataclass
-class JsonPathRule:
-    col: str  # the JSONB column name to apply the rule to
-    matcher: str  # a JSON Path to evaluate against the JSON
-    is_valid_year: bool = False  # if True, will validate the result as a year (int) and ensure it is <= current year
-    only_positive_number: bool = (
-        False  # if True, will ensure the result is a positive number
-    )
-
-
-@dataclass
-class FuncRule:
-    col: str  # the JSONB column name to pass to a function
-    matcher: Callable  # a function to pass the JSON to
-    context: Optional[dict] = (
-        None  # an optional dictionary of content for use in the matcher
-    )
-
-
-Rules = list[JsonPathRule | FuncRule]
-
-
-def _first(pub, rules: Rules) -> Optional[str | int]:
-    """
-    Provide a Publication and a list of rules and return the result of the first rule that matches.
-    """
-    for rule in rules:
-        # get the appropriate bit of json to analyze
-        data = getattr(pub, rule.col)
-
-        # if the rule is a string use it as a jsonpath
-        if isinstance(rule.matcher, str):
-            jpath = jsonpath_ng.parse(rule.matcher)
-            results = jpath.find(data)
-            if len(results) > 0:
-                value = results[0].value
-                if rule.only_positive_number:
-                    try:
-                        # ensure it's a positive number
-                        num_val = int(value)
-                        if num_val >= 0:
-                            return num_val
-                        else:
-                            logging.warning(
-                                f"got a non-positive number {value} for JSON Path {rule.matcher}"
-                            )
-                            return None
-                    except (ValueError, TypeError):
-                        logging.warning(f'got "{value}" instead of a positive number')
-                        return None
-                if rule.is_valid_year:
-                    try:
-                        year_val = int(value)
-                        if year_val <= datetime.datetime.now().year:
-                            return year_val
-                        else:
-                            logging.warning(
-                                f"got a year {year_val} that is in the future"
-                            )
-                    except (ValueError, TypeError):
-                        # continue matching if the rule wants an int but we don't have one
-                        logging.warning(f'got "{value}" instead of int')
-                else:
-                    return value
-
-        # if the rule is a function pass it the json, and optional context
-        elif callable(rule.matcher):
-            if rule.context is not None:
-                result = rule.matcher(data, rule.context)
-            else:
-                result = rule.matcher(data)
-
-            if result is not None:
-                return result
 
     return None

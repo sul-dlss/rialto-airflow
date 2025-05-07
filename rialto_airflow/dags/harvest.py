@@ -3,8 +3,9 @@ import logging
 from pathlib import Path
 import shutil
 
-from airflow.decorators import dag, task
+from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
+from airflow.models.xcom_arg import XComArg
 from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
@@ -83,92 +84,87 @@ def harvest():
         Load the authors data from the authors CSV into the database.
         """
         authors.load_authors_table(snapshot)
-        return snapshot
 
     @task()
     def dimensions_harvest(snapshot):
         """
         Fetch the data by ORCID from Dimensions.
         """
-        jsonl_file = dimensions.harvest(snapshot, limit=harvest_limit)
-
-        return jsonl_file
+        dimensions.harvest(snapshot, limit=harvest_limit)
 
     @task()
     def openalex_harvest(snapshot):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        jsonl_file = openalex.harvest(snapshot, limit=harvest_limit)
-
-        return jsonl_file
+        openalex.harvest(snapshot, limit=harvest_limit)
 
     @task()
     def wos_harvest(snapshot):
         """
         Fetch the data by ORCID from Web of Science.
         """
-        jsonl_file = wos.harvest(snapshot, limit=harvest_limit)
-
-        return jsonl_file
+        wos.harvest(snapshot, limit=harvest_limit)
 
     @task()
-    def sul_pub_harvest(snapshot):
+    def sulpub_harvest(snapshot):
         """
         Harvest data from SUL-Pub.
         """
-        jsonl_file = sul_pub.harvest(
-            snapshot, sul_pub_host, sul_pub_key, limit=harvest_limit
-        )
+        sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=harvest_limit)
 
-        return jsonl_file
+    @task_group()
+    def harvest_pubs(snapshot):
+        dimensions_harvest(snapshot)
+        openalex_harvest(snapshot)
+        wos_harvest(snapshot)
+        sulpub_harvest(snapshot)
 
     @task()
-    def fill_in_openalex(
-        snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
-    ):
+    def fill_in_openalex(snapshot):
         """
         Fill in OpenAlex data for DOIs from other publication sources.
         """
-        openalex.fill_in(snapshot, openalex_jsonl)
-
-        return snapshot
+        openalex.fill_in(snapshot)
 
     @task()
-    def fill_in_dimensions(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl):
+    def fill_in_dimensions(snapshot):
         """
         Fill in Dimensions data for DOIs from other publication sources.
         """
-        dimensions.fill_in(snapshot, dimensions_jsonl)
-
-        return snapshot
+        dimensions.fill_in(snapshot)
 
     @task()
-    def fill_in_wos(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl):
+    def fill_in_wos(snapshot):
         """
         Fill in WebOfScience data for DOIs from other publication sources.
         """
-        wos.fill_in(snapshot, wos_jsonl)
+        wos.fill_in(snapshot)
 
-        return snapshot
+    @task_group()
+    def fill_in(snapshot):
+        fill_in_openalex(snapshot)
+        fill_in_dimensions(snapshot)
+        fill_in_wos(snapshot)
 
     @task()
-    def distill_publications(snapshot, openalex_fill_in, dimensions_fill_in):
+    def distill_publications(snapshot):
         """
         Distill the publication metadata into publication table columns.
         """
-        count = distill.distill(snapshot)
-
-        return count
+        distill.distill(snapshot)
 
     @task()
-    def link_funders(snapshot, openalex_fill_in, dimensions_fill_in, wos_fill_in):
+    def link_funders(snapshot):
         """
         Link all the publications to funders.
         """
-        count = funders.link_publications(snapshot)
+        funders.link_publications(snapshot)
 
-        return count
+    @task_group()
+    def post_process(snapshot):
+        distill_publications(snapshot)
+        link_funders(snapshot)
 
     @task()
     def publish_open_access(snapshot):
@@ -183,6 +179,11 @@ def harvest():
         data_quality.write_sulpub(snapshot)
         data_quality.write_contributions_by_source(snapshot)
         data_quality.write_publications(snapshot)
+
+    @task_group()
+    def publish(snapshot):
+        publish_open_access(snapshot)
+        publish_data_quality(snapshot)
 
     @task()
     def upload_open_access_files(snapshot):
@@ -220,50 +221,22 @@ def harvest():
                 str(file_path), google_folder_id
             )
 
-    # link up dag tasks using their outputs as dependencies
+    @task_group()
+    def upload(snapshot):
+        upload_open_access_files(snapshot)
+        upload_data_quality_files(snapshot)
+
+    # link up dag tasks and task groups
 
     snapshot = setup()
 
-    snapshot = load_authors(snapshot)
-
-    sul_pub_jsonl = sul_pub_harvest(snapshot)
-
-    dimensions_jsonl = dimensions_harvest(snapshot)
-
-    openalex_jsonl = openalex_harvest(snapshot)
-
-    wos_jsonl = wos_harvest(snapshot)
-
-    openalex_fill_in = fill_in_openalex(
-        snapshot, sul_pub_jsonl, openalex_jsonl, dimensions_jsonl, wos_jsonl
-    )
-
-    dimensions_fill_in = fill_in_dimensions(
-        snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl
-    )
-
-    wos_fill_in = fill_in_wos(snapshot, openalex_jsonl, dimensions_jsonl, wos_jsonl)
-
-    distilled_pubs = distill_publications(
-        snapshot, openalex_fill_in, dimensions_fill_in
-    )
-
-    linked_pubs = link_funders(
-        snapshot, openalex_fill_in, dimensions_fill_in, wos_fill_in
-    )
-
-    # link up the renaming tasks running the ones in tuples in parallel
-
     (
-        (distilled_pubs, linked_pubs)
-        >> publish_open_access(snapshot)
-        >> upload_open_access_files(snapshot)
-    )
-
-    (
-        (distilled_pubs, linked_pubs)
-        >> publish_data_quality(snapshot)
-        >> upload_data_quality_files(snapshot)
+        load_authors(snapshot)
+        >> harvest_pubs(snapshot)
+        >> fill_in(snapshot)
+        >> post_process(snapshot)
+        >> publish(snapshot)
+        >> upload(snapshot)
     )
 
 

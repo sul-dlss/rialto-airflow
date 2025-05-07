@@ -105,8 +105,9 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
         yield from page
 
 
-def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
+def fill_in(snapshot) -> Path:
     """Harvest OpenAlex data for DOIs from other publication sources."""
+    jsonl_file = snapshot.path / "openalex.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
@@ -150,7 +151,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
 
     logging.info(f"filled in {count} publications")
 
-    return snapshot.path
+    return jsonl_file
 
 
 def _clean_dois_for_query(dois: list[str]) -> list[str]:

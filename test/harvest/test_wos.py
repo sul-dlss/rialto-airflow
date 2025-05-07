@@ -377,7 +377,7 @@ def test_fill_in(snapshot, test_session, mock_no_wos_publication, mock_wos_doi, 
     jsonl_file = snapshot.path / "wos.jsonl"
     mock_jsonl(jsonl_file)
 
-    wos.fill_in(snapshot, jsonl_file)
+    wos.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (
@@ -415,7 +415,7 @@ def test_fill_in_no_wos(
     mock_jsonl(jsonl_file)
     assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
 
-    wos.fill_in(snapshot, jsonl_file)
+    wos.fill_in(snapshot)
     with test_session.begin() as session:
         pub = (
             session.query(Publication)

@@ -8,7 +8,7 @@ import requests
 import xml.etree.ElementTree as et
 import xmltodict
 
-from typing import Generator, Optional, Dict, Union
+from typing import Optional, Dict, Union
 
 # from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -98,9 +98,9 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     return jsonl_file
 
 
-def pmids_from_orcid(orcid) -> Generator[dict, None, None]:
+def pmids_from_orcid(orcid):
     """
-    A generator that returns PMIDs associated with a given ORCID.
+    Returns PMIDs associated with a given ORCID.
     """
     # Pubmed doesn't want the full ORCID URIs which are stored in User table
     if m := re.match(r"^https?://orcid.org/(.+)$", orcid):
@@ -109,9 +109,9 @@ def pmids_from_orcid(orcid) -> Generator[dict, None, None]:
     return _pubmed_search_api(f"{orcid}[auid]")
 
 
-def publications_from_pmids(pmids) -> Generator[dict, None, None]:
+def publications_from_pmids(pmids):
     """
-    A generator that returns full pubmed records given a list of PMIDs.
+    Returns full pubmed records given a list of PMIDs.
     """
     if not pmids:
         return None
@@ -120,9 +120,9 @@ def publications_from_pmids(pmids) -> Generator[dict, None, None]:
     return _pubmed_fetch_api(query)
 
 
-def _pubmed_search_api(query) -> Generator[dict, None, None]:
+def _pubmed_search_api(query) -> list:
     """
-    A generator that returns a list of pmids given a general search query.
+    Return a list of pmids given a general search query.
     """
 
     params: Params = {"term": query}
@@ -136,18 +136,18 @@ def _pubmed_search_api(query) -> Generator[dict, None, None]:
     results = resp.json()
     if not results:
         logging.info(f"Empty results found for {query}")
-        return None
+        return []
 
     if int(results["esearchresult"]["count"]) == 0:
         logging.info(f"No results found for {query}")
-        return None
+        return []
 
     return results["esearchresult"]["idlist"]  # return a list of pmids
 
 
-def _pubmed_fetch_api(query) -> Generator[dict, None, None]:
+def _pubmed_fetch_api(query):
     """
-    A generator that returns full pubmed records given a list of pmids.
+    Returns full pubmed records given a list of pmids.
     """
 
     http = requests.Session()
@@ -156,15 +156,14 @@ def _pubmed_fetch_api(query) -> Generator[dict, None, None]:
     logging.info(f"fetching full records from pubmed with {query}")
     resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
 
-    breakpoint()
     results = resp.content
     if not results:
         logging.info(f"Empty results found for {query}")
-        return None
+        return
 
     return et.fromstring(results).findall(
         ".//PubmedArticle"
-    )  # returned the parse xml tree of pubmed articles
+    )  # returned the parsed xml tree of pubmed articles
 
 
 # get the DOI from the pubmed record
@@ -183,7 +182,7 @@ def get_doi(pub) -> Optional[str]:
 
 
 def get_identifier(pub, identifier_name) -> Optional[str]:
-    # this is the primary way to get the DOI from the pubmed record
+    # find the specified identifier in the PubmedData section
     identifier_value = pub.findall(
         f'.//PubmedData/ArticleIdList/*[@IdType="{identifier_name}"]'
     )

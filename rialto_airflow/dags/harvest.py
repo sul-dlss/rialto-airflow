@@ -8,7 +8,15 @@ from airflow.models import Variable
 from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
-from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
+from rialto_airflow.harvest import (
+    authors,
+    dimensions,
+    openalex,
+    sul_pub,
+    wos,
+    pubmed,
+    distill,
+)
 from rialto_airflow.publish import openaccess, data_quality
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
@@ -109,6 +117,15 @@ def harvest():
         Fetch the data by ORCID from Web of Science.
         """
         jsonl_file = wos.harvest(snapshot, limit=harvest_limit)
+
+        return jsonl_file
+
+    @task()
+    def pubmed_harvest(snapshot):
+        """
+        Fetch the data by ORCID from Pubmed.
+        """
+        jsonl_file = pubmed.harvest(snapshot, limit=harvest_limit)
 
         return jsonl_file
 
@@ -225,6 +242,8 @@ def harvest():
     snapshot = setup()
 
     snapshot = load_authors(snapshot)
+
+    pubmed_harvest(snapshot)
 
     sul_pub_jsonl = sul_pub_harvest(snapshot)
 

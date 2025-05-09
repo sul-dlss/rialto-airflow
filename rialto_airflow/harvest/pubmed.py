@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 
 import requests
-import xml.etree.ElementTree as et
 import xmltodict
 
 from typing import Optional, Dict, Union
@@ -63,24 +62,17 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
 
                     doi = normalize_doi(get_doi(pubmed_pub))
 
-                    # parse the XML into a dict and then onto a json string
-                    # this is because as of 2025, the pubmed API will only return XML
-                    pubmed_pub_as_json_string = json.dumps(
-                        xmltodict.parse(et.tostring(pubmed_pub))
-                    )
-                    pubmed_pub_as_json = json.loads(pubmed_pub_as_json_string)
-
                     with get_session(snapshot.database_name).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
                         pub_id = insert_session.execute(
                             insert(Publication)
                             .values(
                                 doi=doi,
-                                pubmed_json=pubmed_pub_as_json,
+                                pubmed_json=pubmed_pub,
                             )
                             .on_conflict_do_update(
                                 constraint="publication_doi_key",
-                                set_=dict(pubmed_json=pubmed_pub_as_json),
+                                set_=dict(pubmed_json=pubmed_pub),
                             )
                             .returning(Publication.id)
                         ).scalar_one()
@@ -93,7 +85,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .on_conflict_do_nothing()
                         )
 
-                        jsonl_output.write(pubmed_pub_as_json_string + "\n")
+                        jsonl_output.write(json.dumps(pubmed_pub) + "\n")
 
     return jsonl_file
 
@@ -117,7 +109,26 @@ def publications_from_pmids(pmids):
         return None
 
     query = "id=" + "&id=".join(pmids)
-    return _pubmed_fetch_api(query)
+
+    http = requests.Session()
+
+    full_url = f"{BASE_URL}{FETCH_PATH}"
+    logging.info(f"fetching full records from pubmed with {query}")
+    resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
+
+    results = resp.content
+
+    if not results:
+        logging.info(f"Empty results found for {query}")
+        return
+
+    json_results = xmltodict.parse(results)
+    pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
+    if not isinstance(pubs, list):
+        # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
+        return [pubs]
+    else:
+        return pubs
 
 
 def _pubmed_search_api(query) -> list:
@@ -145,27 +156,6 @@ def _pubmed_search_api(query) -> list:
     return results["esearchresult"]["idlist"]  # return a list of pmids
 
 
-def _pubmed_fetch_api(query):
-    """
-    Returns full pubmed records given a list of pmids.
-    """
-
-    http = requests.Session()
-
-    full_url = f"{BASE_URL}{FETCH_PATH}"
-    logging.info(f"fetching full records from pubmed with {query}")
-    resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
-
-    results = resp.content
-    if not results:
-        logging.info(f"Empty results found for {query}")
-        return
-
-    return et.fromstring(results).findall(
-        ".//PubmedArticle"
-    )  # returned the parsed xml tree of pubmed articles
-
-
 # get the DOI from the pubmed record
 def get_doi(pub) -> Optional[str]:
     # this is the primary way to get the DOI from the pubmed record
@@ -174,19 +164,33 @@ def get_doi(pub) -> Optional[str]:
         return doi
 
     # this is a fallback if the DOI is not in the expected place
-    alt_doi = pub.findall('.//ELocationID[@EIdType="doi"]')
-    if alt_doi:
-        return alt_doi[0].text
+    try:
+        ids = pub["MedlineCitation"]["Article"]["ELocationID"]
+        # if there is only one identifier, it is not a list, so make it a list so we can iterate over it
+        if not isinstance(ids, list):
+            ids = [ids]
+
+        for identifier in ids:
+            if "@EIdType" in identifier and identifier["@EIdType"] == "doi":
+                return identifier["#text"]
+    except KeyError:
+        return None
 
     return None
 
 
 def get_identifier(pub, identifier_name) -> Optional[str]:
-    # find the specified identifier in the PubmedData section
-    identifier_value = pub.findall(
-        f'.//PubmedData/ArticleIdList/*[@IdType="{identifier_name}"]'
-    )
-    if identifier_value:
-        return identifier_value[0].text
+    # look through the list of identifiers in the pubmed record
+    try:
+        ids = pub["PubmedData"]["ArticleIdList"]["ArticleId"]
+        # if there is only one identifier, it is not a list, so make it a list so we can iterate over it
+        if not isinstance(ids, list):
+            ids = [ids]
+
+        for identifier in ids:
+            if "@IdType" in identifier and identifier["@IdType"] == identifier_name:
+                return identifier["#text"]
+    except KeyError:
+        return None
 
     return None

@@ -1,5 +1,6 @@
 import dotenv
 import pytest
+import os
 
 from rialto_airflow.database import Publication
 from rialto_airflow.harvest import pubmed
@@ -7,6 +8,8 @@ from rialto_airflow.snapshot import Snapshot
 from test.utils import num_jsonl_objects, load_jsonl_file
 
 dotenv.load_dotenv()
+
+pubmed_key = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
 
 
 @pytest.fixture
@@ -62,6 +65,73 @@ def pubmed_json():
     }
 
 
+@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
+def test_pubmed_search_found_publications():
+    """
+    This is a live test of the Pubmed Search API to ensure we can get PMIDs back given an ORCID.
+    """
+    # The ORCID that is tested should return more at least two PMIDs
+    orcid = "https://orcid.org/0000-0002-5286-7795"
+    pmids = pubmed.pmids_from_orcid(orcid)
+    assert len(pmids) >= 2, "found at least 2 publications"
+    assert "29035265" in pmids, "found an expected publication for this author"
+
+
+@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
+def test_pubmed_search_no_publications():
+    """
+    This is a live test of the Pubmed Search API to ensure no results are returned for an ORCID with no publications.
+    """
+    # No publications should be found for this ORCID
+    orcid = "5555-5555-5555-5555"
+    pmids = pubmed.pmids_from_orcid(orcid)
+    assert len(pmids) == 0, "found no publications"
+
+
+@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
+def test_pubmed_fetch_publications():
+    """
+    This is a live test of the Pubmed Fetch API to ensure we can get publication data back given a list of PMIDs.
+    """
+    # Both of these publications should be found
+    pmids = ["29035265", "29035260"]
+    pubs = pubmed.publications_from_pmids(pmids)
+    assert len(pubs) == 2, "found both publications"
+    assert isinstance(pubs[0], dict), (
+        "first publication is json"
+    )  # check that we got a dict back
+    assert isinstance(pubs[1], dict), (
+        "second publication is json"
+    )  # check that we got a dict back
+    assert "PubmedData" in pubs[0], "found the PubmedData key in the first publication"
+    assert "PubmedData" in pubs[1], "found the PubmedData key in the second publication"
+
+
+@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
+def test_pubmed_fetch_missing_publications():
+    """
+    This is a live test of the Pubmed Fetch API to ensure we can get a list back even for one publication
+    """
+    # This publication should be found
+    pmids = ["29035265"]
+    pubs = pubmed.publications_from_pmids(pmids)
+
+    assert len(pubs) == 1, "found publication as a list of one element"
+    assert isinstance(pubs[0], dict), (
+        "first publication is json"
+    )  # check that we got a dict back
+    assert "PubmedData" in pubs[0], "found the PubmedData key in the first publication"
+
+
+@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
+def test_pubmed_fetch_publications_expects_list():
+    # This publication should be found
+    pmids = "29035265"
+    pubs = pubmed.publications_from_pmids(pmids)
+
+    assert pubs is None, "no publications returned because we passed a string"
+
+
 def test_harvest(
     tmp_path, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search
 ):
@@ -69,7 +139,7 @@ def test_harvest(
     With some authors loaded and a mocked Pubmed API, make sure that
     publications are matched up to the authors using the ORCID.
     """
-    # harvest from Web of Science
+    # harvest from Pubmed
     snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     pubmed.harvest(snapshot)
 
@@ -100,7 +170,7 @@ def test_harvest_when_doi_exists(
     """
     When a publication and its authors already exist in the database make sure that the pubmed_json is updated.
     """
-    # harvest from web of science
+    # harvest from Pubmed
     snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     pubmed.harvest(snapshot)
 
@@ -121,15 +191,16 @@ def test_harvest_when_doi_exists(
         assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
-def test_get_doi(caplog):
+def test_get_doi():
     assert pubmed.get_doi(pubmed_json()) == "10.1182/bloodadvances.2022008893"
 
     pubmed_json_single_id = {
         "PubmedData": {
             "ArticleIdList": {
-                "ArticleId": [
-                    {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
-                ]
+                "ArticleId": {
+                    "@IdType": "doi",
+                    "#text": "10.1182/bloodadvances.2022008893",
+                },
             },
         }
     }
@@ -169,6 +240,19 @@ def test_get_doi(caplog):
         }
     }
     assert pubmed.get_doi(pubmed_json_alt_doi) == "10.1182/bloodadvances.2022008893"
+
+    pubmed_json_alt_single_id = {
+        "MedlineCitation": {
+            "Article": {
+                "ELocationID": {
+                    "@EIdType": "doi",
+                    "@ValidYN": "Y",
+                    "#text": "10.1182/only-one",
+                }
+            },
+        }
+    }
+    assert pubmed.get_doi(pubmed_json_alt_single_id) == "10.1182/only-one"
 
 
 def test_get_identifier():

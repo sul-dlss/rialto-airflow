@@ -23,11 +23,10 @@ from rialto_airflow.utils import normalize_doi
 
 Params = Dict[str, Union[int, str]]
 
-PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov"
 MAX_RESULTS = 1000  # the maximum number of pubmed IDs we will get for the query
-SEARCH_PATH = f"/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&api_key={PUBMED_KEY}&retmax={MAX_RESULTS}"  # this endpoint suppots json
-FETCH_PATH = f"/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&api_key={PUBMED_KEY}&retmax={MAX_RESULTS}"  # only xml is supported by this endpoint
+SEARCH_PATH = f"/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax={MAX_RESULTS}"  # this endpoint suppots json
+FETCH_PATH = f"/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&retmax={MAX_RESULTS}"  # only xml is supported by this endpoint
 HEADERS = {"User-Agent": "stanford-library-rialto", "Accept": "application/json"}
 
 
@@ -105,22 +104,20 @@ def publications_from_pmids(pmids):
     """
     Returns full pubmed records given a list of PMIDs.
     """
-    if not pmids:
+    if not pmids or not isinstance(pmids, list):
         return None
 
     query = "id=" + "&id=".join(pmids)
 
     http = requests.Session()
 
-    full_url = f"{BASE_URL}{FETCH_PATH}"
+    full_url = (
+        f"{BASE_URL}{FETCH_PATH}&api_key={os.environ.get('AIRFLOW_VAR_PUBMED_KEY')}"
+    )
     logging.info(f"fetching full records from pubmed with {query}")
     resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
 
     results = resp.content
-
-    if not results:
-        logging.info(f"Empty results found for {query}")
-        return
 
     json_results = xmltodict.parse(results)
     pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
@@ -140,13 +137,16 @@ def _pubmed_search_api(query) -> list:
 
     http = requests.Session()
 
-    full_url = f"{BASE_URL}{SEARCH_PATH}"
+    full_url = (
+        f"{BASE_URL}{SEARCH_PATH}&api_key={os.environ.get('AIRFLOW_VAR_PUBMED_KEY')}"
+    )
     logging.info(f"searching pubmed with {params}")
     resp: requests.Response = http.get(full_url, params=params, headers=HEADERS)
 
     results = resp.json()
-    if not results:
-        logging.info(f"Empty results found for {query}")
+
+    if "error" in results:
+        logging.warning(f"Error in results found for {query}: {results['error']}")
         return []
 
     if int(results["esearchresult"]["count"]) == 0:

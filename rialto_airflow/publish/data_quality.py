@@ -91,13 +91,9 @@ def write_sulpub(snapshot: Snapshot) -> Path:
                 {
                     "doi": extract_doi(pub),
                     "year": pub.get("year"),
-                    "cap_profile_id": "|".join(
-                        [str(a["cap_profile_id"]) for a in pub["authorship"]]
-                    ),
-                    "status": "|".join([a["status"] for a in pub["authorship"]]),
-                    "visibility": "|".join(
-                        [a["visibility"] for a in pub["authorship"]]
-                    ),
+                    "cap_profile_id": _extract_authorship(pub, "cap_profile_id"),
+                    "status": _extract_authorship(pub, "status"),
+                    "visibility": _extract_authorship(pub, "visibility"),
                 }
             )
 
@@ -269,3 +265,20 @@ def _openalex_apc_paid(row: Row):
             JsonPathRule("openalex_json", "apc_paid.value_usd"),
         ],
     )
+
+
+def _extract_authorship(pub: dict, name: str) -> str:
+    """
+    Some status and visibility values are set to null in the JSON. Also some are
+    in all caps. This ensures that the string "none" is returned instead of
+    None, and also that the values are lowercased.
+    """
+    values = []
+
+    for author in pub["authorship"]:
+        if author.get(name) is not None:
+            values.append(str(author.get(name)).lower())
+        else:
+            values.append("none")
+
+    return "|".join(values)

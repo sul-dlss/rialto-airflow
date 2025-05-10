@@ -189,7 +189,7 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
     jsonl_file = snapshot.path / "openalex.jsonl"
     mock_jsonl(jsonl_file)
 
-    openalex.fill_in(snapshot, jsonl_file)
+    openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (
@@ -220,7 +220,7 @@ def test_fill_in_no_openalex(
     jsonl_file = snapshot.path / "openalex.jsonl"
     mock_jsonl(jsonl_file)
 
-    openalex.fill_in(snapshot, jsonl_file)
+    openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (
@@ -249,7 +249,7 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
     jsonl_file = snapshot.path / "openalex.jsonl"
     mock_jsonl(jsonl_file)
 
-    openalex.fill_in(snapshot, jsonl_file)
+    openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (

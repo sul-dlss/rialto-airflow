@@ -215,7 +215,7 @@ def test_fill_in(
     jsonl_file = snapshot.path / "dimensions.jsonl"
     mock_jsonl(jsonl_file)
 
-    dimensions.fill_in(snapshot, jsonl_file)
+    dimensions.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (
@@ -255,7 +255,7 @@ def test_fill_in_no_dimensions(
     mock_jsonl(jsonl_file)
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
 
-    dimensions.fill_in(snapshot, jsonl_file)
+    dimensions.fill_in(snapshot)
     with test_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -323,7 +323,7 @@ def test_fill_in_no_doi(
     mock_jsonl(jsonl_file)
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
 
-    dimensions.fill_in(snapshot, jsonl_file)
+    dimensions.fill_in(snapshot)
 
     with test_session.begin() as session:
         pub = (

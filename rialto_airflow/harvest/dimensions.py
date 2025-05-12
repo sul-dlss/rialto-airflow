@@ -175,8 +175,9 @@ def query_with_retry(q, retry=5):
                 time.sleep(try_count * 10)
 
 
-def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
+def fill_in(snapshot: Snapshot):
     """Harvest Dimensions data for DOIs from other publication sources."""
+    jsonl_file = snapshot.path / "dimensions.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
@@ -211,4 +212,4 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path) -> Path:
 
     logging.info(f"filled in {count} publications")
 
-    return snapshot.path
+    return jsonl_file

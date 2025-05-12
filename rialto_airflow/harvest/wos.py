@@ -79,8 +79,9 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     return jsonl_file
 
 
-def fill_in(snapshot: Snapshot, jsonl_file: Path):
+def fill_in(snapshot: Snapshot):
     """Harvest WebOfScience data for DOIs from other publication sources."""
+    jsonl_file = snapshot.path / "wos.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
@@ -114,7 +115,7 @@ def fill_in(snapshot: Snapshot, jsonl_file: Path):
 
     logging.info(f"filled in {count} publications")
 
-    return snapshot.path
+    return jsonl_file
 
 
 def orcid_publications(orcid) -> Generator[dict, None, None]:

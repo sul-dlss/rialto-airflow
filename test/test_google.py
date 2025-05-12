@@ -166,7 +166,7 @@ def test_replace_file_in_google_drive():
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
 
     # give it some time to upload to google before checking it exists
-    time.sleep(4)
+    time.sleep(12)
 
     # Get the file ID of the uploaded file and ensure it exists
     file_id = google.get_file_id(google_drive_id(), "authors.csv")

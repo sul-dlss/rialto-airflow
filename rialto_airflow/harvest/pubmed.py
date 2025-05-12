@@ -8,8 +8,7 @@ import requests
 import xmltodict
 
 from typing import Optional, Dict, Union
-
-# from sqlalchemy import select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import (
@@ -93,7 +92,52 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     return jsonl_file
 
 
-def pmids_from_orcid(orcid):
+def fill_in(snapshot: Snapshot):
+    """Harvest Pubmed data for DOIs from other publication sources."""
+    jsonl_file = snapshot.path / "pubmed.jsonl"
+    count = 0
+    with jsonl_file.open("a") as jsonl_output:
+        with get_session(snapshot.database_name).begin() as select_session:
+            stmt = (
+                select(Publication.doi)  # type: ignore
+                .where(Publication.doi.is_not(None))  # type: ignore
+                .where(Publication.pubmed_json.is_(None))
+                .execution_options(yield_per=50)
+            )
+
+            for rows in select_session.execute(stmt).partitions():
+                # use a batch size of 50 DOIs at a time
+                dois = [normalize_doi(row["doi"]) for row in rows]
+
+                logging.info(f"looking up DOIs {dois}")
+
+                # find PMIDs for the DOIs, and then get full records
+                pmids = pmids_from_dois(dois)
+                pubmed_pubs = publications_from_pmids(pmids)
+
+                for pubmed_pub in pubmed_pubs:
+                    doi = normalize_doi(get_doi(pubmed_pub))
+                    if doi is None:
+                        logging.warning("unable to determine what DOI to update")
+                        continue
+
+                    with get_session(snapshot.database_name).begin() as update_session:
+                        update_stmt = (
+                            update(Publication)  # type: ignore
+                            .where(Publication.doi == doi)
+                            .values(pubmed_json=pubmed_pub)
+                        )
+                        update_session.execute(update_stmt)
+
+                    count += 1
+                    jsonl_output.write(json.dumps(pubmed_pub) + "\n")
+
+    logging.info(f"filled in {count} publications")
+
+    return snapshot.path
+
+
+def pmids_from_orcid(orcid: str) -> list[str]:
     """
     Returns PMIDs associated with a given ORCID.
     """
@@ -102,6 +146,16 @@ def pmids_from_orcid(orcid):
         orcid = m.group(1)
 
     return _pubmed_search_api(f"{orcid}[auid]")
+
+
+def pmids_from_dois(dois: list[str]) -> list[str]:
+    """
+    Returns PMIDs associated with given list of DOIs.
+    """
+
+    query = " OR ".join([f'"{s}"' for s in dois])
+
+    return _pubmed_search_api(f"{query}")
 
 
 def publications_from_pmids(pmids: list[str]) -> list[str]:

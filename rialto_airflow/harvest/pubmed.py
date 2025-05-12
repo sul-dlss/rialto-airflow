@@ -104,20 +104,19 @@ def pmids_from_orcid(orcid):
     return _pubmed_search_api(f"{orcid}[auid]")
 
 
-def publications_from_pmids(pmids):
+def publications_from_pmids(pmids: list[str]) -> list[str]:
     """
     Returns full pubmed records given a list of PMIDs.
     """
-    if not pmids or not isinstance(pmids, list):
-        return None
+    if len(pmids) == 0:
+        return []
 
     query = "id=" + "&id=".join(pmids)
 
-    http = requests.Session()
-
     full_url = f"{BASE_URL}{FETCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"fetching full records from pubmed with {query}")
-    resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
+    resp = requests.post(full_url, params=query, headers=HEADERS)
+    resp.raise_for_status()
 
     results = resp.content
 
@@ -137,11 +136,10 @@ def _pubmed_search_api(query) -> list:
 
     params: Params = {"term": query}
 
-    http = requests.Session()
-
     full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"searching pubmed with {params}")
-    resp: requests.Response = http.get(full_url, params=params, headers=HEADERS)
+    resp = requests.get(full_url, params=params, headers=HEADERS)
+    resp.raise_for_status()
 
     results = resp.json()
 

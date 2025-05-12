@@ -1,6 +1,5 @@
 import dotenv
 import pytest
-import os
 
 from rialto_airflow.database import Publication
 from rialto_airflow.harvest import pubmed
@@ -8,8 +7,6 @@ from rialto_airflow.snapshot import Snapshot
 from test.utils import num_jsonl_objects, load_jsonl_file
 
 dotenv.load_dotenv()
-
-pubmed_key = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
 
 
 @pytest.fixture
@@ -65,7 +62,6 @@ def pubmed_json():
     }
 
 
-@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_search_found_publications():
     """
     This is a live test of the Pubmed Search API to ensure we can get PMIDs back given an ORCID.
@@ -77,7 +73,6 @@ def test_pubmed_search_found_publications():
     assert "29035265" in pmids, "found an expected publication for this author"
 
 
-@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_search_no_publications():
     """
     This is a live test of the Pubmed Search API to ensure no results are returned for an ORCID with no publications.
@@ -88,7 +83,6 @@ def test_pubmed_search_no_publications():
     assert len(pmids) == 0, "found no publications"
 
 
-@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_fetch_publications():
     """
     This is a live test of the Pubmed Fetch API to ensure we can get publication data back given a list of PMIDs.
@@ -107,7 +101,6 @@ def test_pubmed_fetch_publications():
     assert "PubmedData" in pubs[1], "found the PubmedData key in the second publication"
 
 
-@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_fetch_missing_publications():
     """
     This is a live test of the Pubmed Fetch API to ensure we can get a list back even for one publication
@@ -123,13 +116,10 @@ def test_pubmed_fetch_missing_publications():
     assert "PubmedData" in pubs[0], "found the PubmedData key in the first publication"
 
 
-@pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_fetch_publications_expects_list():
-    # This publication should not be found because we passed a string and not a list
-    pmids = "29035265"
-    pubs = pubmed.publications_from_pmids(pmids)
+    pubs = pubmed.publications_from_pmids([])
 
-    assert pubs is None, "no publications returned because we passed a string"
+    assert pubs == [], "no publications returned because we passed an empty list"
 
 
 def test_harvest(

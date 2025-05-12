@@ -5,7 +5,6 @@ import shutil
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
-from airflow.models.xcom_arg import XComArg
 from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders

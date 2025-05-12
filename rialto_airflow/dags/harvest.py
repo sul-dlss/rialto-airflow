@@ -5,11 +5,18 @@ import shutil
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
-from airflow.models.xcom_arg import XComArg
 from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
-from rialto_airflow.harvest import authors, dimensions, openalex, sul_pub, wos, distill
+from rialto_airflow.harvest import (
+    authors,
+    dimensions,
+    openalex,
+    sul_pub,
+    wos,
+    pubmed,
+    distill,
+)
 from rialto_airflow.publish import openaccess, data_quality
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
@@ -113,12 +120,22 @@ def harvest():
         """
         sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=harvest_limit)
 
+    @task()
+    def pubmed_harvest(snapshot):
+        """
+        Fetch the data by ORCID from Pubmed.
+        """
+        jsonl_file = pubmed.harvest(snapshot, limit=harvest_limit)
+
+        return jsonl_file
+
     @task_group()
     def harvest_pubs(snapshot):
         dimensions_harvest(snapshot)
         openalex_harvest(snapshot)
         wos_harvest(snapshot)
         sulpub_harvest(snapshot)
+        pubmed_harvest(snapshot)
 
     @task()
     def fill_in_openalex(snapshot):

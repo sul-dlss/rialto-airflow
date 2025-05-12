@@ -210,7 +210,7 @@ def test_upload_file_to_google_drive():
     google.upload_file_to_google_drive("test/data/authors.csv", google_drive_id())
 
     # give it some time to upload to google before checking it exists
-    time.sleep(4)
+    time.sleep(12)
 
     # Confirm the file now exists in the shared google drive
     assert google_file_exists(google_drive_id(), "authors.csv") is True

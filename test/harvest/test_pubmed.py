@@ -125,7 +125,7 @@ def test_pubmed_fetch_missing_publications():
 
 @pytest.mark.skipif(pubmed_key is None, reason="no Pubmed key")
 def test_pubmed_fetch_publications_expects_list():
-    # This publication should be found
+    # This publication should not be found because we passed a string and not a list
     pmids = "29035265"
     pubs = pubmed.publications_from_pmids(pmids)
 

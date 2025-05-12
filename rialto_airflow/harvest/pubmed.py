@@ -30,6 +30,10 @@ FETCH_PATH = f"/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&retmax={MAX_RESU
 HEADERS = {"User-Agent": "stanford-library-rialto", "Accept": "application/json"}
 
 
+def pubmed_key():
+    return os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
+
+
 def harvest(snapshot: Snapshot, limit=None) -> Path:
     """
     Walk through all the Author ORCIDs and generate publications for them from pubmed.
@@ -111,9 +115,7 @@ def publications_from_pmids(pmids):
 
     http = requests.Session()
 
-    full_url = (
-        f"{BASE_URL}{FETCH_PATH}&api_key={os.environ.get('AIRFLOW_VAR_PUBMED_KEY')}"
-    )
+    full_url = f"{BASE_URL}{FETCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"fetching full records from pubmed with {query}")
     resp: requests.Response = http.post(full_url, params=query, headers=HEADERS)
 
@@ -137,9 +139,7 @@ def _pubmed_search_api(query) -> list:
 
     http = requests.Session()
 
-    full_url = (
-        f"{BASE_URL}{SEARCH_PATH}&api_key={os.environ.get('AIRFLOW_VAR_PUBMED_KEY')}"
-    )
+    full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"searching pubmed with {params}")
     resp: requests.Response = http.get(full_url, params=params, headers=HEADERS)
 

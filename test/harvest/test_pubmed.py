@@ -210,7 +210,7 @@ def test_pubmed_search_dois_found_publications():
     # These DOIs should both return PMIDs
     dois = ["10.1118/1.598623", "10.3899/jrheum.220960"]
     pmids = pubmed.pmids_from_dois(dois)
-    assert pmids == ["36243410", "10435530"], "found both publications"
+    assert pmids == ["10435530", "36243410"], "found both publications"
 
 
 def test_pubmed_search_dois_found_one_publication():

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
+import time
 
 import requests
 import xmltodict
@@ -153,9 +154,17 @@ def pmids_from_dois(dois: list[str]) -> list[str]:
     Returns PMIDs associated with given list of DOIs.
     """
 
-    query = " OR ".join([f'"{s}"' for s in dois])
+    # Note that we need to do these one by one, since Pubmed doesn't support searching for multiple DOIs
+    pmids = []
+    for doi in dois:
+        # look up the PMID given a DOI
+        pmid_results = _pubmed_search_api(f"{doi}")
+        # assuming we get one result, this is probably the PMID we want
+        if len(pmid_results) == 1:
+            pmids.append(pmid_results[0])
+        time.sleep(0.5)  # add a small delay to avoid hitting the API too hard
 
-    return _pubmed_search_api(f"{query}")
+    return pmids
 
 
 def publications_from_pmids(pmids: list[str]) -> list[str]:

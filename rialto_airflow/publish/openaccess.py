@@ -1,20 +1,15 @@
 import logging
 from csv import DictWriter
 from pathlib import Path
-from rialto_airflow.utils import get_types
+from rialto_airflow.utils import get_types, get_csv_path
 
 from sqlalchemy import select, func
 
 from rialto_airflow.database import get_session, Publication, Author, Funder
 
 
-def get_csv_path(snapshot, filename) -> Path:
-    """
-    Get the base path for a CSV file in the shared google drive
-    """
-    csv_path = snapshot.path / "open-access-dashboard" / filename
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    return csv_path
+def google_drive_folder() -> str:
+    return "open-access-dashboard"
 
 
 def write_publications(snapshot) -> Path:
@@ -33,7 +28,7 @@ def write_publications(snapshot) -> Path:
         "faculty_authored",
     ]
 
-    csv_path = get_csv_path(snapshot, "publications.csv")
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "publications.csv")
 
     logging.info(f"started writing publications {csv_path}")
 
@@ -114,7 +109,7 @@ def write_contributions(snapshot) -> Path:
         "federally_funded",
     ]
 
-    csv_path = get_csv_path(snapshot, "contributions.csv")
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "contributions.csv")
 
     logging.info(f"starting to write contributions {csv_path}")
 
@@ -197,7 +192,9 @@ def write_contributions_by_school(snapshot) -> Path:
         "types",
     ]
 
-    csv_path = get_csv_path(snapshot, "contributions-by-school.csv")
+    csv_path = get_csv_path(
+        snapshot, google_drive_folder(), "contributions-by-school.csv"
+    )
 
     logging.info(f"starting to write contributions by school {csv_path}")
 
@@ -274,7 +271,9 @@ def write_contributions_by_department(snapshot) -> Path:
         "types",
     ]
 
-    csv_path = get_csv_path(snapshot, "contributions-by-department.csv")
+    csv_path = get_csv_path(
+        snapshot, google_drive_folder(), "contributions-by-department.csv"
+    )
 
     logging.info(f"starting to write contributions by department {csv_path}")
 

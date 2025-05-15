@@ -40,3 +40,20 @@ def normalize_orcid(orcid):
     )
 
     return orcid
+
+
+def get_types(row):
+    types = set()
+    if row.dim_type:
+        types.add(row.dim_type)
+    if row.openalex_type:
+        types.add(row.openalex_type)
+    # the wos type can be a single value or a list
+    if row.wos_type:
+        if isinstance(row.wos_type, list):
+            for wos_type in row.wos_type:
+                types.add(wos_type.lower())
+        else:
+            types.add(row.wos_type.lower())
+
+    return sorted(types)

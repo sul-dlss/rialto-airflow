@@ -158,11 +158,19 @@ def harvest():
         """
         wos.fill_in(snapshot)
 
+    @task()
+    def fill_in_pubmed(snapshot):
+        """
+        Fill in Pubmed data for DOIs from other publication sources.
+        """
+        pubmed.fill_in(snapshot)
+
     @task_group()
     def fill_in(snapshot):
         fill_in_openalex(snapshot)
         fill_in_dimensions(snapshot)
         fill_in_wos(snapshot)
+        fill_in_pubmed(snapshot)
 
     @task()
     def distill_publications(snapshot):

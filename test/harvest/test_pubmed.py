@@ -1,5 +1,8 @@
-import dotenv
+import json
+import logging
 import pytest
+
+import dotenv
 
 from rialto_airflow.database import Publication
 from rialto_airflow.harvest import pubmed
@@ -44,11 +47,68 @@ def existing_publication(test_session):
         return pub
 
 
+def mock_jsonl(path):
+    """
+    Mock the existing jsonl file for Pubmed
+    """
+    records = [
+        {
+            "MedlineCitation": {
+                "Article": {
+                    "ArticleTitle": "Example Title",
+                },
+            },
+            "PubmedData": {
+                "ArticleIdList": {
+                    "ArticleId": [
+                        {"@IdType": "pubmed", "#text": "36857419"},
+                        {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
+                    ]
+                },
+            },
+        },
+        {
+            "MedlineCitation": {
+                "Article": {
+                    "ArticleTitle": "Another Article Title",
+                },
+            },
+            "PubmedData": {
+                "ArticleIdList": {
+                    "ArticleId": [
+                        {"@IdType": "pubmed", "#text": "21302935"},
+                        {"@IdType": "doi", "#text": "10.1021/ac1028984"},
+                    ]
+                },
+            },
+        },
+    ]
+    with open(path, "w") as f:
+        for record in records:
+            f.write(f"{json.dumps(record)}\n")
+
+
+def jsonl_file(path):
+    return path / "pubmed.jsonl"
+
+
 def pubmed_json():
     """
     A partial Pubmed JSON object with a DOI and some other IDs.
     """
     return {
+        "MedlineCitation": {
+            "Article": {
+                "ELocationID": [
+                    {
+                        "@EIdType": "doi",
+                        "@ValidYN": "Y",
+                        "#text": "10.1021/ac1028984",
+                    }
+                ],
+                "ArticleTitle": "Another Article Title",
+            },
+        },
         "PubmedData": {
             "ArticleIdList": {
                 "ArticleId": [
@@ -58,11 +118,54 @@ def pubmed_json():
                     {"@IdType": "pii", "#text": "494746"},
                 ]
             },
-        }
+        },
     }
 
 
-def test_pubmed_search_found_publications():
+def pubmed_json_no_doi():
+    """
+    A partial Pubmed JSON object without a DOI.
+    """
+    return {
+        "MedlineCitation": {
+            "Article": {
+                "ArticleTitle": "Another Article Title",
+            },
+        },
+        "PubmedData": {
+            "ArticleIdList": {
+                "ArticleId": [
+                    {"@IdType": "pubmed", "#text": "36857419"},
+                    {"@IdType": "pmc", "#text": "PMC10275701"},
+                    {"@IdType": "pii", "#text": "494746"},
+                ]
+            },
+        },
+    }
+
+
+def pubmed_json_fill_in_doi():
+    """
+    A partial Pubmed JSON object with a DOI.
+    """
+    return {
+        "MedlineCitation": {
+            "Article": {
+                "ArticleTitle": "Another Article Title To Be Filled In",
+            },
+        },
+        "PubmedData": {
+            "ArticleIdList": {
+                "ArticleId": [
+                    {"@IdType": "pubmed", "#text": "12345"},
+                    {"@IdType": "doi", "#text": "10.1515/9781503624153"},
+                ]
+            },
+        },
+    }
+
+
+def test_pubmed_search_orcid_found_publications():
     """
     This is a live test of the Pubmed Search API to ensure we can get PMIDs back given an ORCID.
     """
@@ -73,13 +176,43 @@ def test_pubmed_search_found_publications():
     assert "29035265" in pmids, "found an expected publication for this author"
 
 
-def test_pubmed_search_no_publications():
+def test_pubmed_search_orcid_no_publications():
     """
     This is a live test of the Pubmed Search API to ensure no results are returned for an ORCID with no publications.
     """
     # No publications should be found for this ORCID
     orcid = "5555-5555-5555-5555"
     pmids = pubmed.pmids_from_orcid(orcid)
+    assert len(pmids) == 0, "found no publications"
+
+
+def test_pubmed_search_dois_found_publications():
+    """
+    This is a live test of the Pubmed Search API to ensure we can get PMIDs back given two DOIs.
+    """
+    # These DOIs should both return PMIDs
+    dois = ["10.1118/1.598623", "10.3899/jrheum.220960"]
+    pmids = pubmed.pmids_from_dois(dois)
+    assert pmids == ["10435530", "36243410"], "found both publications"
+
+
+def test_pubmed_search_dois_found_one_publication():
+    """
+    This is a live test of the Pubmed Search API to ensure we can get PMIDs back a single DOIs.
+    """
+    # These DOIs should both return PMIDs
+    dois = ["10.1021/ac1028984"]
+    pmids = pubmed.pmids_from_dois(dois)
+    assert pmids == ["21302935"], "found single publication"
+
+
+def test_pubmed_search_dois_no_publications():
+    """
+    This is a live test of the Pubmed Search API to ensure no results are returned for DOIs with no publications.
+    """
+    # No publications should be found for these dois
+    dois = ["bogus-doi-1", "bogus-doi-2"]
+    pmids = pubmed.pmids_from_dois(dois)
     assert len(pmids) == 0, "found no publications"
 
 
@@ -134,7 +267,7 @@ def test_harvest(
     pubmed.harvest(snapshot)
 
     # the mocked Pubmed api returns the same two publications for both authors
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 4
 
     # make sure a publication is in the database and linked to the author
     with test_session.begin() as session:
@@ -165,7 +298,7 @@ def test_harvest_when_doi_exists(
     pubmed.harvest(snapshot)
 
     # jsonl file is there and has four lines (two pubs for each author)
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 4
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:
@@ -179,6 +312,101 @@ def test_harvest_when_doi_exists(
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
         assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+
+
+def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
+    caplog.set_level(logging.INFO)
+
+    # mock pubmed api to return a PMID for the fake DOI
+    monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: ["12345"])
+
+    # mock pubmed api to return a record for this PMID
+    monkeypatch.setattr(
+        pubmed,
+        "publications_from_pmids",
+        lambda *args, **kwargs: [pubmed_json_fill_in_doi()],
+    )
+
+    # set up a pre-existing jsonl file
+    mock_jsonl(jsonl_file(snapshot.path))
+
+    pubmed.fill_in(snapshot)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624153")
+            .first()
+        )
+        assert pub.pubmed_json == pubmed_json_fill_in_doi()
+
+    # adds 1 publication to the jsonl file
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 3
+    assert "filled in 1 publications" in caplog.text
+
+
+def test_fill_in_no_pubmed(
+    test_session, mock_publication, snapshot, caplog, monkeypatch
+):
+    caplog.set_level(logging.INFO)
+
+    # mock pubmed api to return no records for the doi
+    monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: [])
+
+    # set up a pre-existing jsonl file
+    mock_jsonl(jsonl_file(snapshot.path))
+
+    pubmed.fill_in(snapshot)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624153")
+            .first()
+        )
+        assert pub.pubmed_json is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
+    assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkeypatch):
+    """
+    Test that a publication coming back from Pubmed without DOI doesn't
+    cause an exception.
+    """
+
+    # mock pubmed api to return a PMID for the fake DOI
+    monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: ["12345"])
+
+    # mock pubmed api to return a record for this PMID, but without a DOI
+    monkeypatch.setattr(
+        pubmed,
+        "publications_from_pmids",
+        lambda *args, **kwargs: [pubmed_json_no_doi()],
+    )
+
+    caplog.set_level(logging.INFO)
+
+    # set up a pre-existing jsonl file
+    mock_jsonl(jsonl_file(snapshot.path))
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
+
+    pubmed.fill_in(snapshot)
+
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication)
+            .where(Publication.doi == "10.1515/9781503624153")
+            .first()
+        )
+        assert pub.pubmed_json is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
+    assert "unable to determine what DOI to update" in caplog.text
+    assert "filled in 0 publications" in caplog.text
 
 
 def test_get_doi():
@@ -196,18 +424,7 @@ def test_get_doi():
     }
     assert pubmed.get_doi(pubmed_json_single_id) == "10.1182/bloodadvances.2022008893"
 
-    pubmed_json_no_doi = {
-        "PubmedData": {
-            "ArticleIdList": {
-                "ArticleId": [
-                    {"@IdType": "pubmed", "#text": "36857419"},
-                    {"@IdType": "pmc", "#text": "PMC10275701"},
-                    {"@IdType": "pii", "#text": "494746"},
-                ]
-            },
-        }
-    }
-    assert pubmed.get_doi(pubmed_json_no_doi) is None
+    assert pubmed.get_doi(pubmed_json_no_doi()) is None
 
     pubmed_json_no_ids = {
         "PubmedData": {

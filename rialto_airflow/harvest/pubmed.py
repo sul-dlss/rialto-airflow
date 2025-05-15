@@ -158,7 +158,7 @@ def pmids_from_dois(dois: list[str]) -> list[str]:
     pmids = []
     for doi in dois:
         # look up the PMID given a DOI
-        pmid_results = _pubmed_search_api(f"{doi}")
+        pmid_results = _pubmed_search_api(doi)
         # assuming we get one result, this is probably the PMID we want
         if len(pmid_results) == 1:
             pmids.append(pmid_results[0])

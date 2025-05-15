@@ -55,13 +55,6 @@ def mock_jsonl(path):
         {
             "MedlineCitation": {
                 "Article": {
-                    "ELocationID": [
-                        {
-                            "@EIdType": "doi",
-                            "@ValidYN": "Y",
-                            "#text": "10.1182/bloodadvances.2022008893",
-                        }
-                    ],
                     "ArticleTitle": "Example Title",
                 },
             },
@@ -69,9 +62,7 @@ def mock_jsonl(path):
                 "ArticleIdList": {
                     "ArticleId": [
                         {"@IdType": "pubmed", "#text": "36857419"},
-                        {"@IdType": "pmc", "#text": "PMC10275701"},
                         {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
-                        {"@IdType": "pii", "#text": "494746"},
                     ]
                 },
             },
@@ -79,13 +70,6 @@ def mock_jsonl(path):
         {
             "MedlineCitation": {
                 "Article": {
-                    "ELocationID": [
-                        {
-                            "@EIdType": "doi",
-                            "@ValidYN": "Y",
-                            "#text": "10.1021/ac1028984",
-                        }
-                    ],
                     "ArticleTitle": "Another Article Title",
                 },
             },
@@ -93,7 +77,6 @@ def mock_jsonl(path):
                 "ArticleIdList": {
                     "ArticleId": [
                         {"@IdType": "pubmed", "#text": "21302935"},
-                        {"@IdType": "pmc", "#text": "PMC21302935"},
                         {"@IdType": "doi", "#text": "10.1021/ac1028984"},
                     ]
                 },
@@ -441,18 +424,7 @@ def test_get_doi():
     }
     assert pubmed.get_doi(pubmed_json_single_id) == "10.1182/bloodadvances.2022008893"
 
-    pubmed_json_no_doi = {
-        "PubmedData": {
-            "ArticleIdList": {
-                "ArticleId": [
-                    {"@IdType": "pubmed", "#text": "36857419"},
-                    {"@IdType": "pmc", "#text": "PMC10275701"},
-                    {"@IdType": "pii", "#text": "494746"},
-                ]
-            },
-        }
-    }
-    assert pubmed.get_doi(pubmed_json_no_doi) is None
+    assert pubmed.get_doi(pubmed_json_no_doi()) is None
 
     pubmed_json_no_ids = {
         "PubmedData": {

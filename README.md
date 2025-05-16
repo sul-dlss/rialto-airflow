@@ -46,16 +46,13 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
-AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
-AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON=xxxx # the google service account JSON from vault
-AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
-AIRFLOW_VAR_GOOGLE_DRIVE_ID=xxxx # this is the ID of the shared google drive that DAGs can write to (e.g. RIALTO Core Team --> Airflow-Prod )
-AIRFLOW_TEST_GOOGLE_DRIVE_ID=xxxx # this is the ID of the shared google drive called "RIALTO Core Team --> Airflow-Test" used by the tests
-AIRFLOW_TEST_GOOGLE_SHEET_ID=xxxx # this is the ID of the google sheet called "Test" in the "RIALTO Core Team --> Airflow-Test" folder used by the tests
+AIRFLOW_VAR_OPENALEX_EMAIL=rialto-service@lists.stanford.edu
+AIRFLOW_VAR_SUL_PUB_HOST: 'sul-pub-cap-uat.stanford.edu'
+AIRFLOW_VAR_HARVEST_LIMIT: 1000
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add to the `.env` values for any environment variables used by DAGs. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also prod if you really needed to by altering where in puppet you look below):
+4. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
@@ -111,23 +108,20 @@ uv run pytest
 
 In order for some of the tests to run, they will need to hit actual APIs.  In order to do this,
 they will need to be properly configured with keys and URLs.  These need to be placed in the .env file.
+
 Note that if you have hard-coded values in the compose.yml files, they will override any hardcoded values in the .env file.
 
-For Google drive tests, update your .env with values shown below / pulled from vault as indicated:
+For Google drive tests, add the values shown below to your `.env` file with the values pulled from vault as indicated.
 
 ```
-AIRFLOW_VAR_GOOGLE_CONNECTION="google_cloud_default"
-AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON=${get from vault at `rialto-airflow/prod/google_service_account_json`}
-AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT="google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5"
-AIRFLOW_VAR_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/prod/google_drive_id`}
 AIRFLOW_TEST_GOOGLE_SHEET_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_sheet_id`} # used by CI and tests
 AIRFLOW_TEST_GOOGLE_DRIVE_ID=${get from vault at `puppet/application/rialto-airflow/test/test_google_drive_id`} # used by CI and tests
 ```
 
 In addition, for the Google drive tests to run correctly, you need a few things configured in Google Drive:
 
-- A shared google drive folder must be setup, and must be shared with the email address of the google service account with "content manager" privileges.  The ID of the google drive folder must be configured in the `AIRFLOW_TEST_GOOGLE_DRIVE_ID` variable
-- A shared google sheet must be setup, and must be shared with the email address of the google service account with "editor" privileges.  It must be called "Test" and placed in the shared google drive setup above.  The ID of the google sheet must be configured in the `AIRFLOW_TEST_GOOGLE_SHEET_ID` variable.
+- A shared google drive folder should be setup, and should be shared with the email address of the google service account with "content manager" privileges.  The ID of the google drive folder must be configured in the `AIRFLOW_TEST_GOOGLE_DRIVE_ID` variable
+- A shared google sheet should be setup, and should be shared with the email address of the google service account with "editor" privileges.  It must be called "Test" and placed in the shared google drive setup above.  The ID of the google sheet must be configured in the `AIRFLOW_TEST_GOOGLE_SHEET_ID` variable.
 - See the section `Google Drive Setup` below for information about the google service account and the email address associated with it.
 
 The drive and sheet should be setup and configured, in "RIALTO Core Team -> Airflow-Test".  There may be an "authors.csv" file in the test shared folder as well - it is generated by the tests.  This file is safe to delete if you are troubleshooting.
@@ -135,8 +129,6 @@ The drive and sheet should be setup and configured, in "RIALTO Core Team -> Airf
 For MaIS tests, update your .env with values shown below / pulled from vault as indicated:
 
 ```
-AIRFLOW_VAR_MAIS_BASE_URL=https://mais.suapi.stanford.edu
-AIRFLOW_VAR_MAIS_TOKEN_URL=https://mais.auth.us-west-2.amazoncognito.com
 AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
 AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
 ```

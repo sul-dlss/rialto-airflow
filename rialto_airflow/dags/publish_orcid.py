@@ -31,15 +31,15 @@ def publish_orcid():
     @task
     def update_authors():
         """
-        Update the authors.csv file in Google Drive with the latest authors data CSV file.
+        Update the authors_active.csv file in Google Drive with the latest active authors data CSV file.
         """
-        authors_file = rialto_active_authors_file(data_dir)
+        active_authors_file = rialto_active_authors_file(data_dir)
         google_folder_id = google.orcid_dashboard_folder_id()
         logging.info(
-            f"Uploading {authors_file} to google drive folder id {google_folder_id}"
+            f"Uploading {active_authors_file} to google drive folder id {google_folder_id}"
         )
         google.upload_or_replace_file_in_google_drive(
-            authors_file,
+            active_authors_file,
             google_folder_id,
         )
         return True

@@ -282,6 +282,7 @@ You can also create manual connections as described below, but this should not b
 2. If it doesn't exist, create a connection by clicking the + button.
 3. The connection info is below (skip the quotes, they just denote the value to enter):
 
+```
 connection id: "google_cloud_default" # must match what is in docker compose.yaml for AIRFLOW_VAR_GOOGLE_CONNECTION
 connection type: "Google Cloud"
 description: # something useful, e.g. "Google Drive connection"
@@ -290,6 +291,7 @@ keyfile path: # this is the path to the JSON file you downloaded in step 3 in th
 keyfile JSON: # alternatively, you can paste in the full contents of the JSON here instead of putting the file on the VM/docker image...but if you use this approach and later come back to edit the connection, you will need to re-paste the JSON before saving again
 credential configuration file: # leave blank
 Scopes: "https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets"
+```
 
 everything else can be left blank/default
 

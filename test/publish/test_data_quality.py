@@ -1,5 +1,4 @@
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
 from random import randint
 
@@ -10,6 +9,7 @@ from sqlalchemy import select
 
 from rialto_airflow.publish import data_quality
 from rialto_airflow.database import Publication, Author, Funder
+from test.test_utils import TestRow
 
 
 @pytest.fixture

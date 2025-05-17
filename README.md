@@ -79,6 +79,47 @@ docker compose up -d
 uv run dotenv run python
 ```
 
+Testing database queries on the console after starting up python.
+
+Note: you may need to specify the  `AIRFLOW_VAR_RIALTO_POSTGRES` connection string in your `.env` file like this:
+
+`AIRFLOW_VAR_RIALTO_POSTGRES="postgresql+psycopg2://airflow:airflow@localhost:5432"`
+
+```
+from rialto_airflow.snapshot import Snapshot
+from sqlalchemy import select, func
+from rialto_airflow.database import get_session, Publication, Author, Funder
+
+# the database name
+database_name = 'rialto_20250508215121'
+
+snapshot = Snapshot('data',database_name=database_name)
+session = get_session(snapshot.database_name)()
+
+# query an entire table
+stmt = (select(Publication).limit(10))
+result = session.execute(stmt)
+
+for row in result:
+    print(f"DOI: {row.Publication.doi}")
+
+# note: once you iterate over the result set once, you will need to re-execute the query
+# if you want to access it again like this:
+
+row = result.first()
+row.Publication.doi
+row.Publication.dim_json
+row.Publication.dim_json['journal']['title']
+
+# query specific columns, leave off the table name when inspecting results
+stmt = (select(Publication.doi, Publication.dim_json, Publication.openalex_json, Publication.wos_json, Publication.sulpub_json).limit(10))
+result = session.execute(stmt)
+
+row = result.first()
+row.doi
+row.dim_json
+```
+
 ### Set-up
 
 1. Install `uv` for dependency management as described in [the uv docs](https://github.com/astral-sh/uv?tab=readme-ov-file#getting-started).  _NOTE:_ As of Feb 2025, at least one developer has had better luck with dependency management using the `uv` standalone installer, as opposed to installing using `pip` or `pipx`.  YMMV of course, but if you run into hard to explain `pyproject.toml` complaints or dependency resolution issues, consider uninstalling the `pip` managed `uv`, and installing from the `uv` installation script.

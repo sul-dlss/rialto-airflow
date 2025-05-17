@@ -1,11 +1,13 @@
 import logging
 from csv import DictWriter
 from pathlib import Path
+# import jsonpath_ng
 
 from sqlalchemy import select, func
 
 from rialto_airflow.database import get_session, Publication, Author, Funder
 from rialto_airflow.utils import get_types, get_csv_path
+from rialto_airflow.distiller import first, JsonPathRule, FuncRule
 
 
 def google_drive_folder() -> str:
@@ -93,6 +95,8 @@ def write_contributions_by_school(snapshot) -> Path:
 
     col_names = [
         "academic_council_authored",
+        "academic_council",
+        "journal",
         "apc",
         "doi",
         "faculty_authored",
@@ -119,7 +123,11 @@ def write_contributions_by_school(snapshot) -> Path:
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
                     Publication.open_access,  # type: ignore
-                    Author.primary_school,
+                    Publication.dim_json,
+                    Publication.openalex_json,
+                    Publication.sulpub_json,
+                    Publication.wos_json,  # type: ignore
+                    Author.primary_school,  # type: ignore
                     Publication.pub_year,  # type: ignore
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
@@ -145,6 +153,8 @@ def write_contributions_by_school(snapshot) -> Path:
                 csv_output.writerow(
                     {
                         "academic_council_authored": any(row.academic_council),
+                        "academic_council": row.academic_council,
+                        "journal": _journal(row),
                         "apc": row.apc,
                         "doi": row.doi,
                         "faculty_authored": "faculty" in row.roles,
@@ -169,6 +179,8 @@ def write_contributions_by_department(snapshot) -> Path:
 
     col_names = [
         "academic_council_authored",
+        "academic_council",
+        "journal",
         "apc",
         "doi",
         "faculty_authored",
@@ -196,8 +208,12 @@ def write_contributions_by_department(snapshot) -> Path:
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
                     Publication.open_access,  # type: ignore
-                    Author.primary_school,
-                    Author.primary_dept,
+                    Publication.dim_json,
+                    Publication.openalex_json,
+                    Publication.sulpub_json,
+                    Publication.wos_json,  # type: ignore
+                    Author.primary_school,  # type: ignore
+                    Author.primary_dept,  # type: ignore
                     Publication.pub_year,  # type: ignore
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
@@ -223,6 +239,8 @@ def write_contributions_by_department(snapshot) -> Path:
                 csv_output.writerow(
                     {
                         "academic_council_authored": any(row.academic_council),
+                        "academic_council": row.academic_council,
+                        "journal": _journal(row),
                         "apc": row.apc,
                         "doi": row.doi,
                         "faculty_authored": "faculty" in row.roles,
@@ -238,3 +256,40 @@ def write_contributions_by_department(snapshot) -> Path:
         logging.info(f"finished writing contributions by department {csv_path}")
 
     return csv_path
+
+
+def _journal(row):
+    """
+    Get the journal name in order of preference from the sources.
+    """
+    return first(
+        row,
+        rules=[
+            JsonPathRule("dim_json", "journal.title"),
+            FuncRule("openalex_json", _openalex_journal),
+            FuncRule("wos_json", _wos_journal),
+            JsonPathRule("sulpub_json", "journal.name"),
+        ],
+    )
+
+
+def _openalex_journal(openalex_json):
+    if not openalex_json:
+        return None
+
+    for location in openalex_json["locations"]:
+        if location["source"]["type"] == "journal":
+            return location["source"]["display_name"]
+
+    return None
+
+
+def _wos_journal(wos_json):
+    if not wos_json:
+        return None
+
+    for title in wos_json["static_data"]["summary"]["titles"]["title"]:
+        if title["type"] == "source":
+            return title["content"]
+
+    return None

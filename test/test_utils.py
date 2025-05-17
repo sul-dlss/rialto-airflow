@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+from dataclasses import dataclass
 
 import pytest
 
@@ -62,3 +63,15 @@ def test_normalize_orcid():
         utils.normalize_orcid(" HTTPS://ORCID.org/0000-0002-7262-6251 ")
         == "0000-0002-7262-6251"
     )
+
+
+@dataclass
+class TestRow:
+    """
+    An object that simulates a Publication database row.
+    """
+
+    dim_json: dict | None = None
+    openalex_json: dict | None = None
+    sulpub_json: dict | None = None
+    wos_json: dict | None = None

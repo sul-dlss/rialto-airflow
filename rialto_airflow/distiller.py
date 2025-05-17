@@ -10,14 +10,14 @@ from sqlalchemy.engine.row import Row  # type: ignore
 """
 This module lets you define rules for extracting information from the JSON that
 has been collected for a publication. It is useful in situations where you want
-to extract a value from multiple locations in the JSON, which are expressed in 
+to extract a value from multiple locations in the JSON, which are expressed in
 order of preference, and you want to get the first one that matches.
 
 The JsonPathRule will look for the result of applying a particular JSON Path to
-the JOSN. For rules that can't be expressed as a JSON Path you can use FuncRule 
+the JSON. For rules that can't be expressed as a JSON Path you can use FuncRule
 that will use the result of calling a given function with the JSON.
 
-For example this will look for a title in sul_pub, Dimensions, Openalex and fall 
+For example this will look for a title in sul_pub, Dimensions, Openalex and fall
 back to using a function to extract it from the WebOfScience metadata:
 
     from rialto_airflow.distiller import first, JsonPathRule, FuncRule
@@ -38,7 +38,7 @@ back to using a function to extract it from the WebOfScience metadata:
 Some distilling happens during the harvest DAG, and some during the data
 publishing, so it was pulled out into a separate module.
 
-Maybe this could work only with JSON and be agnostic about operating on a 
+Maybe this could work only with JSON and be agnostic about operating on a
 Publication row?
 
     first([

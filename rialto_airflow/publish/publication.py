@@ -101,9 +101,12 @@ def write_contributions_by_school(snapshot) -> Path:
         "issue",
         "mesh",
         "pages",
+        "volume",
         "apc",
         "doi",
         "pmid",
+        "title",
+        "url",
         "faculty_authored",
         "federally_funded",
         "open_access",
@@ -130,10 +133,11 @@ def write_contributions_by_school(snapshot) -> Path:
                 select(  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
+                    Publication.title, # type: ignore
                     Publication.open_access,  # type: ignore
                     Publication.dim_json,
                     Publication.openalex_json,
-                    Publication.sulpub_json,
+                    Publication.sulpub_json, # type: ignore
                     Publication.wos_json,  # type: ignore
                     Author.primary_school,  # type: ignore
                     Author.primary_department,  # type: ignore
@@ -169,9 +173,12 @@ def write_contributions_by_school(snapshot) -> Path:
                         "issue": _issue(row),
                         "mesh": _mesh(row),
                         "pages": _pages(row),
+                        "volume": _volume(row),
                         "apc": row.apc,
                         "doi": row.doi,
                         "pmid": normalize_pmid(_pmid(row)),
+                        "title": row.title,
+                        "url": _url(row),
                         "faculty_authored": "faculty" in row.roles,
                         "federally_funded": any(row.federal),
                         "open_access": row.open_access,
@@ -202,9 +209,12 @@ def write_contributions_by_department(snapshot) -> Path:
         "issue",
         "mesh",
         "pages",
+        "volume",
         "apc",
         "doi",
         "pmid",
+        "title",
+        "url",
         "faculty_authored",
         "federally_funded",
         "open_access",
@@ -231,10 +241,11 @@ def write_contributions_by_department(snapshot) -> Path:
                 select(  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
+                    Publication.title, # type: ignore
                     Publication.open_access,  # type: ignore
                     Publication.dim_json,
                     Publication.openalex_json,
-                    Publication.sulpub_json,
+                    Publication.sulpub_json, # type: ignore
                     Publication.wos_json,  # type: ignore
                     Author.primary_school,  # type: ignore
                     Author.primary_dept,  # type: ignore
@@ -270,9 +281,12 @@ def write_contributions_by_department(snapshot) -> Path:
                         "issue": _issue(row),
                         "mesh": _mesh(row),
                         "pages": _pages(row),
+                        "volume": _volume(row),
                         "apc": row.apc,
                         "doi": row.doi,
                         "pmid": normalize_pmid(_pmid(row)),
+                        "title": row.title,
+                        "url": _url(row),
                         "faculty_authored": "faculty" in row.roles,
                         "federally_funded": any(row.federal),
                         "open_access": row.open_access,
@@ -462,3 +476,48 @@ def _wos_pmid(wos_json):
         return None
 
     return None
+
+
+def _url(row):
+    """
+    Get the url in order of preference from the sources.
+    """
+    return first(
+        row,
+        rules=[
+            JsonPathRule("dim_json", "linkout"),
+            FuncRule("openalex_json", _openalex_url),
+        ],
+    )
+
+
+def _openalex_url(openalex_json):
+    if not openalex_json:
+        return None
+
+    try:
+        for location in openalex_json["locations"]:
+            if "url" in location:
+                return location["url"]
+            if "pdf_url" in location:
+                return location["pdf_url"]
+    except KeyError:
+        logging.warning("[url] OpenAlex JSON does not contain a url")
+        return None
+
+    return None
+
+
+def _volume(row):
+    """
+    Get the volume in order of preference from the sources.
+    """
+    return first(
+        row,
+        rules=[
+            JsonPathRule("dim_json", "volume"),
+            JsonPathRule("openalex_json", "biblio.volume"),
+            JsonPathRule("wos_json", "static_data.summary.pub_info.vol"),
+            JsonPathRule("sulpub_json", "journal.volume"),
+        ],
+    )

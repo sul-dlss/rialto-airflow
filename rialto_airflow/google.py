@@ -35,6 +35,10 @@ def data_quality_dashboard_folder_id():
     return get_file_id(google_drive_id, "data-quality-dashboard")
 
 
+def publication_folder_id():
+    return get_file_id(google_drive_id, "publication-dashboard")
+
+
 def get_file_id(folder_id, filename):
     """
     Fetch the file id of a Google Drive file given the filename and the folder_id

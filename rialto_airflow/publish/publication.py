@@ -133,14 +133,15 @@ def write_contributions_by_school(snapshot) -> Path:
                 select(  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
-                    Publication.title, # type: ignore
+                    Publication.title,  # type: ignore
                     Publication.open_access,  # type: ignore
                     Publication.dim_json,
                     Publication.openalex_json,
-                    Publication.sulpub_json, # type: ignore
+                    Publication.sulpub_json,  # type: ignore
                     Publication.wos_json,  # type: ignore
+                    Publication.pubmed_json,  # type: ignore
                     Author.primary_school,  # type: ignore
-                    Author.primary_department,  # type: ignore
+                    Author.primary_dept,  # type: ignore
                     Author.primary_role,  # type: ignore
                     Author.sunet,  # type: ignore
                     Publication.pub_year,  # type: ignore
@@ -160,7 +161,13 @@ def write_contributions_by_school(snapshot) -> Path:
                     func.jsonb_agg_strict(Author.primary_role).label("roles"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
-                .group_by(Author.primary_school, Publication.id)
+                .group_by(
+                    Author.primary_school,
+                    Author.primary_dept,
+                    Author.sunet,
+                    Author.primary_role,
+                    Publication.id,
+                )
                 .execution_options(yield_per=100)
             )
 
@@ -241,12 +248,13 @@ def write_contributions_by_department(snapshot) -> Path:
                 select(  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.doi,  # type: ignore
-                    Publication.title, # type: ignore
+                    Publication.title,  # type: ignore
                     Publication.open_access,  # type: ignore
                     Publication.dim_json,
                     Publication.openalex_json,
-                    Publication.sulpub_json, # type: ignore
+                    Publication.sulpub_json,  # type: ignore
                     Publication.wos_json,  # type: ignore
+                    Publication.pubmed_json,  # type: ignore
                     Author.primary_school,  # type: ignore
                     Author.primary_dept,  # type: ignore
                     Author.primary_role,  # type: ignore
@@ -268,7 +276,13 @@ def write_contributions_by_department(snapshot) -> Path:
                     func.jsonb_agg_strict(Author.primary_role).label("roles"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
-                .group_by(Author.primary_school, Author.primary_dept, Publication.id)
+                .group_by(
+                    Author.primary_school,
+                    Author.sunet,
+                    Author.primary_role,
+                    Author.primary_dept,
+                    Publication.id,
+                )
                 .execution_options(yield_per=100)
             )
 
@@ -325,7 +339,10 @@ def _openalex_journal(openalex_json):
 
     try:
         primary_location = openalex_json["primary_location"]
-        if primary_location["source"]["type"] == "journal":
+        if (
+            primary_location.get("source")
+            and primary_location["source"]["type"] == "journal"
+        ):
             return primary_location["source"]["display_name"]
     except KeyError:
         logging.warning("[title] OpenAlex JSON does not contain primary location")
@@ -340,7 +357,7 @@ def _wos_journal(wos_json):
 
     try:
         for title in wos_json["static_data"]["summary"]["titles"]["title"]:
-            if title["type"] == "source":
+            if title.get("type") and title["type"] == "source":
                 return title["content"]
     except KeyError:
         logging.warning("[title] WOS JSON does not contain journal title")
@@ -378,7 +395,7 @@ def _mesh(row):
 
 
 def _dim_mesh(dim_json):
-    if not dim_json:
+    if not dim_json or not dim_json.get("mesh_terms"):
         return None
 
     try:
@@ -389,7 +406,7 @@ def _dim_mesh(dim_json):
 
 
 def _openalex_mesh(openalex_json):
-    if not openalex_json:
+    if not openalex_json or not openalex_json.get("mesh"):
         return None
 
     try:
@@ -417,7 +434,7 @@ def _pages(row):
 
 
 def _openalex_pages(openalex_json):
-    if not openalex_json:
+    if not openalex_json or not openalex_json.get("biblio"):
         return None
 
     try:

@@ -6,16 +6,45 @@ from test.test_utils import TestRow
 
 
 def dim_json():
-    return {"journal": {"title": "Delicious Limes Journal of Science"}}
+    return {
+        "journal": {"title": "Delicious Limes Journal of Science"},
+        "issue": "12",
+        "pages": "1-10",
+        "mesh_terms": ["Delicions", "Limes"],
+        "pmid": "123",
+    }
+
+
+def dim_json_no_title():
+    return {"other_data": {"bogus": "no journal title here"}}
 
 
 def openalex_json():
     return {
+        "biblio": {"issue": "11", "first_page": "1", "last_page": "9"},
+        "primary_location": {
+            "source": {
+                "type": "journal",
+                "display_name": "Ok Limes Journal of Science",
+            }
+        },
+        "mesh": [
+            {"descriptor_name": "Ok"},
+            {"descriptor_name": "Lemons"},
+        ],
+        "ids": {
+            "doi": "10.000/000001",
+            "pmid": "1234",
+        },
+    }
+
+
+def openalex_no_title_json():
+    return {
         "locations": [
             {
-                "source": {
-                    "type": "journal",
-                    "display_name": "Ok Limes Journal of Science",
+                "bogus": {
+                    "nope": "not here",
                 }
             },
             {"source": {"type": "geography", "display_name": "New York"}},
@@ -27,20 +56,75 @@ def wos_json():
     return {
         "static_data": {
             "summary": {
+                "pub_info": {
+                    "pubyear": "2023",
+                    "issue": "10",
+                    "volume": "1",
+                    "page": {"begin": "1", "end": "8"},
+                },
                 "titles": {
                     "count": 2,
                     "title": [
                         {"type": "source", "content": "Meh Limes Journal of Science"},
                         {"type": "bogus", "content": "Bogus"},
                     ],
-                }
+                },
+            }
+        },
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {
+                    "identifier": [
+                        {
+                            "type": "pmid",
+                            "value": "1234567",
+                        }
+                    ],
+                },
+            }
+        },
+    }
+
+
+def wos_json_no_page_info():
+    return {
+        "static_data": {
+            "summary": {
+                "pub_info": {
+                    "page": {"page_count": "7"},
+                },
             }
         }
     }
 
 
 def sulpub_json():
-    return {"journal": {"name": "Bad Limes Journal of Science"}}
+    return {
+        "journal": {
+            "name": "Bad Limes Journal of Science",
+            "issue": "9",
+            "pages": "1-7",
+        },
+        "pmid": "123456",
+    }
+
+
+def pubmed_json():
+    return {
+        "MedlineCitation": {
+            "Article": {
+                "ArticleTitle": "Example Title",
+            },
+        },
+        "PubmedData": {
+            "ArticleIdList": {
+                "ArticleId": [
+                    {"@IdType": "pubmed", "#text": "36857419"},
+                    {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
+                ]
+            },
+        },
+    }
 
 
 @pytest.fixture
@@ -163,25 +247,204 @@ def test_journal_with_dimensions_title():
     assert publication._journal(row) == "Delicious Limes Journal of Science"
 
 
+def test_journal_missing_dimensions_title():
+    row = TestRow(
+        dim_json=dim_json_no_title(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._journal(row) == "Ok Limes Journal of Science"
+
+
 def test_journal_without_dimensions_title():
     row = TestRow(
         openalex_json=openalex_json(),
         wos_json=wos_json(),
         sulpub_json=sulpub_json(),
     )
+    # comes from openalex
     assert publication._journal(row) == "Ok Limes Journal of Science"
 
 
-def test_journal_without_dimensions_open_alex_title():
+def test_journal_without_dimensions_and_missing_open_alex_title():
+    row = TestRow(
+        openalex_json=openalex_no_title_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from wos
+    assert publication._journal(row) == "Meh Limes Journal of Science"
+
+
+def test_journal_without_dimensions_or_open_alex_title():
     row = TestRow(
         wos_json=wos_json(),
         sulpub_json=sulpub_json(),
     )
+    # comes from wos
     assert publication._journal(row) == "Meh Limes Journal of Science"
 
 
-def test_journal_without_dimensions_open_alex_wos_title():
+def test_journal_without_dimensions_or_open_alex_or_wos_title():
     row = TestRow(
         sulpub_json=sulpub_json(),
     )
+    # comes from sulpub
     assert publication._journal(row) == "Bad Limes Journal of Science"
+
+
+def test_journal_with_dimensions_issue():
+    row = TestRow(
+        dim_json=dim_json(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    assert publication._issue(row) == "12"
+
+
+def test_journal_without_dimensions_issue():
+    row = TestRow(
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._issue(row) == "11"
+
+
+def test_journal_without_dimensions_or_openalex_issue():
+    row = TestRow(
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._issue(row) == "10"
+
+
+def test_journal_without_dimensions_or_openalex_or_wos_issue():
+    row = TestRow(
+        sulpub_json=sulpub_json(),
+    )
+    # comes from sulpub
+    assert publication._issue(row) == "9"
+
+
+def test_journal_with_dimensions_mesh():
+    row = TestRow(
+        dim_json=dim_json(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from dimensions
+    assert publication._mesh(row) == "Delicions|Limes"
+
+
+def test_journal_without_dimensions_mesh():
+    row = TestRow(
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._mesh(row) == "Ok|Lemons"
+
+
+def test_journal_with_dimensions_pages():
+    row = TestRow(
+        dim_json=dim_json(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from dimensions
+    assert publication._pages(row) == "1-10"
+
+
+def test_journal_without_dimensions_pages():
+    row = TestRow(
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._pages(row) == "1-9"
+
+
+def test_journal_without_dimensions_or_openalex_pages():
+    row = TestRow(
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from wos
+    assert publication._pages(row) == "1-8"
+
+
+def test_journal_missing_wos_page_info():
+    row = TestRow(
+        wos_json=wos_json_no_page_info(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from sulpub
+    assert publication._pages(row) == "1-7"
+
+
+def test_journal_without_dimensions_or_openalex_or_wos_pages():
+    row = TestRow(
+        sulpub_json=sulpub_json(),
+    )
+    # comes from sulpub
+    assert publication._pages(row) == "1-7"
+
+
+def test_journal_with_pubmed_pmid():
+    row = TestRow(
+        pubmed_json=pubmed_json(),
+        dim_json=dim_json(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from pubmed
+    assert publication._pmid(row) == "36857419"
+
+
+def test_journal_without_pubmed_pmid():
+    row = TestRow(
+        dim_json=dim_json(),
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from dimensions
+    assert publication._pmid(row) == "123"
+
+
+def test_journal_without_pubmed_or_dimensions_pmid():
+    row = TestRow(
+        openalex_json=openalex_json(),
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from openalex
+    assert publication._pmid(row) == "1234"
+
+
+def test_journal_without_pubmed_or_dimensions_or_openalex_pmid():
+    row = TestRow(
+        wos_json=wos_json(),
+        sulpub_json=sulpub_json(),
+    )
+    # comes from sulpub
+    assert publication._pmid(row) == "123456"
+
+
+def test_journal_without_pubmed_or_dimensions_or_openalex_or_sulpub_pmid():
+    row = TestRow(
+        wos_json=wos_json(),
+    )
+    # comes from wos
+    assert publication._pmid(row) == "1234567"

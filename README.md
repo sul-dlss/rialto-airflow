@@ -98,6 +98,7 @@ session = get_session(snapshot.database_name)()
 
 # query an entire table
 stmt = (select(Publication).limit(10))
+# stmt = (select(Publication).where(Publication.wos_json.isnot(None)).limit(10))
 result = session.execute(stmt)
 
 for row in result:

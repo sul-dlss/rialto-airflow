@@ -33,6 +33,16 @@ def normalize_doi(doi):
     return doi
 
 
+def normalize_pmid(pmid):
+    if pmid is None:
+        return None
+
+    pmid = pmid.strip().lower()
+    pmid = pmid.replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("medline:", "")
+
+    return pmid
+
+
 def normalize_orcid(orcid):
     orcid = orcid.strip().lower()
     orcid = orcid.replace("https://orcid.org/", "").replace(

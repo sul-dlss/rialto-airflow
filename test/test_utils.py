@@ -49,6 +49,15 @@ def test_normalize_doi():
     assert utils.normalize_doi(None) is None
 
 
+def test_normalize_pmid():
+    assert utils.normalize_pmid("https://pubmed.ncbi.nlm.nih.gov/3685741") == "3685741"
+    assert utils.normalize_pmid("MEDLINE:3685741") == "3685741"
+    assert utils.normalize_pmid(" 3685741 ") == "3685741"
+    assert utils.normalize_pmid("3685741") == "3685741"
+    assert utils.normalize_pmid("") == ""
+    assert utils.normalize_pmid(None) is None
+
+
 def test_normalize_orcid():
     assert (
         utils.normalize_orcid("https://orcid.org/0000-0002-7262-6251")
@@ -75,3 +84,4 @@ class TestRow:
     openalex_json: dict | None = None
     sulpub_json: dict | None = None
     wos_json: dict | None = None
+    pubmed_json: dict | None = None

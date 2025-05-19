@@ -26,6 +26,7 @@ dependencies = [
     "sqlalchemy>=1.4.36,<2.0", # airflow still incompatible with 2.x, see https://github.com/apache/airflow/issues/28723
     "xmltodict>=0.14.2",
     "types-xmltodict>=0.14.0.20241009",
+    "dominate>=2.9.1",
 ]
 
 [tool.pytest.ini_options]

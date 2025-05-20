@@ -313,7 +313,7 @@ def write_contributions_by_department(snapshot) -> Path:
                     }
                 )
 
-        logging.info(f"finished writing contributions by department {csv_path}")
+        logging.info(f"finished writing contributions by school/department {csv_path}")
 
     return csv_path
 

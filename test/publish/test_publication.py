@@ -1,3 +1,4 @@
+import pandas
 import pytest
 
 from rialto_airflow.publish import publication
@@ -7,6 +8,8 @@ from test.test_utils import TestRow
 
 def dim_json():
     return {
+        "type": "article",
+        "doi": "10.000/000001",
         "journal": {"title": "Delicious Limes Journal of Science"},
         "issue": "12",
         "pages": "1-10",
@@ -23,6 +26,7 @@ def dim_json_no_title():
 
 def openalex_json():
     return {
+        "type": "preprint",
         "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
         "primary_location": {
             "source": {
@@ -59,6 +63,9 @@ def openalex_no_title_json():
 
 def wos_json():
     return {
+        "fullrecord_metadata": {
+            "normalized_doctypes": {"doctype": ["Article", "Abstract"]}
+        },
         "static_data": {
             "summary": {
                 "pub_info": {
@@ -142,15 +149,11 @@ def dataset(test_session):
             apc=123,
             open_access="gold",
             pub_year=2023,
-            dim_json={"type": "article"},
-            openalex_json={"type": "preprint"},
-            wos_json={
-                "static_data": {
-                    "fullrecord_metadata": {
-                        "normalized_doctypes": {"doctype": ["Article", "Abstract"]}
-                    }
-                }
-            },
+            dim_json=dim_json(),
+            openalex_json=openalex_json(),
+            wos_json=wos_json(),
+            sulpub_json=sulpub_json(),
+            pubmed_json=pubmed_json(),
         )
 
         pub.authors.append(
@@ -241,6 +244,225 @@ def test_dataset(test_session, dataset):
         assert pub
         assert len(pub.authors) == 4
         assert len(pub.funders) == 2
+
+
+def test_write_publications(test_session, snapshot, dataset, caplog):
+    # generate the publications csv file
+    csv_path = publication.write_publications(snapshot)
+
+    # read it in and make sure it looks right
+    df = pandas.read_csv(csv_path)
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row.doi == "10.000/000001"
+    assert row.pub_year == 2023
+    assert row.apc == 123
+    assert row.open_access == "gold"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council_authored) is True
+    assert bool(row.faculty_authored) is True
+
+    assert "started writing publications" in caplog.text
+    assert "finished writing publications" in caplog.text
+
+
+def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
+    # generate the publications csv file
+    csv_path = publication.write_contributions_by_school(snapshot)
+
+    # read it in and make sure it looks right
+    df = pandas.read_csv(csv_path)
+    assert len(df) == 4
+
+    # sort it so we know what is in each row
+    df = df.sort_values(["primary_school", "primary_department"])
+
+    row = df.iloc[0]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "fterm"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[1]
+    assert bool(row.academic_council_authored) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "folms"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[2]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "janes"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[3]
+    assert bool(row.academic_council_authored) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "staff"
+    assert row.sunet == "lelands"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is False
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    assert "starting to write contributions by school" in caplog.text
+    assert "finished writing contributions by school" in caplog.text
+
+
+def test_write_contributions_by_department(test_session, snapshot, dataset, caplog):
+    # generate the publications csv file
+    csv_path = publication.write_contributions_by_department(snapshot)
+
+    # read it in and make sure it looks right
+    df = pandas.read_csv(csv_path)
+    assert len(df) == 4
+
+    # sort it so we know what is in each row
+    df = df.sort_values(["primary_school", "primary_department"])
+
+    row = df.iloc[0]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "fterm"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[1]
+    assert bool(row.academic_council_authored) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "folms"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[2]
+    assert bool(row.academic_council_authored) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "staff"
+    assert row.sunet == "lelands"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is False
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[3]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "janes"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    assert "starting to write contributions by school/department" in caplog.text
+    assert "finished writing contributions by school/department" in caplog.text
 
 
 def test_journal_with_dimensions_title():

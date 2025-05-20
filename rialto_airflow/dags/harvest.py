@@ -204,6 +204,7 @@ def harvest():
         data_quality.write_sulpub(snapshot)
         data_quality.write_contributions_by_source(snapshot)
         data_quality.write_publications(snapshot)
+        data_quality.write_source_counts(snapshot)
 
     @task_group()
     def publish(snapshot):
@@ -235,6 +236,7 @@ def harvest():
             "sulpub.csv",
             "contributions-by-source.csv",
             "publications.csv",
+            "source-counts.csv",
         ]
 
         google_folder_id = google.data_quality_dashboard_folder_id()

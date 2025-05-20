@@ -1,9 +1,13 @@
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from random import randint
 
 import pandas
 import pytest
+import sqlalchemy
+from sqlalchemy import select
+from sqlalchemy.sql.expression import text
 
 from rialto_airflow.publish import data_quality
 from rialto_airflow.database import Publication, Author, Funder
@@ -330,6 +334,57 @@ def test_write_publications(test_session, snapshot, dataset, caplog):
 
     assert "started writing publications.csv" in caplog.text
     assert "finished writing publications.csv" in caplog.text
+
+
+def test_write_source_counts(test_session, snapshot):
+    # create some random data
+    with test_session.begin() as session:
+        for i in range(0, 1000):
+            session.add(
+                Publication(
+                    doi=f"10.000/00000{i}",
+                    pub_year=2024,
+                    dim_json={"a": "b"} if randint(0, 1) == 1 else None,
+                    openalex_json={"a": "b"} if randint(0, 1) == 1 else None,
+                    wos_json={"a": "b"},  # all pubs get WoS
+                    sulpub_json={"a": "b"} if randint(0, 1) == 1 else None,
+                )
+            )
+
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1000
+
+        csv_path = data_quality.write_source_counts(snapshot)
+        assert csv_path.is_file()
+
+        df = pandas.read_csv(csv_path)
+        assert len(df) > 0
+
+        source_cols = {
+            "Dimensions": "dim_json",
+            "Openalex": "openalex_json",
+            "PubMed": "pubmed_json",
+            "SUL-Pub": "sulpub_json",
+            "WoS": "wos_json",
+        }
+
+        rows = df.to_dict("records")
+        for row in rows:
+            in_cols = row["sources"].split("|")
+
+            stmt = select(sqlalchemy.func.count()).filter(Publication.pub_year >= 2018)  # type: ignore
+
+            for label in source_cols.keys():
+                if label in in_cols:
+                    stmt = stmt.filter(
+                        getattr(Publication, source_cols[label]).is_not(None)
+                    )
+                else:
+                    stmt = stmt.filter(
+                        getattr(Publication, source_cols[label]).is_(None)
+                    )
+
+            assert session.execute(stmt).scalars().one() == row["count"]
 
 
 @dataclass

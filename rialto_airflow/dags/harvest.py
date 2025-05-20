@@ -2,6 +2,7 @@ import datetime
 import logging
 from pathlib import Path
 import shutil
+import os
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
@@ -28,6 +29,9 @@ data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
 sul_pub_host = Variable.get("sul_pub_host")
 sul_pub_key = Variable.get("sul_pub_key")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
 
 # to artificially limit the API activity in development
 harvest_limit = None
@@ -227,7 +231,9 @@ def harvest():
             "contributions-by-department.csv",
         ]
 
-        google_folder_id = google.open_access_dashboard_folder_id()
+        google_folder_id = google.get_file_id(
+            google_drive_id, openaccess.google_drive_folder()
+        )
 
         for csv_file in csv_files:
             file_path = snapshot.path / openaccess.google_drive_folder() / csv_file
@@ -246,7 +252,9 @@ def harvest():
             "source-counts.csv",
         ]
 
-        google_folder_id = google.data_quality_dashboard_folder_id()
+        google_folder_id = google.get_file_id(
+            google_drive_id, data_quality.google_drive_folder()
+        )
 
         for csv_file in csv_files:
             file_path = snapshot.path / data_quality.google_drive_folder() / csv_file
@@ -263,7 +271,9 @@ def harvest():
             "contributions-by-school-department.csv",
         ]
 
-        google_folder_id = google.publication_folder_id()
+        google_folder_id = google.get_file_id(
+            google_drive_id, publication.google_drive_folder()
+        )
 
         for csv_file in csv_files:
             file_path = snapshot.path / publication.google_drive_folder() / csv_file

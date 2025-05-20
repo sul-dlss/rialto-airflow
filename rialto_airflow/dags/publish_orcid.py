@@ -26,9 +26,6 @@ google_drive_id = Variable.get(
 
 
 def orcid_dashboard_folder_id():
-    """
-    Get the ORCID dashboard folder ID from Google Drive.
-    """
     return google.get_file_id(google_drive_id, "orcid-dashboard")
 
 

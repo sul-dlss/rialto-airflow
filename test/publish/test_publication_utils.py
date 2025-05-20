@@ -1,6 +1,6 @@
 import test.publish.data as test_data
 import rialto_airflow.publish.publication_utils as pub_utils
-from test.test_utils import TestRow
+from test.utils import TestRow
 
 
 def test_journal_with_dimensions_title():

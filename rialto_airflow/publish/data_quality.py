@@ -223,7 +223,7 @@ def write_publications(snapshot: Snapshot) -> Path:
 def write_source_counts(snapshot):
     logging.info("started writing source-counts.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "source-counts.csv"
+    csv_path = snapshot.path / google_drive_folder() / "source-counts.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     source_labels = {

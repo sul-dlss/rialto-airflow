@@ -1,14 +1,12 @@
 import logging
 from csv import DictWriter
 from pathlib import Path
-# import jsonpath_ng
 
 from sqlalchemy import select, func
 
 from rialto_airflow.database import get_session, Publication, Author, Funder
 from rialto_airflow.utils import get_types, get_csv_path, normalize_pmid
-from rialto_airflow.distiller import first, JsonPathRule, FuncRule
-from rialto_airflow.harvest.pubmed import get_identifier
+import rialto_airflow.publish.publication_utils as pub_utils
 
 
 def google_drive_folder() -> str:
@@ -176,16 +174,16 @@ def write_contributions_by_school(snapshot) -> Path:
                     {
                         "academic_council_authored": any(row.academic_council),
                         "academic_council": row.academic_council,
-                        "journal": _journal(row),
-                        "issue": _issue(row),
-                        "mesh": _mesh(row),
-                        "pages": _pages(row),
-                        "volume": _volume(row),
+                        "journal": pub_utils._journal(row),
+                        "issue": pub_utils._issue(row),
+                        "mesh": pub_utils._mesh(row),
+                        "pages": pub_utils._pages(row),
+                        "volume": pub_utils._volume(row),
                         "apc": row.apc,
                         "doi": row.doi,
-                        "pmid": normalize_pmid(_pmid(row)),
+                        "pmid": normalize_pmid(pub_utils._pmid(row)),
                         "title": row.title,
-                        "url": _url(row),
+                        "url": pub_utils._url(row),
                         "faculty_authored": "faculty" in row.roles,
                         "federally_funded": any(row.federal),
                         "open_access": row.open_access,
@@ -291,16 +289,16 @@ def write_contributions_by_department(snapshot) -> Path:
                     {
                         "academic_council_authored": any(row.academic_council),
                         "academic_council": row.academic_council,
-                        "journal": _journal(row),
-                        "issue": _issue(row),
-                        "mesh": _mesh(row),
-                        "pages": _pages(row),
-                        "volume": _volume(row),
+                        "journal": pub_utils._journal(row),
+                        "issue": pub_utils._issue(row),
+                        "mesh": pub_utils._mesh(row),
+                        "pages": pub_utils._pages(row),
+                        "volume": pub_utils._volume(row),
                         "apc": row.apc,
                         "doi": row.doi,
-                        "pmid": normalize_pmid(_pmid(row)),
+                        "pmid": normalize_pmid(pub_utils._pmid(row)),
                         "title": row.title,
-                        "url": _url(row),
+                        "url": pub_utils._url(row),
                         "faculty_authored": "faculty" in row.roles,
                         "federally_funded": any(row.federal),
                         "open_access": row.open_access,
@@ -316,225 +314,3 @@ def write_contributions_by_department(snapshot) -> Path:
         logging.info(f"finished writing contributions by school/department {csv_path}")
 
     return csv_path
-
-
-def _journal(row):
-    """
-    Get the journal name in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            JsonPathRule("dim_json", "journal.title"),
-            FuncRule("openalex_json", _openalex_journal),
-            FuncRule("wos_json", _wos_journal),
-            JsonPathRule("sulpub_json", "journal.name"),
-        ],
-    )
-
-
-def _openalex_journal(openalex_json):
-    if not openalex_json:
-        return None
-
-    try:
-        primary_location = openalex_json["primary_location"]
-        if (
-            primary_location.get("source")
-            and primary_location["source"]["type"] == "journal"
-        ):
-            return primary_location["source"]["display_name"]
-    except KeyError:
-        logging.warning("[title] OpenAlex JSON does not contain primary location")
-        return None
-
-    return None
-
-
-def _wos_journal(wos_json):
-    if not wos_json:
-        return None
-
-    try:
-        for title in wos_json["static_data"]["summary"]["titles"]["title"]:
-            if title.get("type") and title["type"] == "source":
-                return title["content"]
-    except KeyError:
-        logging.warning("[title] WOS JSON does not contain journal title")
-        return None
-
-    return None
-
-
-def _issue(row):
-    """
-    Get the journal issue in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            JsonPathRule("dim_json", "issue"),
-            JsonPathRule("openalex_json", "biblio.issue"),
-            JsonPathRule("wos_json", "static_data.summary.pub_info.issue"),
-            JsonPathRule("sulpub_json", "journal.issue"),
-        ],
-    )
-
-
-def _mesh(row):
-    """
-    Get the mesh in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            FuncRule("dim_json", _dim_mesh),
-            FuncRule("openalex_json", _openalex_mesh),
-        ],
-    )
-
-
-def _dim_mesh(dim_json):
-    if not dim_json or not dim_json.get("mesh_terms"):
-        return None
-
-    try:
-        return "|".join(list(map(lambda x: x, dim_json["mesh_terms"])))
-    except KeyError:
-        logging.warning("[mesh] Dimensions JSON does not contain mesh terms")
-        return None
-
-
-def _openalex_mesh(openalex_json):
-    if not openalex_json or not openalex_json.get("mesh"):
-        return None
-
-    try:
-        return "|".join(
-            list(map(lambda x: x["descriptor_name"], openalex_json["mesh"]))
-        )
-    except KeyError:
-        logging.warning("[mesh] OpenAlex JSON does not contain mesh terms")
-        return None
-
-
-def _pages(row):
-    """
-    Get the pages in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            JsonPathRule("dim_json", "pages"),
-            FuncRule("openalex_json", _openalex_pages),
-            FuncRule("wos_json", _wos_pages),
-            JsonPathRule("sulpub_json", "journal.pages"),
-        ],
-    )
-
-
-def _openalex_pages(openalex_json):
-    if not openalex_json or not openalex_json.get("biblio"):
-        return None
-
-    try:
-        return f"{openalex_json['biblio']['first_page']}-{openalex_json['biblio']['last_page']}"
-    except KeyError:
-        logging.warning("[pages] OpenAlex JSON does not contain pages")
-        return None
-
-
-def _wos_pages(wos_json):
-    if not wos_json:
-        return None
-
-    try:
-        return f"{wos_json['static_data']['summary']['pub_info']['page']['begin']}-{wos_json['static_data']['summary']['pub_info']['page']['end']}"
-    except KeyError:
-        logging.warning("[mesh] WOS JSON does not contain pages")
-        return None
-
-
-def _pmid(row):
-    """
-    Get the pmid in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            FuncRule("pubmed_json", _pubmed_pmid),
-            JsonPathRule("dim_json", "pmid"),
-            JsonPathRule("openalex_json", "ids.pmid"),
-            JsonPathRule("sulpub_json", "pmid"),
-            FuncRule("wos_json", _wos_pmid),
-        ],
-    )
-
-
-def _pubmed_pmid(pubmed_json):
-    if not pubmed_json:
-        return None
-
-    return get_identifier(pubmed_json, "pubmed")
-
-
-def _wos_pmid(wos_json):
-    if not wos_json:
-        return None
-
-    try:
-        for identifier in wos_json["dynamic_data"]["cluster_related"]["identifiers"][
-            "identifier"
-        ]:
-            if identifier["type"] == "pmid":
-                return identifier["value"]
-    except KeyError:
-        logging.warning("[pmid] WOS JSON does not contain pmid")
-        return None
-
-    return None
-
-
-def _url(row):
-    """
-    Get the url in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            JsonPathRule("dim_json", "linkout"),
-            FuncRule("openalex_json", _openalex_url),
-        ],
-    )
-
-
-def _openalex_url(openalex_json):
-    if not openalex_json:
-        return None
-
-    try:
-        for location in openalex_json["locations"]:
-            if "url" in location:
-                return location["url"]
-            if "pdf_url" in location:
-                return location["pdf_url"]
-    except KeyError:
-        logging.warning("[url] OpenAlex JSON does not contain a url")
-        return None
-
-    return None
-
-
-def _volume(row):
-    """
-    Get the volume in order of preference from the sources.
-    """
-    return first(
-        row,
-        rules=[
-            JsonPathRule("dim_json", "volume"),
-            JsonPathRule("openalex_json", "biblio.volume"),
-            JsonPathRule("wos_json", "static_data.summary.pub_info.vol"),
-            JsonPathRule("sulpub_json", "journal.volume"),
-        ],
-    )

@@ -386,18 +386,6 @@ def test_write_source_counts(test_session, snapshot):
             assert session.execute(stmt).scalars().one() == row["count"]
 
 
-@dataclass
-class TestRow:
-    """
-    An object that simulates a Publication database row.
-    """
-
-    dim_json: dict | None = None
-    openalex_json: dict | None = None
-    sulpub_json: dict | None = None
-    wos_json: dict | None = None
-
-
 def test_any_url():
     row = TestRow(
         openalex_json={

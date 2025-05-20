@@ -294,7 +294,6 @@ def test_researchers_error():
     """
 
     results = dsl.query(q)
-    breakpoint()
     assert results.errors["query"]["header"] == "Service unavailable"
 
 

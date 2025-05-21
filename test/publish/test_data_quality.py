@@ -7,7 +7,6 @@ import pandas
 import pytest
 import sqlalchemy
 from sqlalchemy import select
-from sqlalchemy.sql.expression import text
 
 from rialto_airflow.publish import data_quality
 from rialto_airflow.database import Publication, Author, Funder

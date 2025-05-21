@@ -1,7 +1,7 @@
 import json
 import logging
 import pytest
-
+import re
 import dotenv
 
 from rialto_airflow.database import Publication
@@ -163,6 +163,59 @@ def pubmed_json_fill_in_doi():
             },
         },
     }
+
+
+def test_pubmed_search_no_results(requests_mock, caplog):
+    """
+    This is a test of the Pubmed Search API to ensure we are parsing the mocked response correctly with no results.
+    """
+    caplog.set_level(logging.INFO)
+
+    requests_mock.get(
+        re.compile(".*"),
+        json={
+            "header": {"type": "esearch", "version": "0.3"},
+            "esearchresult": {"count": "0"},
+        },
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert pubmed.pmids_from_orcid("nope") == []
+
+
+def test_pubmed_search_error(requests_mock, caplog):
+    """
+    This is a test of the Pubmed Search API to ensure we are parsing the mocked response correctly when an error.
+    """
+    caplog.set_level(logging.INFO)
+
+    requests_mock.get(
+        re.compile(".*"),
+        json={"error": "no good"},
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert pubmed.pmids_from_orcid("nope") == []
+    assert "Error in results found for nope[auid]: no good" in caplog.text
+
+
+def test_pubmed_search_unexpected_response(requests_mock, caplog):
+    """
+    This is a test of the Pubmed Search API to ensure we are parsing the mocked response correctly when there is an unexpected response.
+    """
+    caplog.set_level(logging.INFO)
+
+    requests_mock.get(
+        re.compile(".*"),
+        json={"header": {"type": "esearch", "version": "0.3"}},
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert pubmed.pmids_from_orcid("nope") == []
+    assert "No esearchresult or count found for nope" in caplog.text
 
 
 def test_pubmed_search_orcid_found_publications():

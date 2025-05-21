@@ -210,6 +210,10 @@ def _pubmed_search_api(query) -> list:
         logging.warning(f"Error in results found for {query}: {results['error']}")
         return []
 
+    if results.get("esearchresult", {}).get("count") is None:
+        logging.warning(f"No esearchresult or count found for {query}")
+        return []
+
     if int(results["esearchresult"]["count"]) == 0:
         logging.info(f"No results found for {query}")
         return []

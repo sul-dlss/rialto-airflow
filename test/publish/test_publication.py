@@ -142,30 +142,9 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert len(df) == 4
 
     # sort it so we know what is in each row
-    df = df.sort_values(["primary_school", "primary_department"])
+    df = df.sort_values(["sunet"])
 
     row = df.iloc[0]
-    assert bool(row.academic_council_authored) is True
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "fterm"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is True
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"
-    assert row.pub_year == 2023
-    assert row.types == "article|preprint"
-
-    row = df.iloc[1]
     assert bool(row.academic_council_authored) is False
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -183,6 +162,29 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Engineering"
+    assert row.primary_department == "Mechanical Engineering"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[1]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "faculty"
+    assert row.sunet == "fterm"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Engineering"
+    assert row.primary_department == "Electrical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -204,6 +206,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -225,6 +228,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -241,30 +245,9 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert len(df) == 4
 
     # sort it so we know what is in each row
-    df = df.sort_values(["primary_school", "primary_department"])
+    df = df.sort_values(["sunet"])
 
     row = df.iloc[0]
-    assert bool(row.academic_council_authored) is True
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "fterm"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is True
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"
-    assert row.pub_year == 2023
-    assert row.types == "article|preprint"
-
-    row = df.iloc[1]
     assert bool(row.academic_council_authored) is False
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -285,8 +268,8 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
-    row = df.iloc[2]
-    assert bool(row.academic_council_authored) is False
+    row = df.iloc[1]
+    assert bool(row.academic_council_authored) is True
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
     assert row.pages == "1-10"
@@ -295,18 +278,18 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "staff"
-    assert row.sunet == "lelands"
+    assert row.role == "faculty"
+    assert row.sunet == "fterm"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is False
+    assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
-    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_school == "School of Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
-    row = df.iloc[3]
+    row = df.iloc[2]
     assert bool(row.academic_council_authored) is True
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -321,6 +304,27 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[3]
+    assert bool(row.academic_council_authored) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.role == "staff"
+    assert row.sunet == "lelands"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is False
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Humanities and Sciences"

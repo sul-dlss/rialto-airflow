@@ -161,10 +161,10 @@ def write_contributions_by_school(snapshot) -> Path:
                 .join(Author, Publication.authors)  # type: ignore
                 .group_by(
                     Author.primary_school,
-                    Author.primary_dept,
                     Author.sunet,
-                    Author.primary_role,
+                    Publication.doi,
                     Publication.id,
+                    Author.id,
                 )
                 .execution_options(yield_per=100)
             )
@@ -276,10 +276,11 @@ def write_contributions_by_department(snapshot) -> Path:
                 .join(Author, Publication.authors)  # type: ignore
                 .group_by(
                     Author.primary_school,
-                    Author.sunet,
-                    Author.primary_role,
                     Author.primary_dept,
+                    Author.sunet,
+                    Publication.doi,
                     Publication.id,
+                    Author.id,
                 )
                 .execution_options(yield_per=100)
             )

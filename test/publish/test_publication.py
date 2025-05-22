@@ -169,50 +169,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
-    assert len(df) == 5
+    assert len(df) == 3
 
     # sort it so we know what is in each row
     df = df.sort_values(["doi"])
 
     row = df.iloc[0]
-    assert bool(row.academic_council_authored) is False
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is True
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"
-    assert row.pub_year == 2023
-    assert row.types == "article|preprint"
-
-    row = df.iloc[1]
-    assert bool(row.academic_council_authored) is True
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is True
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"
-    assert row.pub_year == 2023
-    assert row.types == "article|preprint"
-
-    row = df.iloc[2]
     assert bool(row.academic_council_authored) is True
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -231,7 +193,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
-    row = df.iloc[3]
+    row = df.iloc[2]
     assert bool(row.academic_council_authored) is True
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -248,25 +210,6 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.open_access == "green"
     assert row.primary_school == "School of Humanities and Sciences"
     assert row.pub_year == 2024
-    assert row.types == "article|preprint"
-
-    row = df.iloc[4]
-    assert bool(row.academic_council_authored) is False
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is False
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Humanities and Sciences"
-    assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
     assert "starting to write contributions by school" in caplog.text
@@ -279,12 +222,32 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
-    assert len(df) == 5
+    assert len(df) == 4
 
     # sort it so we know what is in each row
     df = df.sort_values(["doi"])
 
     row = df.iloc[0]
+    assert bool(row.academic_council_authored) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+    assert row.apc == 123
+    assert row.doi == "10.000/000001"
+    assert bool(row.faculty_authored) is True
+    assert bool(row.federally_funded) is True
+    assert row.open_access == "gold"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_department == "Social Sciences"
+    assert row.pub_year == 2023
+    assert row.types == "article|preprint"
+
+    row = df.iloc[1]
     assert bool(row.academic_council_authored) is False
     assert row.journal == "Delicious Limes Journal of Science"
     assert row.issue == 12
@@ -300,25 +263,7 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Engineering"
-    assert row.pub_year == 2023
-    assert row.types == "article|preprint"
-
-    row = df.iloc[1]
-    assert bool(row.academic_council_authored) is True
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is True
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"
+    assert row.primary_department == "Mechanical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -337,7 +282,8 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
-    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_school == "School of Engineering"
+    assert row.primary_department == "Electrical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -357,26 +303,8 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert bool(row.federally_funded) is True
     assert row.open_access == "green"
     assert row.primary_school == "School of Humanities and Sciences"
+    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2024
-    assert row.types == "article|preprint"
-
-    row = df.iloc[4]
-    assert bool(row.academic_council_authored) is False
-    assert row.journal == "Delicious Limes Journal of Science"
-    assert row.issue == 12
-    assert row.pages == "1-10"
-    assert row.volume == 1
-    assert row.pmid == 36857419
-    assert row.mesh == "Delicions|Limes"
-    assert row.url == "https://example_dim.com"
-    assert row.title == "My Life"
-    assert row.apc == 123
-    assert row.doi == "10.000/000001"
-    assert bool(row.faculty_authored) is False
-    assert bool(row.federally_funded) is True
-    assert row.open_access == "gold"
-    assert row.primary_school == "School of Humanities and Sciences"
-    assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
     assert "starting to write contributions by school/department" in caplog.text

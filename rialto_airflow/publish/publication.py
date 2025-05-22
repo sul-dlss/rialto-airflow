@@ -158,7 +158,6 @@ def write_contributions_by_school(snapshot) -> Path:
                 .group_by(
                     Author.primary_school,
                     Publication.id,  # requirement is to group by DOI, but grouping by pub ID is the same, since DOI is unique
-                    Author.id,  # requirement is to group by SUNet, but grouping by author ID is the same, since SUNet is unique
                 )
                 .execution_options(yield_per=100)
             )
@@ -265,7 +264,6 @@ def write_contributions_by_department(snapshot) -> Path:
                     Author.primary_dept,
                     Author.primary_school,
                     Publication.id,  # requirement is to group by DOI, but grouping by pub ID is the same, since DOI is unique
-                    Author.id,  # requirement is to group by SUNet, but grouping by author ID is the same, since SUNet is unique
                 )
                 .execution_options(yield_per=100)
             )

@@ -89,7 +89,7 @@ def write_publications(snapshot) -> Path:
 
 def write_contributions_by_school(snapshot) -> Path:
     """
-    Write a CSV of contributions where each row represents a unique publication per school.
+    Write a CSV of contributions where each row represents a unique publication/school combination
     """
 
     col_names = [
@@ -109,7 +109,6 @@ def write_contributions_by_school(snapshot) -> Path:
         "federally_funded",
         "open_access",
         "primary_school",
-        "primary_department",
         "role",
         "sunet",
         "pub_year",
@@ -139,9 +138,6 @@ def write_contributions_by_school(snapshot) -> Path:
                     Publication.wos_json,  # type: ignore
                     Publication.pubmed_json,  # type: ignore
                     Author.primary_school,  # type: ignore
-                    Author.primary_dept,  # type: ignore
-                    Author.primary_role,  # type: ignore
-                    Author.sunet,  # type: ignore
                     Publication.pub_year,  # type: ignore
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
@@ -186,9 +182,6 @@ def write_contributions_by_school(snapshot) -> Path:
                         "federally_funded": any(row.federal),
                         "open_access": row.open_access,
                         "primary_school": row.primary_school,
-                        "primary_department": row.primary_dept,
-                        "role": row.primary_role,
-                        "sunet": row.sunet,
                         "pub_year": row.pub_year,
                         "types": "|".join(get_types(row)),
                     }
@@ -201,7 +194,7 @@ def write_contributions_by_school(snapshot) -> Path:
 
 def write_contributions_by_department(snapshot) -> Path:
     """
-    Write a CSV of contributions where each row represents a unique publication
+    Write a CSV of contributions where each row represents a unique combination of publication
     per school and department.
     """
 
@@ -223,8 +216,6 @@ def write_contributions_by_department(snapshot) -> Path:
         "open_access",
         "primary_school",
         "primary_department",
-        "role",
-        "sunet",
         "pub_year",
         "types",
     ]
@@ -253,8 +244,6 @@ def write_contributions_by_department(snapshot) -> Path:
                     Publication.pubmed_json,  # type: ignore
                     Author.primary_school,  # type: ignore
                     Author.primary_dept,  # type: ignore
-                    Author.primary_role,  # type: ignore
-                    Author.sunet,  # type: ignore
                     Publication.pub_year,  # type: ignore
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
@@ -301,8 +290,6 @@ def write_contributions_by_department(snapshot) -> Path:
                         "open_access": row.open_access,
                         "primary_school": row.primary_school,
                         "primary_department": row.primary_dept,
-                        "role": row.primary_role,
-                        "sunet": row.sunet,
                         "pub_year": row.pub_year,
                         "types": "|".join(get_types(row)),
                     }

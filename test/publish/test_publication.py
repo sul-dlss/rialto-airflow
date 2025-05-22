@@ -172,7 +172,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert len(df) == 5
 
     # sort it so we know what is in each row
-    df = df.sort_values(["sunet"])
+    df = df.sort_values(["doi"])
 
     row = df.iloc[0]
     assert bool(row.academic_council_authored) is False
@@ -184,15 +184,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "folms"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Engineering"
-    assert row.primary_department == "Mechanical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -206,15 +203,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "fterm"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Engineering"
-    assert row.primary_department == "Electrical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -228,15 +222,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "janes"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Humanities and Sciences"
-    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -250,15 +241,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life Part 2"
-    assert row.role == "faculty"
-    assert row.sunet == "janes"
     assert row.apc == 500
     assert row.doi == "10.000/000002"
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "green"
     assert row.primary_school == "School of Humanities and Sciences"
-    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2024
     assert row.types == "article|preprint"
 
@@ -272,15 +260,12 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "staff"
-    assert row.sunet == "lelands"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is False
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert row.primary_school == "School of Humanities and Sciences"
-    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -297,7 +282,7 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert len(df) == 5
 
     # sort it so we know what is in each row
-    df = df.sort_values(["sunet"])
+    df = df.sort_values(["doi"])
 
     row = df.iloc[0]
     assert bool(row.academic_council_authored) is False
@@ -309,8 +294,6 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "folms"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
@@ -330,8 +313,6 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "fterm"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
@@ -351,8 +332,6 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "faculty"
-    assert row.sunet == "janes"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is True
@@ -372,8 +351,6 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life Part 2"
-    assert row.role == "faculty"
-    assert row.sunet == "janes"
     assert row.apc == 500
     assert row.doi == "10.000/000002"
     assert bool(row.faculty_authored) is True
@@ -393,8 +370,6 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert row.mesh == "Delicions|Limes"
     assert row.url == "https://example_dim.com"
     assert row.title == "My Life"
-    assert row.role == "staff"
-    assert row.sunet == "lelands"
     assert row.apc == 123
     assert row.doi == "10.000/000001"
     assert bool(row.faculty_authored) is False

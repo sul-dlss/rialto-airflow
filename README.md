@@ -171,11 +171,13 @@ The drive and sheet should be setup and configured, in "RIALTO Core Team -> Airf
 For MaIS tests, update your .env with values shown below / pulled from vault as indicated:
 
 ```
-AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
-AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
+AIRFLOW_VAR_MAIS_TOKEN_URL=https://mais-uat.auth.us-west-2.amazoncognito.com
+AIRFLOW_VAR_MAIS_BASE_URL=https://mais.suapiuat.stanford.edu
+AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/stage/mais_client_id`}
+AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/stage/mais_secret`}
 ```
 
-Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with production (not UAT) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely.  If UAT credentials are supplied, some of the tests may fail, since they assert checks against production data.
+Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with the UAT (not prod) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely.  If production credentials are supplied, some of the tests may fail, since they assert checks against UAT data.
 
 ### Test coverage reporting
 

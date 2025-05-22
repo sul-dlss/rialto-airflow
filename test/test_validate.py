@@ -1,18 +1,33 @@
 import os
 import pandas as pd
+import pytest
+import csv
 
 from rialto_airflow import validate
 
 
-def test_validation_report():
+@pytest.fixture
+def orcid_integration_csv(tmp_path):
+    # Create a fixture ORCID stats CSV file
+    fixture_file = tmp_path / "orcid-integration-stats.csv"
+    with open(fixture_file, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Date", "Read Only Scope", "Read/Write Scope"])
+        writer.writerow(["01/30/2022", "455", "4110"])
+        writer.writerow(["02/28/2023", "775", "4121"])
+        writer.writerow(["04/23/2024", "806", "6009"])
+        writer.writerow(["08/30/2024", "856", "4121"])
+    return fixture_file
+
+
+def test_validation_report(orcid_integration_csv):
     base_dir = os.path.dirname(__file__)
     data_dir = os.path.join(base_dir, "data")
 
     authors_path = os.path.join(data_dir, "authors-data-quality.csv")
-    orcid_path = os.path.join(data_dir, "orcid-integration-stats.csv")
 
     authors_df = pd.read_csv(authors_path)
-    orcid_integration_sheet_df = pd.read_csv(orcid_path)
+    orcid_integration_sheet_df = pd.read_csv(orcid_integration_csv)
 
     assert (
         " ".join(

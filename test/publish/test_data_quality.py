@@ -1,5 +1,4 @@
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
 from random import randint
 
@@ -10,6 +9,7 @@ from sqlalchemy import select
 
 from rialto_airflow.publish import data_quality
 from rialto_airflow.database import Publication, Author, Funder
+from test.utils import TestRow
 
 
 @pytest.fixture
@@ -384,18 +384,6 @@ def test_write_source_counts(test_session, snapshot):
                     )
 
             assert session.execute(stmt).scalars().one() == row["count"]
-
-
-@dataclass
-class TestRow:
-    """
-    An object that simulates a Publication database row.
-    """
-
-    dim_json: dict | None = None
-    openalex_json: dict | None = None
-    sulpub_json: dict | None = None
-    wos_json: dict | None = None
 
 
 def test_any_url():

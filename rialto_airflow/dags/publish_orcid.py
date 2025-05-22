@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
@@ -20,6 +21,13 @@ mais_token_url = Variable.get("mais_token_url")
 mais_client_id = Variable.get("mais_client_id")
 mais_client_secret = Variable.get("mais_secret")
 gcp_conn_id = Variable.get("google_connection")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
+
+
+def orcid_dashboard_folder_id():
+    return google.get_file_id(google_drive_id, "orcid-dashboard")
 
 
 @dag(
@@ -36,7 +44,7 @@ def publish_orcid():
         Update the authors_active.csv file in Google Drive with the latest active authors data CSV file.
         """
         active_authors_file = rialto_active_authors_file(data_dir)
-        google_folder_id = google.orcid_dashboard_folder_id()
+        google_folder_id = orcid_dashboard_folder_id()
         logging.info(
             f"Uploading {active_authors_file} to google drive folder id {google_folder_id}"
         )
@@ -52,7 +60,8 @@ def publish_orcid():
         Get current ORCID integration stats from the ORCID integration API and write to file in Google Drive.
         """
         orcid_integration_sheet_id = google.get_file_id(
-            google.orcid_dashboard_folder_id(), "orcid-integration-stats"
+            orcid_dashboard_folder_id(),
+            "orcid-integration-stats",
         )
         current_users = current_orcid_users(
             mais_client_id, mais_client_secret, mais_token_url, mais_base_url

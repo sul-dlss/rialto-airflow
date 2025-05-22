@@ -16,23 +16,6 @@ from airflow.providers.google.suite.transfers.local_to_drive import (
 dotenv.load_dotenv()
 
 gcp_conn_id = Variable.get("google_connection", "google_cloud_default")
-google_drive_id = Variable.get(
-    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
-)
-
-
-# The Google Drive folder ID for the open access dashboard
-def open_access_dashboard_folder_id():
-    return get_file_id(google_drive_id, "open-access-dashboard")
-
-
-# The Google Drive folder ID for the ORCID dashboard
-def orcid_dashboard_folder_id():
-    return get_file_id(google_drive_id, "orcid-dashboard")
-
-
-def data_quality_dashboard_folder_id():
-    return get_file_id(google_drive_id, "data-quality-dashboard")
 
 
 def get_file_id(folder_id, filename):

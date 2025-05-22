@@ -2,6 +2,7 @@ import datetime
 import logging
 from pathlib import Path
 import shutil
+import os
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
@@ -16,7 +17,7 @@ from rialto_airflow.harvest import (
     pubmed,
     distill,
 )
-from rialto_airflow.publish import openaccess, data_quality
+from rialto_airflow.publish import openaccess, data_quality, publication
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
@@ -28,6 +29,9 @@ data_dir = Variable.get("data_dir")
 publish_dir = Variable.get("publish_dir")
 sul_pub_host = Variable.get("sul_pub_host")
 sul_pub_key = Variable.get("sul_pub_key")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
 
 # to artificially limit the API activity in development
 harvest_limit = None
@@ -189,10 +193,17 @@ def harvest():
         data_quality.write_publications(snapshot)
         data_quality.write_source_counts(snapshot)
 
+    @task()
+    def publish_publications(snapshot):
+        publication.write_contributions_by_department(snapshot)
+        publication.write_contributions_by_school(snapshot)
+        publication.write_publications(snapshot)
+
     @task_group()
     def publish(snapshot):
         publish_open_access(snapshot)
         publish_data_quality(snapshot)
+        publish_publications(snapshot)
 
     @task()
     def upload_open_access_files(snapshot):
@@ -203,10 +214,12 @@ def harvest():
             "contributions-by-department.csv",
         ]
 
-        google_folder_id = google.open_access_dashboard_folder_id()
+        google_folder_id = google.get_file_id(
+            google_drive_id, openaccess.google_drive_folder()
+        )
 
         for csv_file in csv_files:
-            file_path = snapshot.path / "open-access-dashboard" / csv_file
+            file_path = snapshot.path / openaccess.google_drive_folder() / csv_file
 
             google.upload_or_replace_file_in_google_drive(
                 str(file_path), google_folder_id
@@ -222,10 +235,31 @@ def harvest():
             "source-counts.csv",
         ]
 
-        google_folder_id = google.data_quality_dashboard_folder_id()
+        google_folder_id = google.get_file_id(
+            google_drive_id, data_quality.google_drive_folder()
+        )
 
         for csv_file in csv_files:
-            file_path = snapshot.path / "data-quality-dashboard" / csv_file
+            file_path = snapshot.path / data_quality.google_drive_folder() / csv_file
+
+            google.upload_or_replace_file_in_google_drive(
+                str(file_path), google_folder_id
+            )
+
+    @task()
+    def upload_publication_files(snapshot):
+        csv_files = [
+            "publications.csv",
+            "contributions-by-school.csv",
+            "contributions-by-school-department.csv",
+        ]
+
+        google_folder_id = google.get_file_id(
+            google_drive_id, publication.google_drive_folder()
+        )
+
+        for csv_file in csv_files:
+            file_path = snapshot.path / publication.google_drive_folder() / csv_file
 
             google.upload_or_replace_file_in_google_drive(
                 str(file_path), google_folder_id
@@ -235,6 +269,7 @@ def harvest():
     def upload(snapshot):
         upload_open_access_files(snapshot)
         upload_data_quality_files(snapshot)
+        upload_publication_files(snapshot)
 
     # link up dag tasks and task groups
 

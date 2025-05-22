@@ -12,8 +12,12 @@ from sqlalchemy.engine.row import Row  # type: ignore
 from rialto_airflow.database import Author, Publication, get_session
 from rialto_airflow.distiller import JsonPathRule, first
 from rialto_airflow.harvest.sul_pub import extract_doi
-from rialto_airflow.publish.openaccess import get_types
+from rialto_airflow.utils import get_types, get_csv_path
 from rialto_airflow.snapshot import Snapshot
+
+
+def google_drive_folder() -> str:
+    return "data-quality-dashboard"
 
 
 def write_authors(snapshot: Snapshot) -> Path:
@@ -64,8 +68,7 @@ def write_authors(snapshot: Snapshot) -> Path:
         lambda a: unknown_count.get(a.cap_profile_id, 0), axis=1
     )
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "authors.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "authors.csv")
 
     authors.to_csv(csv_path, index=False)
     logging.info("finished writing authors.csv")
@@ -78,8 +81,7 @@ def write_sulpub(snapshot: Snapshot) -> Path:
 
     logging.info("started writing sulpub.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "sulpub.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "sulpub.csv")
 
     with csv_path.open("w") as output:
         csv_output = csv.DictWriter(output, fieldnames=col_names)
@@ -108,8 +110,9 @@ def write_contributions_by_source(snapshot: Snapshot):
 
     logging.info("started writing contributions-by-source.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "contributions-by-source.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(
+        snapshot, google_drive_folder(), "contributions-by-source.csv"
+    )
 
     with csv_path.open("w") as output:
         csv_output = csv.DictWriter(output, fieldnames=col_names)
@@ -171,8 +174,7 @@ def write_publications(snapshot: Snapshot) -> Path:
 
     logging.info("started writing publications.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "publications.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "publications.csv")
 
     with csv_path.open("w") as output:
         csv_output = csv.DictWriter(output, fieldnames=col_names)
@@ -221,7 +223,7 @@ def write_publications(snapshot: Snapshot) -> Path:
 def write_source_counts(snapshot):
     logging.info("started writing source-counts.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "source-counts.csv"
+    csv_path = snapshot.path / google_drive_folder() / "source-counts.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     source_labels = {

@@ -33,6 +33,16 @@ def normalize_doi(doi):
     return doi
 
 
+def normalize_pmid(pmid):
+    if pmid is None:
+        return None
+
+    pmid = pmid.strip().lower()
+    pmid = pmid.replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("medline:", "")
+
+    return pmid
+
+
 def normalize_orcid(orcid):
     orcid = orcid.strip().lower()
     orcid = orcid.replace("https://orcid.org/", "").replace(
@@ -40,3 +50,29 @@ def normalize_orcid(orcid):
     )
 
     return orcid
+
+
+def get_types(row):
+    types = set()
+    if row.dim_type:
+        types.add(row.dim_type)
+    if row.openalex_type:
+        types.add(row.openalex_type)
+    # the wos type can be a single value or a list
+    if row.wos_type:
+        if isinstance(row.wos_type, list):
+            for wos_type in row.wos_type:
+                types.add(wos_type.lower())
+        else:
+            types.add(row.wos_type.lower())
+
+    return sorted(types)
+
+
+def get_csv_path(snapshot, google_drive_folder, filename) -> Path:
+    """
+    Get the base path for a CSV file in the shared google drive
+    """
+    csv_path = snapshot.path / google_drive_folder / filename
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    return csv_path

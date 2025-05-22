@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+from pathlib import Path
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
@@ -15,7 +16,7 @@ import rialto_airflow.google as google
 
 from rialto_airflow.utils import rialto_active_authors_file
 
-data_dir = Variable.get("data_dir")
+data_dir = Path(Variable.get("data_dir"))
 mais_base_url = Variable.get("mais_base_url")
 mais_token_url = Variable.get("mais_token_url")
 mais_client_id = Variable.get("mais_client_id")

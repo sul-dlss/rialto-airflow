@@ -1,7 +1,6 @@
 import csv
 import pytest
 from rialto_airflow.database import Author
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.harvest.authors import load_authors_table
 
 
@@ -23,12 +22,6 @@ def author(test_session):
 def test_author_fixture(test_session, author):
     with test_session.begin() as session:
         assert session.query(Author).where(Author.sunet == "janes").count() == 1
-
-
-@pytest.fixture
-def snapshot(tmp_path):
-    # override the generation of a database name, all the tests use rialto_test
-    return Snapshot(tmp_path, database_name="rialto_test")
 
 
 @pytest.fixture

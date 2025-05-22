@@ -3,7 +3,8 @@
 # Configuration and authentication to google is described in the README.
 
 import os
-
+import io
+import pandas as pd
 import dotenv
 from airflow.models import Variable
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
@@ -11,6 +12,7 @@ from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.transfers.local_to_drive import (
     LocalFilesystemToGoogleDriveOperator,
 )
+from googleapiclient.http import MediaIoBaseDownload
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -126,3 +128,39 @@ def upload_file_to_google_drive(local_filename, google_drive_id):
     )
 
     return operator.execute(context={})
+
+
+def read_csv_from_google_drive(file_id):
+    """
+    Read a Google Sheet (as CSV) or a CSV file from Google Drive into a Pandas DataFrame.
+    Works with Shared Drives.
+    """
+    drive_hook = GoogleDriveHook(gcp_conn_id=gcp_conn_id)
+    service = drive_hook.get_conn()
+
+    fh = io.BytesIO()
+
+    try:
+        file_metadata = (
+            service.files()
+            .get(fileId=file_id, fields="mimeType, name", supportsAllDrives=True)
+            .execute()
+        )
+        mime_type = file_metadata["mimeType"]
+
+        if mime_type == "application/vnd.google-apps.spreadsheet":
+            request = service.files().export_media(fileId=file_id, mimeType="text/csv")
+        else:
+            request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+
+    except Exception:
+        # Fallback: assume it's a Google Sheet
+        request = service.files().export_media(fileId=file_id, mimeType="text/csv")
+
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+
+    fh.seek(0)
+    return pd.read_csv(fh)

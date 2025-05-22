@@ -5,7 +5,6 @@ import shutil
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
-from honeybadger import honeybadger  # type: ignore
 
 from rialto_airflow import funders
 from rialto_airflow.harvest import (
@@ -21,6 +20,7 @@ from rialto_airflow.publish import openaccess, data_quality
 from rialto_airflow.database import create_database, create_schema
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
+from rialto_airflow.honeybadger import default_args
 import rialto_airflow.google as google
 
 gcp_conn_id = Variable.get("google_connection")
@@ -48,29 +48,12 @@ else:
     )
 
 
-honeybadger.configure(
-    api_key=Variable.get("honeybadger_api_key"),
-    environment=Variable.get("honeybadger_env"),
-    force_sync=True,
-)  # type: ignore
-
-
-def task_failure_notify(context):
-    task = context["task"].task_id
-    logging.error(f"Task {task} failed.")
-    honeybadger.notify(
-        error_class="Task failure",
-        error_message=f"Task {task} failed in {context.get('task_instance_key_str')}",
-        context=context,
-    )
-
-
 @dag(
     schedule="@weekly",
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
-    default_args={"on_failure_callback": task_failure_notify},
+    default_args=default_args(),
 )
 def harvest():
     @task()

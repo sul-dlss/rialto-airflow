@@ -3,6 +3,7 @@ import logging
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from rialto_airflow.honeybadger import default_args
 
 from rialto_airflow.mais import (
     current_orcid_users,
@@ -26,6 +27,7 @@ gcp_conn_id = Variable.get("google_connection")
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
+    default_args=default_args(),
 )
 def publish_orcid():
     @task

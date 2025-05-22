@@ -131,13 +131,15 @@ def _openalex_pages(openalex_json):
 
 
 def _wos_pages(wos_json):
-    if not wos_json:
+    if not wos_json or not wos_json.get("static_data", {}).get("summary", {}).get(
+        "pub_info", {}
+    ).get("page", {}):
         return None
 
     try:
         return f"{wos_json['static_data']['summary']['pub_info']['page']['begin']}-{wos_json['static_data']['summary']['pub_info']['page']['end']}"
     except KeyError:
-        logging.warning("[mesh] WOS JSON does not contain pages")
+        logging.warning("[pages] WOS JSON does not contain page begin/end")
         return None
 
 

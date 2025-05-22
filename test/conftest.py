@@ -120,4 +120,4 @@ def mock_association(test_session, mock_publication, mock_authors):
 
 @pytest.fixture
 def snapshot(tmp_path):
-    return Snapshot(path=tmp_path, database_name="rialto_test")
+    return Snapshot.create(data_dir=tmp_path, database_name="rialto_test")

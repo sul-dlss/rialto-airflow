@@ -805,6 +805,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dominate"
+version = "2.9.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/f3/1c8088ff19a0fcd9c3234802a0ee47006ea64bd8852f1019194f0e3583ff/dominate-2.9.1.tar.gz", hash = "sha256:558284687d9b8aae1904e3d6051ad132dd4a8c0cf551b37ea4e7e42a31d19dc4", size = 37715, upload-time = "2023-12-24T20:45:19.192Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/d7/9322c609343d929e75e7e5e6255e614fcc67572cfd083959cdef3b7aad79/docutils-0.21.2-py3-none-any.whl", hash = "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2", size = 587408, upload-time = "2024-04-23T18:57:14.835Z" },
+]
+
+[[package]]
 name = "email-validator"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3278,6 +3287,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "dimcli" },
+    { name = "dominate" },
     { name = "honeybadger" },
     { name = "jsonpath-ng" },
     { name = "more-itertools" },
@@ -3309,6 +3319,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dimcli" },
+    { name = "dominate", specifier = ">=2.9.1" },
     { name = "honeybadger", specifier = ">=0.21" },
     { name = "jsonpath-ng", specifier = ">=1.7.0" },
     { name = "more-itertools" },

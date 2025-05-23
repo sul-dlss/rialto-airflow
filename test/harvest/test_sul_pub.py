@@ -47,7 +47,7 @@ def test_harvest(tmp_path, test_session, mock_authors, requests_mock):
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # make sure the jsonl file looks good
@@ -71,7 +71,7 @@ def test_harvest_when_doi_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
@@ -104,7 +104,7 @@ def test_harvest_when_author_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok

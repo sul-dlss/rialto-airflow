@@ -11,7 +11,7 @@ from rialto_airflow.snapshot import Snapshot
 
 @pytest.fixture
 def snapshot(tmp_path):
-    return Snapshot(tmp_path)
+    return Snapshot.create(tmp_path)
 
 
 @pytest.fixture

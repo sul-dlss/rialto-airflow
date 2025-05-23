@@ -1,8 +1,10 @@
 import datetime
 import logging
+import os
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from rialto_airflow.honeybadger import default_args
 
 from rialto_airflow.mais import (
     current_orcid_users,
@@ -21,6 +23,13 @@ mais_token_url = Variable.get("mais_token_url")
 mais_client_id = Variable.get("mais_client_id")
 mais_client_secret = Variable.get("mais_secret")
 gcp_conn_id = Variable.get("google_connection")
+google_drive_id = Variable.get(
+    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
+)
+
+
+def orcid_dashboard_folder_id():
+    return google.get_file_id(google_drive_id, "orcid-dashboard")
 
 
 @dag(
@@ -28,20 +37,21 @@ gcp_conn_id = Variable.get("google_connection")
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
+    default_args=default_args(),
 )
 def publish_orcid():
     @task
     def update_authors():
         """
-        Update the authors.csv file in Google Drive with the latest authors data CSV file.
+        Update the authors_active.csv file in Google Drive with the latest active authors data CSV file.
         """
-        authors_file = rialto_active_authors_file(data_dir)
-        google_folder_id = google.orcid_dashboard_folder_id()
+        active_authors_file = rialto_active_authors_file(data_dir)
+        google_folder_id = orcid_dashboard_folder_id()
         logging.info(
-            f"Uploading {authors_file} to google drive folder id {google_folder_id}"
+            f"Uploading {active_authors_file} to google drive folder id {google_folder_id}"
         )
         google.upload_or_replace_file_in_google_drive(
-            authors_file,
+            active_authors_file,
             google_folder_id,
         )
         return True
@@ -52,7 +62,8 @@ def publish_orcid():
         Get current ORCID integration stats from the ORCID integration API and write to file in Google Drive.
         """
         orcid_integration_sheet_id = google.get_file_id(
-            google.orcid_dashboard_folder_id(), "orcid-integration-stats"
+            orcid_dashboard_folder_id(),
+            "orcid-integration-stats",
         )
         current_users = current_orcid_users(
             mais_client_id, mais_client_secret, mais_token_url, mais_base_url

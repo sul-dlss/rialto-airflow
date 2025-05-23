@@ -49,7 +49,7 @@ set :docker_compose_file, 'compose.prod.yaml'
 set :docker_compose_migrate_use_hooks, false
 set :docker_compose_seed_use_hooks, false
 set :docker_compose_rabbitmq_use_hooks, false
-set :docker_compose_build_use_hooks, false
+set :docker_compose_build_use_hooks, true
 set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :honeybadger_use_hooks, false

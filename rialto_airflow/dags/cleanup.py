@@ -3,6 +3,7 @@ import logging
 
 from airflow.models import Variable
 from airflow.decorators import dag, task
+from rialto_airflow.honeybadger import default_args
 from rialto_airflow.cleanup import (
     cleanup_author_files,
     cleanup_snapshots,
@@ -17,6 +18,7 @@ cleanup_interval_days = int(Variable.get("cleanup_interval_days"))
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
+    default_args=default_args(),
 )
 def cleanup():
     @task

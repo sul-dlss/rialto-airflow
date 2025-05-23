@@ -109,6 +109,7 @@ x-airflow-common:
     AIRFLOW_VAR_HONEYBADGER_API_KEY: ${HONEYBADGER_API_KEY}
     AIRFLOW_VAR_HONEYBADGER_ENV: ${HONEYBADGER_ENV}
     AIRFLOW_VAR_CLEANUP_INTERVAL_DAYS: 30
+    AIRFLOW_VAR_EMAIL_ADDRESS_FOR_ERRORS: ${AIRFLOW_VAR_EMAIL_ADDRESS_FOR_ERRORS}
   volumes:
     - /opt/app/rialto/rialto-airflow/current/rialto_airflow:/opt/airflow/rialto_airflow
     - /rialto-data:/opt/airflow/data

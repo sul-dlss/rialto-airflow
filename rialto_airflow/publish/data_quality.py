@@ -1,7 +1,8 @@
+import csv
 import json
 import logging
+from itertools import combinations
 from collections import defaultdict
-from csv import DictWriter
 from pathlib import Path
 
 import pandas
@@ -11,8 +12,12 @@ from sqlalchemy.engine.row import Row  # type: ignore
 from rialto_airflow.database import Author, Publication, get_session
 from rialto_airflow.distiller import JsonPathRule, first
 from rialto_airflow.harvest.sul_pub import extract_doi
-from rialto_airflow.publish.openaccess import get_types
+from rialto_airflow.utils import get_types, get_csv_path
 from rialto_airflow.snapshot import Snapshot
+
+
+def google_drive_folder() -> str:
+    return "data-quality-dashboard"
 
 
 def write_authors(snapshot: Snapshot) -> Path:
@@ -63,8 +68,7 @@ def write_authors(snapshot: Snapshot) -> Path:
         lambda a: unknown_count.get(a.cap_profile_id, 0), axis=1
     )
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "authors.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "authors.csv")
 
     authors.to_csv(csv_path, index=False)
     logging.info("finished writing authors.csv")
@@ -77,11 +81,10 @@ def write_sulpub(snapshot: Snapshot) -> Path:
 
     logging.info("started writing sulpub.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "sulpub.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "sulpub.csv")
 
     with csv_path.open("w") as output:
-        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output = csv.DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
 
         for line in (snapshot.path / "sulpub.jsonl").open("r"):
@@ -107,11 +110,12 @@ def write_contributions_by_source(snapshot: Snapshot):
 
     logging.info("started writing contributions-by-source.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "contributions-by-source.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(
+        snapshot, google_drive_folder(), "contributions-by-source.csv"
+    )
 
     with csv_path.open("w") as output:
-        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output = csv.DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
 
         with get_session(snapshot.database_name).begin() as session:
@@ -143,7 +147,7 @@ def write_contributions_by_source(snapshot: Snapshot):
                     {
                         "doi": row.doi,
                         "source": source.replace("_json", ""),
-                        "present": row[source] is not None,
+                        "present": row._mapping[source] is not None,
                         "pub_year": row.pub_year,
                         "open_access": row.open_access,
                         "types": "|".join(get_types(row)),
@@ -170,11 +174,10 @@ def write_publications(snapshot: Snapshot) -> Path:
 
     logging.info("started writing publications.csv")
 
-    csv_path = snapshot.path / "data-quality-dashboard" / "publications.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "publications.csv")
 
     with csv_path.open("w") as output:
-        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output = csv.DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
 
         with get_session(snapshot.database_name).begin() as session:
@@ -194,7 +197,7 @@ def write_publications(snapshot: Snapshot) -> Path:
                     ]["doctype"].label("wos_type"),
                 )
                 .where(Publication.pub_year >= 2018)
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=1000)
             )
 
         for row in session.execute(stmt):
@@ -213,6 +216,59 @@ def write_publications(snapshot: Snapshot) -> Path:
             )
 
     logging.info("finished writing publications.csv")
+
+    return csv_path
+
+
+def write_source_counts(snapshot):
+    logging.info("started writing source-counts.csv")
+
+    csv_path = snapshot.path / google_drive_folder() / "source-counts.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    source_labels = {
+        "dim_json": "Dimensions",
+        "openalex_json": "Openalex",
+        "pubmed_json": "PubMed",
+        "sulpub_json": "SUL-Pub",
+        "wos_json": "WoS",
+    }
+
+    sources = sorted(source_labels.keys())
+
+    counts: dict[str, int] = {}
+
+    with get_session(snapshot.database_name).begin() as session:
+        stmt = (
+            select(  # type: ignore
+                Publication.id,  # type: ignore
+                Publication.dim_json,
+                Publication.openalex_json,  # type: ignore
+                Publication.pubmed_json,
+                Publication.sulpub_json,
+                Publication.wos_json,  # type: ignore
+            )
+            .where(Publication.doi is not None)
+            .execution_options(yield_per=10000)
+        )
+
+        for row in session.execute(stmt):
+            keys = []
+            for source in sources:
+                if row._mapping[source] is not None:
+                    keys.append(source_labels[source])
+            key = "|".join(keys)
+
+            if key in counts:
+                counts[key] += 1
+            else:
+                counts[key] = 1
+
+    with csv_path.open("w") as output:
+        csv_output = csv.writer(output)
+        csv_output.writerow(["sources", "count"])
+        for combo in _combos(list(source_labels.values())):
+            csv_output.writerow([combo, counts.get(combo, 0)])
 
     return csv_path
 
@@ -282,3 +338,30 @@ def _extract_authorship(pub: dict, name: str) -> str:
             values.append("none")
 
     return "|".join(values)
+
+
+def _combos(values: list[str]) -> list[str]:
+    """
+    Generate a list of all possible combinations of the strings in a given list.
+    Each combination is represented as a pipe delimited string.
+
+    >>> _combos(['a', 'b', 'c'])
+    [ 'a', 'b', 'c', 'a|b', 'a|b|c', 'a|c', 'b|c']
+
+    """
+    combos = []
+
+    # The itertools.combinations function will generate possible combinations
+    # for a given list and desired number of elements in each combination.
+    # So if we have a list of 3 items, we can ask for all the possible
+    # combinations with 1 element, all the possible combinations with 2
+    # elements, all the possible combinations with 3 elements, and then combine
+    # them together.
+
+    for combo_group in [
+        list(combinations(values, n)) for n in range(1, len(values) + 1)
+    ]:
+        for combo in combo_group:
+            combos.append("|".join(combo))
+
+    return sorted(combos)

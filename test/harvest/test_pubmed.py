@@ -309,14 +309,13 @@ def test_pubmed_fetch_publications_expects_list():
 
 
 def test_harvest(
-    tmp_path, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search
+    snapshot, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search
 ):
     """
     With some authors loaded and a mocked Pubmed API, make sure that
     publications are matched up to the authors using the ORCID.
     """
     # harvest from Pubmed
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     pubmed.harvest(snapshot)
 
     # the mocked Pubmed api returns the same two publications for both authors
@@ -336,7 +335,7 @@ def test_harvest(
 
 
 def test_harvest_when_doi_exists(
-    tmp_path,
+    snapshot,
     test_session,
     existing_publication,
     mock_authors,
@@ -347,7 +346,6 @@ def test_harvest_when_doi_exists(
     When a publication and its authors already exist in the database make sure that the pubmed_json is updated.
     """
     # harvest from Pubmed
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
     pubmed.harvest(snapshot)
 
     # jsonl file is there and has four lines (two pubs for each author)

@@ -163,7 +163,7 @@ def test_harvest(tmp_path, test_session, mock_authors, mock_wos):
     publication is matched up to the authors using the ORCID.
     """
     # harvest from Web of Science
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot)
 
     # the mocked Web of Science api returns the same publication for both authors
@@ -188,7 +188,7 @@ def test_harvest_when_doi_exists(
     When a publication and its authors already exist in the database make sure that the wos_json is updated.
     """
     # harvest from web of science
-    snapshot = Snapshot(path=tmp_path, database_name="rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot)
 
     # jsonl file is there and has two lines (one for each author)
@@ -210,7 +210,7 @@ def test_harvest_when_doi_exists(
 
 def test_log_message(tmp_path, mock_authors, mock_many_wos, caplog):
     caplog.set_level(logging.INFO)
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
 
@@ -234,7 +234,7 @@ def test_customization_error(
         headers={"Content-Type": "application/json"},
     )
 
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
     assert "got a 500 Customization Error" in caplog.text
@@ -252,7 +252,7 @@ def test_not_found_error(test_session, tmp_path, caplog, mock_authors, requests_
         headers={"Content-Type": "application/text"},
     )
 
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -273,7 +273,7 @@ def test_server_error(test_session, tmp_path, caplog, mock_authors, requests_moc
         headers={"Content-Type": "application/text"},
     )
 
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -289,7 +289,7 @@ def test_empty_payload(test_session, tmp_path, caplog, mock_authors, requests_mo
     """
     requests_mock.get(re.compile(".*"), text="", status_code=200)
 
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
 
     assert test_session().query(Publication).count() == 0, "no publications loaded"
@@ -302,7 +302,7 @@ def test_bad_wos_json(test_session, tmp_path, caplog, mock_authors, requests_moc
     """
     requests_mock.get(re.compile(".*"), text="ffff", status_code=200)
 
-    snapshot = Snapshot(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
 
     with pytest.raises(requests.exceptions.JSONDecodeError):
         wos.harvest(snapshot, limit=50)

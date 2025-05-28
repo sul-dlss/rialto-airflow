@@ -6,7 +6,6 @@ import dotenv
 
 from rialto_airflow.database import Publication
 from rialto_airflow.harvest import pubmed
-from rialto_airflow.snapshot import Snapshot
 from test.utils import num_jsonl_objects, load_jsonl_file
 
 dotenv.load_dotenv()

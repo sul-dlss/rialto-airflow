@@ -13,11 +13,17 @@ def cleanup_author_files(cleanup_interval_days: int, data_dir: str):
         Path(data_dir).glob("authors_active.csv.*")
     )
     for file in files:
-        file_time = datetime.strptime(file.name.split(".")[-1], "%Y-%m-%d")
-        age = current_time - file_time
-        if age.days > cleanup_interval_days:
-            logging.info(f"Removing author file: {file} (age: {age.days} days)")
-            file.unlink()
+        date_str = file.name.split(".")[-1]
+        try:
+            file_time = datetime.strptime(date_str, "%m-%d-%Y")
+            age = current_time - file_time
+            if age.days > cleanup_interval_days:
+                logging.info(f"Removing author file: {file} (age: {age.days} days)")
+                file.unlink()
+        except ValueError:
+            logging.warning(
+                f"Skipping file {file.name} as it does not match the expected date format"
+            )
 
 
 def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):

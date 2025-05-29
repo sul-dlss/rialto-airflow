@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import logging
 
 from rialto_airflow.cleanup import cleanup_snapshots, cleanup_author_files
 from rialto_airflow.database import create_database, database_exists
@@ -56,10 +57,12 @@ def test_cleanup_snapshots(tmp_path, monkeypatch):
     assert not p2.is_dir(), "snapshot directory is gone"
 
 
-def test_cleanup_author_files(tmp_path):
+def test_cleanup_author_files(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+
     # set up some timestamps
     now = datetime.now()
-    time_format = "%Y-%m-%d"
+    time_format = "%m-%d-%Y"
     t1 = (now - timedelta(days=1)).strftime(time_format)
     t2 = (now - timedelta(days=40)).strftime(time_format)
 
@@ -72,6 +75,7 @@ def test_cleanup_author_files(tmp_path):
     p3 = tmp_path / "authors_active.csv"  # the current one
     p4 = tmp_path / f"authors_active.csv.{t1}"  # the recent one
     p5 = tmp_path / f"authors_active.csv.{t2}"  # the far past
+    p6 = tmp_path / "authors_active.csv.2025-05-03"  # wrong format, should be ignored
 
     # write some data to the files
     p0.open("w").write("test")
@@ -80,6 +84,7 @@ def test_cleanup_author_files(tmp_path):
     p3.open("w").write("test")
     p4.open("w").write("test")
     p5.open("w").write("test")
+    p6.open("w").write("bogus")
 
     # do the cleanup!
     cleanup_author_files(30, tmp_path)
@@ -91,3 +96,8 @@ def test_cleanup_author_files(tmp_path):
     assert p3.is_file()
     assert p4.is_file()
     assert not p5.is_file()
+    assert p6.is_file()  # wrong format, should be ignored without errors
+    assert (
+        "Skipping file authors_active.csv.2025-05-03 as it does not match the expected date format"
+        in caplog.text
+    )

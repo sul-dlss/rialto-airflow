@@ -27,6 +27,10 @@ google_drive_id = Variable.get(
 )
 
 
+def orcid_dashboard_folder_id():
+    return google.get_file_id(google_drive_id, "orcid-dashboard")
+
+
 @dag(
     schedule="@weekly",
     max_active_runs=1,
@@ -41,7 +45,7 @@ def publish_orcid():
         Update the authors_active.csv file in Google Drive with the latest active authors data CSV file.
         """
         active_authors_file = rialto_active_authors_file(data_dir)
-        google_folder_id = google.get_file_id(google_drive_id, "orcid-dashboard")
+        google_folder_id = orcid_dashboard_folder_id()
         logging.info(
             f"Uploading {active_authors_file} to google drive folder id {google_folder_id}"
         )
@@ -57,7 +61,7 @@ def publish_orcid():
         Get current ORCID integration stats from the ORCID integration API and write to file in Google Drive.
         """
         orcid_integration_sheet_id = google.get_file_id(
-            google.get_file_id(google_drive_id, "orcid-dashboard"),
+            orcid_dashboard_folder_id(),
             "orcid-integration-stats",
         )
         current_users = current_orcid_users(
@@ -79,11 +83,11 @@ def publish_orcid():
         can be manually verified.
         """
         authors_file_id = google.get_file_id(
-            google.get_file_id(google_drive_id, "orcid-dashboard"),
+            orcid_dashboard_folder_id(),
             "authors_active.csv",
         )
         orcid_integration_sheet_id = google.get_file_id(
-            google.get_file_id(google_drive_id, "orcid-dashboard"),
+            orcid_dashboard_folder_id(),
             "orcid-integration-stats",
         )
         authors_df = google.read_csv_from_google_drive(authors_file_id)

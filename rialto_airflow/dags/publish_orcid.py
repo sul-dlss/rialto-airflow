@@ -13,8 +13,8 @@ from rialto_airflow.mais import (
 )
 
 import rialto_airflow.google as google
-
 from rialto_airflow.utils import rialto_active_authors_file
+from rialto_airflow.validate import validate_orcid_tableau, validation_report
 
 data_dir = Path(Variable.get("data_dir"))
 mais_base_url = Variable.get("mais_base_url")
@@ -76,9 +76,35 @@ def publish_orcid():
         )
         return orcid_stats
 
-    update_authors()
+    @task
+    def validate_tableau():
+        """
+        Run calculations on the published csv files and send a report so the numbers in the Tableau dashboard
+        can be manually verified.
+        """
+        authors_file_id = google.get_file_id(
+            orcid_dashboard_folder_id(),
+            "authors_active.csv",
+        )
+        orcid_integration_sheet_id = google.get_file_id(
+            orcid_dashboard_folder_id(),
+            "orcid-integration-stats",
+        )
+        authors_df = google.read_csv_from_google_drive(authors_file_id)
+        orcid_integration_sheet_df = google.read_csv_from_google_drive(
+            orcid_integration_sheet_id
+        )
+        expected_calculations = validate_orcid_tableau(
+            authors_df, orcid_integration_sheet_df
+        )
+        report = validation_report("ORCID Validation Report", expected_calculations)
+        return report
 
-    update_orcid_integration_stats()
+    authors = update_authors()
+    stats = update_orcid_integration_stats()
+    validate = validate_tableau()
+
+    (authors, stats) >> validate
 
 
 publish_orcid()

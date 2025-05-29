@@ -2,12 +2,11 @@ import dotenv
 import os
 import pandas as pd
 import io
+import time
 
 from airflow.providers.google.suite.hooks.sheets import GSheetsHook
 from airflow.providers.google.suite.hooks.drive import GoogleDriveHook
-
 from rialto_airflow import google
-import time
 
 dotenv.load_dotenv()
 
@@ -209,3 +208,24 @@ def test_upload_file_to_google_drive():
 
     # Clenup the test file
     delete_google_file(google_drive_id(), "authors.csv")
+
+
+def test_read_csv_from_google_drive():
+    authors_file_id = google.get_file_id(
+        google.get_file_id(google_drive_id(), "orcid-dashboard"), "authors_active.csv"
+    )
+    orcid_integration_sheet_id = google.get_file_id(
+        google.get_file_id(google_drive_id(), "orcid-dashboard"),
+        "orcid-integration-stats",
+    )
+    # Read csv file
+    authors_df = google.read_csv_from_google_drive(authors_file_id)
+    assert isinstance(authors_df, pd.DataFrame), (
+        "The object returned by test_read_csv_from_google_drive is not a Pandas DataFrame"
+    )
+
+    # Read Google sheet
+    integration_df = google.read_csv_from_google_drive(orcid_integration_sheet_id)
+    assert isinstance(integration_df, pd.DataFrame), (
+        "The object returned by test_read_csv_from_google_drive is not a Pandas DataFrame"
+    )

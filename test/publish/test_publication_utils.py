@@ -178,6 +178,20 @@ def test_journal_with_pubmed_pmid():
     assert pub_utils._pmid(row) == "36857419"
 
 
+def test_wos_identifier_as_string():
+    """
+    Sometimes WoS uses a string as the identifier instead of a dictionary. We should handle that.
+    """
+    row = TestRow(
+        wos_json={
+            "dynamic_data": {
+                "cluster_related": {"identifiers": {"identifier": ["nope"]}}
+            }
+        }
+    )
+    assert pub_utils._pmid(row) is None
+
+
 def test_journal_without_pubmed_pmid():
     row = TestRow(
         dim_json=test_data.dim_json(),

@@ -178,7 +178,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert len(df) == 3
 
     # sort it so we know what is in each row
-    df = df.sort_values(["doi"])
+    df = df.sort_values(["doi", "primary_school"])
 
     # Rows 1 and 2 are the same publication, but different schools
     row = df.iloc[0]
@@ -196,7 +196,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
-    assert row.primary_school == "School of Humanities and Sciences"  # school 1
+    assert row.primary_school == "School of Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -215,7 +215,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
     assert bool(row.faculty_authored) is True
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
-    assert row.primary_school == "School of Engineering"  # school 2
+    assert row.primary_school == "School of Humanities and Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -259,7 +259,7 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert len(df) == 4
 
     # sort it so we know what is in each row
-    df = df.sort_values(["doi"])
+    df = df.sort_values(["doi", "primary_department"])
 
     # Rows 1-3 are the same publication, but different department/school combinations
     row = df.iloc[0]
@@ -278,9 +278,9 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert (
-        row.primary_school == "School of Humanities and Sciences"
-    )  # two authors with same school AND same department, one row
-    assert row.primary_department == "Social Sciences"
+        row.primary_school == "School of Engineering"
+    )  # other author with same school BUT different department
+    assert row.primary_department == "Electrical Engineering"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 
@@ -322,9 +322,9 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
     assert bool(row.federally_funded) is True
     assert row.open_access == "gold"
     assert (
-        row.primary_school == "School of Engineering"
-    )  # other author with same school BUT different department
-    assert row.primary_department == "Electrical Engineering"
+        row.primary_school == "School of Humanities and Sciences"
+    )  # two authors with same school AND same department, one row
+    assert row.primary_department == "Social Sciences"
     assert row.pub_year == 2023
     assert row.types == "article|preprint"
 

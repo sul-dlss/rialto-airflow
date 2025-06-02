@@ -26,11 +26,12 @@ def _openalex_journal(openalex_json):
     try:
         primary_location = openalex_json["primary_location"]
         if (
-            primary_location.get("source")
+            primary_location is not None
+            and primary_location.get("source")
             and primary_location["source"]["type"] == "journal"
         ):
             return primary_location["source"]["display_name"]
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[title] OpenAlex JSON does not contain primary location")
         return None
 
@@ -45,7 +46,7 @@ def _wos_journal(wos_json):
         for title in wos_json["static_data"]["summary"]["titles"]["title"]:
             if title.get("type") and title["type"] == "source":
                 return title["content"]
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[title] WOS JSON does not contain journal title")
         return None
 
@@ -86,7 +87,7 @@ def _dim_mesh(dim_json):
 
     try:
         return "|".join(list(map(lambda x: x, dim_json["mesh_terms"])))
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[mesh] Dimensions JSON does not contain mesh terms")
         return None
 
@@ -99,7 +100,7 @@ def _openalex_mesh(openalex_json):
         return "|".join(
             list(map(lambda x: x["descriptor_name"], openalex_json["mesh"]))
         )
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[mesh] OpenAlex JSON does not contain mesh terms")
         return None
 
@@ -125,7 +126,7 @@ def _openalex_pages(openalex_json):
 
     try:
         return f"{openalex_json['biblio']['first_page']}-{openalex_json['biblio']['last_page']}"
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[pages] OpenAlex JSON does not contain pages")
         return None
 
@@ -138,7 +139,7 @@ def _wos_pages(wos_json):
 
     try:
         return f"{wos_json['static_data']['summary']['pub_info']['page']['begin']}-{wos_json['static_data']['summary']['pub_info']['page']['end']}"
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[pages] WOS JSON does not contain page begin/end")
         return None
 
@@ -174,9 +175,10 @@ def _wos_pmid(wos_json):
         for identifier in wos_json["dynamic_data"]["cluster_related"]["identifiers"][
             "identifier"
         ]:
-            if identifier["type"] == "pmid":
+            # sometimes wos represents an identifier as a string instead of dict
+            if isinstance(identifier, dict) and identifier["type"] == "pmid":
                 return identifier["value"]
-    except KeyError:
+    except (KeyError, TypeError):
         logging.warning("[pmid] WOS JSON does not contain pmid")
         return None
 

@@ -65,7 +65,7 @@ def write_publications(snapshot) -> Path:
                 )
                 .join(Author, Publication.authors)  # type: ignore
                 .group_by(Publication.id)
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=10_000)
             )
 
             for row in session.execute(stmt):
@@ -81,6 +81,7 @@ def write_publications(snapshot) -> Path:
                         "faculty_authored": "faculty" in row.primary_role,
                     }
                 )
+                output.flush()
 
         logging.info(f"finished writing publications {csv_path}")
 
@@ -155,11 +156,12 @@ def write_contributions_by_school(snapshot) -> Path:
                     func.jsonb_agg_strict(Author.primary_role).label("roles"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
+                .join(Funder, Publication.funders, isouter=True)  # type: ignore
                 .group_by(
                     Author.primary_school,
                     Publication.id,  # requirement is to group by DOI, but grouping by pub ID is the same, since DOI is unique
                 )
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=10_000)
             )
 
             for row in session.execute(stmt):
@@ -185,6 +187,7 @@ def write_contributions_by_school(snapshot) -> Path:
                         "types": "|".join(get_types(row)),
                     }
                 )
+                output.flush()
 
         logging.info(f"finished writing contributions by school {csv_path}")
 
@@ -260,12 +263,13 @@ def write_contributions_by_department(snapshot) -> Path:
                     func.jsonb_agg_strict(Author.primary_role).label("roles"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
+                .join(Funder, Publication.funders, isouter=True)  # type: ignore
                 .group_by(
                     Author.primary_dept,
                     Author.primary_school,
                     Publication.id,  # requirement is to group by DOI, but grouping by pub ID is the same, since DOI is unique
                 )
-                .execution_options(yield_per=100)
+                .execution_options(yield_per=10_000)
             )
 
             for row in session.execute(stmt):
@@ -292,6 +296,7 @@ def write_contributions_by_department(snapshot) -> Path:
                         "types": "|".join(get_types(row)),
                     }
                 )
+                output.flush()
 
         logging.info(f"finished writing contributions by school/department {csv_path}")
 

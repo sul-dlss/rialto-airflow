@@ -23,6 +23,6 @@ def default_args():
     return {
         "email": [Variable.get("email_address_for_errors")],
         "on_failure_callback": task_failure_notify,
-        "email_on_failure": True,
+        "email_on_failure": [Variable.get("email_on_error")],
         "email_on_retry": False,
     }

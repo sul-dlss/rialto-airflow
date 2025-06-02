@@ -11,12 +11,6 @@ from requests_oauthlib import OAuth2Session
 ORCIDRecord = dict[str, Any]
 ORCIDStats = list[Union[str, int, float]]
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
 
 class TokenFetchError(LookupError):
     pass
@@ -27,7 +21,7 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> str:
 
     token_url = f"{base_url}/oauth2/token"
     data = {"grant_type": "client_credentials"}
-    logger.info(f"Fetching token from {token_url}")
+    logging.info(f"Fetching token from {token_url}")
 
     try:
         response = requests.post(token_url, auth=(client_id, client_secret), data=data)
@@ -36,17 +30,17 @@ def get_token(client_id: str, client_secret: str, base_url: str) -> str:
         data = response.json()
         access_token = data.get("access_token")
         if access_token:
-            logger.info("Successfully obtained access token.")  # Log success
+            logging.info("Successfully obtained access token.")  # Log success
             return access_token
         else:
             err_msg = f"No 'access_token' found in JSON response: {data}"
-            logger.error(err_msg)  # Log specific error
+            logging.error(err_msg)  # Log specific error
             raise TokenFetchError(err_msg)
 
     except requests.exceptions.RequestException as e:  # Catch all requests exceptions
-        logger.exception(f"Error during token request: {e}")
+        logging.exception(f"Error during token request: {e}")
         if e.response is not None and hasattr(e.response, "text"):
-            logger.error(f"Response content: {e.response.text}")
+            logging.error(f"Response content: {e.response.text}")
         raise TokenFetchError("Error during token request, see logs") from e
 
 
@@ -79,7 +73,7 @@ def fetch_orcid_users(
     access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
 
     while True:  # paging
-        logger.info(f"Fetching {url}")
+        logging.info(f"Fetching {url}")
         tries = 0
         while True:  # retry loop for token expiration
             try:
@@ -90,14 +84,14 @@ def fetch_orcid_users(
                 # if we get a 401 unathorized error from the API call, try to get a new token
                 if e.response.status_code == 401:
                     tries += 1
-                    logger.warning(
+                    logging.warning(
                         f"Attempt {tries}: Access token expired. Retrying..."
                     )
                     access_token = get_token(
                         mais_client_id, mais_client_secret, mais_token_url
                     )
                     if tries >= 3:
-                        logger.error(
+                        logging.error(
                             "Failed to fetch new access token after multiple attempts."
                         )
                         raise e  # break out of the retry loop if we fail three times to get a new token

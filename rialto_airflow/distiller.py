@@ -1,5 +1,6 @@
 import datetime
 import logging
+from functools import cache
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -119,7 +120,7 @@ def first(pub: Row, rules: list[Rule]) -> Optional[str | int]:
 
 
 def _jsonpath_match(rule: JsonPathRule, data) -> Optional[str | int]:
-    jpath = jsonpath_ng.parse(rule.matcher)
+    jpath = _json_path(rule.matcher)
     results = jpath.find(data)
 
     if len(results) > 0:
@@ -168,3 +169,8 @@ def _func_match(rule: FuncRule, data: dict) -> Optional[str | int]:
         result = rule.matcher(data)
 
     return result
+
+
+@cache
+def _json_path(path):
+    return jsonpath_ng.parse(path)

@@ -217,6 +217,26 @@ def test_pubmed_search_unexpected_response(requests_mock, caplog):
     assert "No esearchresult or count found for nope" in caplog.text
 
 
+def test_pubmed_search_handles_500(requests_mock, caplog):
+    """
+    This is a test of the Pubmed Search API to ensures we don't crash with a 500 response.
+    """
+    caplog.set_level(logging.INFO)
+
+    requests_mock.get(
+        re.compile(".*"),
+        json={},
+        status_code=500,
+        headers={"Content-Type": "application/json"},
+    )
+    result = pubmed.pmids_from_orcid("12345")
+    assert result == []
+    assert (
+        "Error searching pubmed query {'term': '12345[auid]'}: 500 Server Error"
+        in caplog.text
+    )
+
+
 def test_pubmed_search_orcid_found_publications():
     """
     This is a live test of the Pubmed Search API to ensure we can get PMIDs back given an ORCID.
@@ -299,6 +319,25 @@ def test_pubmed_fetch_missing_publications():
         "first publication is json"
     )  # check that we got a dict back
     assert "PubmedData" in pubs[0], "found the PubmedData key in the first publication"
+
+
+def test_pubmed_fetch_handles_500(requests_mock, caplog):
+    """
+    This is a test of the Pubmed Fetch API to ensures we don't crash with a 500 response.
+    """
+    caplog.set_level(logging.INFO)
+
+    requests_mock.post(
+        re.compile(".*"),
+        json={},
+        status_code=500,
+        headers={"Content-Type": "application/json"},
+    )
+    result = pubmed.publications_from_pmids(["12345"])
+    assert result == []
+    assert (
+        "Error fetching full pubmed records id=12345: 500 Server Error" in caplog.text
+    )
 
 
 def test_pubmed_fetch_publications_expects_list():

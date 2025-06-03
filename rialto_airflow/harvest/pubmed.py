@@ -178,18 +178,22 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
 
     full_url = f"{BASE_URL}{FETCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"fetching full records from pubmed with {query}")
-    resp = requests.post(full_url, params=query, headers=HEADERS)
-    resp.raise_for_status()
+    try:
+        response = requests.post(full_url, params=query, headers=HEADERS)
+        response.raise_for_status()
 
-    results = resp.content
+        results = response.content
 
-    json_results = xmltodict.parse(results)
-    pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
-    if not isinstance(pubs, list):
-        # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
-        return [pubs]
-    else:
-        return pubs
+        json_results = xmltodict.parse(results)
+        pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
+        if not isinstance(pubs, list):
+            # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
+            return [pubs]
+        else:
+            return pubs
+    except requests.exceptions.RequestException as e:  # Catch all requests exceptions
+        logging.warning(f"Error fetching full pubmed records {query}: {e}")
+        return []
 
 
 def _pubmed_search_api(query) -> list:
@@ -201,24 +205,29 @@ def _pubmed_search_api(query) -> list:
 
     full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
     logging.info(f"searching pubmed with {params}")
-    resp = requests.get(full_url, params=params, headers=HEADERS)
-    resp.raise_for_status()
+    try:
+        response = requests.get(full_url, params=params, headers=HEADERS)
+        response.raise_for_status()
 
-    results = resp.json()
+        results = response.json()
 
-    if "error" in results:
-        logging.warning(f"Error in results found for {query}: {results['error']}")
+        if "error" in results:
+            logging.warning(f"Error in results found for {query}: {results['error']}")
+            return []
+
+        if results.get("esearchresult", {}).get("count") is None:
+            logging.warning(f"No esearchresult or count found for {query}")
+            return []
+
+        if int(results["esearchresult"]["count"]) == 0:
+            logging.info(f"No results found for {query}")
+            return []
+
+        return results["esearchresult"]["idlist"]  # return a list of pmids
+
+    except requests.exceptions.RequestException as e:  # Catch all requests exceptions
+        logging.warning(f"Error searching pubmed query {params}: {e}")
         return []
-
-    if results.get("esearchresult", {}).get("count") is None:
-        logging.warning(f"No esearchresult or count found for {query}")
-        return []
-
-    if int(results["esearchresult"]["count"]) == 0:
-        logging.info(f"No results found for {query}")
-        return []
-
-    return results["esearchresult"]["idlist"]  # return a list of pmids
 
 
 # get the DOI from the pubmed record

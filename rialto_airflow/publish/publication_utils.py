@@ -140,7 +140,6 @@ def _wos_pages(wos_json):
     try:
         return f"{wos_json['static_data']['summary']['pub_info']['page']['begin']}-{wos_json['static_data']['summary']['pub_info']['page']['end']}"
     except (KeyError, TypeError):
-        logging.warning("[pages] WOS JSON does not contain page begin/end")
         return None
 
 

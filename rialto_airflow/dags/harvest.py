@@ -147,7 +147,12 @@ def harvest():
         """
         Fill in Pubmed data for DOIs from other publication sources.
         """
-        pubmed.fill_in(snapshot)
+        # pubmed.fill_in(snapshot)
+        # Note: this was disabled on June 9, 2025 because it is running
+        # very slowly.  We think we need to figure out how to better
+        # query Pubmed by DOI in bulk.
+        # see https://github.com/sul-dlss/rialto-airflow/issues/400
+        logging.info("⚠️ pubmed fill in is currently disabled!")
 
     @task_group()
     def fill_in(snapshot):

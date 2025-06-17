@@ -111,8 +111,6 @@ def write_contributions_by_school(snapshot) -> Path:
         "federally_funded",
         "open_access",
         "primary_school",
-        "role",
-        "sunet",
         "pub_year",
         "types",
     ]

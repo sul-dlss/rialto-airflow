@@ -1,13 +1,29 @@
 import pandas
 import pytest
 
-from rialto_airflow.publish import publication
-from rialto_airflow.database import Publication, Author, Funder
 import test.publish.data as test_data
+from rialto_airflow.database import Author, Funder, Publication
+from rialto_airflow.publish import publication
 
 
 @pytest.fixture
 def dataset(test_session):
+    """
+    This fixture will create two publications, four authors, and two funders.
+    It is designed to test the various types of files we want to output, where
+    sometimes we want all the publications, and others we want the unique
+    publications by school and department.
+
+    The first publication is authored by all 4 authors, and funded by both
+    funders. The second publication is authored by the first author, and funded by
+    the first funder.
+
+    The first two authors are from the Department of Social Sciences in the
+    School of Humanities and Sciences. The last two authors are both from the
+    School of Engineering, but one is in the Department of Mechanical Engineering,
+    and the other is in Electric Enginering.
+    """
+
     with test_session.begin() as session:
         pub = Publication(
             doi="10.000/000001",
@@ -134,6 +150,7 @@ def test_dataset(test_session, dataset):
 def test_write_publications(test_session, snapshot, dataset, caplog):
     # generate the publications csv file
     csv_path = publication.write_publications(snapshot)
+    assert csv_path.name == "publications.csv"
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
@@ -170,6 +187,7 @@ def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
+    assert csv_path.name == "contributions-by-school.csv"
     # There are three rows in the dataset. We have two publications and four authors total.
     # The first publication has four authors, and the second publication has one author (one of the same authors as the first publication).
     # Two of the authors are in the same school, and two are in different schools.
@@ -249,6 +267,7 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
 
     # read it in and make sure it looks right
     df = pandas.read_csv(csv_path)
+    assert csv_path.name == "contributions-by-school-department.csv"
     # There are four rows in the dataset. We have two publications and four authors total.
     # The first publication has four authors, and the second publication has one author (one of the same authors as the first publication).
     # Two of the authors are in the same school, and two are in different schools.
@@ -351,3 +370,126 @@ def test_write_contributions_by_department(test_session, snapshot, dataset, capl
 
     assert "starting to write contributions by school/department" in caplog.text
     assert "finished writing contributions by school/department" in caplog.text
+
+
+def test_write_contributions(test_session, snapshot, dataset, caplog):
+    # generate the contributions csv file
+    csv_path = publication.write_contributions(snapshot)
+    assert csv_path.name == "contributions.csv"
+
+    # read it in and make sure it looks right
+    df = pandas.read_csv(csv_path)
+
+    # order the rows by doi and sunet so we can reliably examine them
+    df = df.sort_values(["doi", "sunet"])
+
+    # we should have a row for each author's publication
+    assert len(df) == 5
+
+    row = df.iloc[0]
+    assert row.doi == "10.000/000001"
+    assert row.sunet == "folms"
+    assert row.role == "faculty"
+    assert row.primary_department == "Mechanical Engineering"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.apc == 123
+    assert row.open_access == "gold"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+
+    row = df.iloc[1]
+    assert row.doi == "10.000/000001"
+    assert row.sunet == "fterm"
+    assert row.role == "faculty"
+    assert row.primary_department == "Electrical Engineering"
+    assert row.primary_school == "School of Engineering"
+    assert row.pub_year == 2023
+    assert row.apc == 123
+    assert row.open_access == "gold"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+
+    row = df.iloc[2]
+    assert row.doi == "10.000/000001"
+    assert row.sunet == "janes"
+    assert row.role == "faculty"
+    assert row.primary_department == "Social Sciences"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.apc == 123
+    assert row.open_access == "gold"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+
+    row = df.iloc[3]
+    assert row.doi == "10.000/000001"
+    assert row.sunet == "lelands"
+    assert row.role == "staff"
+    assert row.primary_department == "Social Sciences"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2023
+    assert row.apc == 123
+    assert row.open_access == "gold"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council) is False
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life"
+
+    row = df.iloc[4]
+    assert row.doi == "10.000/000002"
+    assert row.sunet == "janes"
+    assert row.role == "faculty"
+    assert row.primary_department == "Social Sciences"
+    assert row.primary_school == "School of Humanities and Sciences"
+    assert row.pub_year == 2024
+    assert row.apc == 500
+    assert row.open_access == "green"
+    assert row.types == "article|preprint"
+    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
+    assert bool(row.academic_council) is True
+    assert row.journal == "Delicious Limes Journal of Science"
+    assert row.issue == 12
+    assert row.pages == "1-10"
+    assert row.volume == 1
+    assert row.pmid == 36857419
+    assert row.mesh == "Delicions|Limes"
+    assert row.url == "https://example_dim.com"
+    assert row.title == "My Life Part 2"
+
+    assert "started writing contributions" in caplog.text
+    assert "finished writing contributions" in caplog.text

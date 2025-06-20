@@ -15,7 +15,7 @@ def google_drive_folder() -> str:
 
 def write_publications(snapshot) -> Path:
     """
-    Write a CSV of publications
+    Write a CSV where there is a row per unique DOI.
     """
     col_names = [
         "doi",
@@ -23,6 +23,7 @@ def write_publications(snapshot) -> Path:
         "apc",
         "open_access",
         "types",
+        "funders",
         "federally_funded",
         "academic_council_authored",
         "faculty_authored",
@@ -77,6 +78,7 @@ def write_publications(snapshot) -> Path:
                         "apc": row.apc,
                         "open_access": row.open_access,
                         "types": "|".join(get_types(row)) or None,
+                        "funders": "|".join(sorted(set(row.funders))),
                         "federally_funded": any(row.federal),
                         "academic_council_authored": any(row.academic_council),
                         "faculty_authored": "faculty" in row.primary_role,
@@ -91,7 +93,7 @@ def write_publications(snapshot) -> Path:
 
 def write_contributions_by_school(snapshot) -> Path:
     """
-    Write a CSV of contributions where each row represents a unique publication/school combination
+    Write a CSV where there is a unique row for each DOI and school.
     """
 
     col_names = [
@@ -195,8 +197,7 @@ def write_contributions_by_school(snapshot) -> Path:
 
 def write_contributions_by_department(snapshot) -> Path:
     """
-    Write a CSV of contributions where each row represents a unique combination of publication
-    per school and department.
+    Write a CSV where there is a unique row for each DOI, school and department.
     """
 
     col_names = [
@@ -298,5 +299,109 @@ def write_contributions_by_department(snapshot) -> Path:
                 output.flush()
 
         logging.info(f"finished writing contributions by school/department {csv_path}")
+
+    return csv_path
+
+
+def write_contributions(snapshot) -> Path:
+    """
+    Write a CSV where there is a unique row for each DOI and SUNET.
+    """
+    col_names = [
+        "academic_council",
+        "apc",
+        "doi",
+        "federally_funded",
+        "funders",
+        "issue",
+        "journal",
+        "mesh",
+        "open_access",
+        "pages",
+        "pmid",
+        "primary_department",
+        "primary_school",
+        "pub_year",
+        "role",
+        "sunet",
+        "title",
+        "types",
+        "url",
+        "volume",
+    ]
+
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "contributions.csv")
+
+    logging.info(f"started writing contributions {csv_path}")
+
+    with csv_path.open("w") as output:
+        csv_output = DictWriter(output, fieldnames=col_names)
+        csv_output.writeheader()
+
+        with get_session(snapshot.database_name).begin() as session:
+            stmt = (
+                select(  # type: ignore
+                    Publication.doi,  # type: ignore
+                    Publication.title,
+                    Publication.pub_year,  # type: ignore
+                    Publication.apc,  # type: ignore
+                    Publication.open_access,
+                    # all the JSON for extracting things like journal, issue
+                    Publication.dim_json,
+                    Publication.openalex_json,  # type: ignore
+                    Publication.sulpub_json,  # type: ignore
+                    Publication.wos_json,  # type: ignore
+                    Publication.pubmed_json,  # type: ignore
+                    # for publication type
+                    Publication.dim_json["type"].label("dim_type"),
+                    Publication.openalex_json["type"].label("openalex_type"),
+                    Publication.wos_json["static_data"]["fullrecord_metadata"][
+                        "normalized_doctypes"
+                    ]["doctype"].label("wos_type"),
+                    # for the author
+                    Author.sunet,
+                    Author.academic_council,
+                    Author.primary_role,
+                    Author.primary_school,
+                    Author.primary_dept,
+                    Author.academic_council,
+                    # aggregate funders
+                    func.jsonb_agg_strict(Funder.name).label("funders"),
+                    func.jsonb_agg_strict(Funder.federal).label("federal"),
+                )
+                .join(Author, Publication.authors)  # type: ignore
+                .join(Funder, Publication.funders, isouter=True)  # type: ignore
+                .group_by(Publication.id, Author.id)
+                .execution_options(yield_per=10_000)
+            )
+
+            for row in session.execute(stmt):
+                csv_output.writerow(
+                    {
+                        "academic_council": row.academic_council,
+                        "apc": row.apc,
+                        "doi": row.doi,
+                        "federally_funded": any(row.federal),
+                        "funders": "|".join(sorted(set(row.funders))),
+                        "issue": pub_utils._issue(row),
+                        "journal": pub_utils._journal(row),
+                        "mesh": pub_utils._mesh(row),
+                        "open_access": row.open_access,
+                        "pages": pub_utils._pages(row),
+                        "pmid": normalize_pmid(pub_utils._pmid(row)),
+                        "primary_department": row.primary_dept,
+                        "primary_school": row.primary_school,
+                        "pub_year": row.pub_year,
+                        "role": row.primary_role,
+                        "sunet": row.sunet,
+                        "title": row.title,
+                        "types": "|".join(get_types(row)) or None,
+                        "url": pub_utils._url(row),
+                        "volume": pub_utils._volume(row),
+                    }
+                )
+                output.flush()
+
+        logging.info(f"finished writing contributions {csv_path}")
 
     return csv_path

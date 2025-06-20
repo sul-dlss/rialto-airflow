@@ -35,14 +35,17 @@ def publish_publications():
 
     @task
     def publish(snapshot):
+        # these probably could be run in parallel (separate tasks)?
         publication.write_contributions_by_department(snapshot)
         publication.write_contributions_by_school(snapshot)
         publication.write_publications(snapshot)
+        publication.write_contributions(snapshot)
 
     @task()
     def upload(snapshot):
         csv_files = [
             "publications.csv",
+            "contributions.csv",
             "contributions-by-school.csv",
             "contributions-by-school-department.csv",
         ]

@@ -171,6 +171,36 @@ def write_total_source_count(snapshot: Snapshot) -> Path:
     return csv_path
 
 
+def write_sulpub_source_count(snapshot: Snapshot) -> Path:
+    col_names = ["total_count"]
+
+    logging.info("started writing sul-pub-counts.csv")
+
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "sul-pub-counts.csv")
+
+    with csv_path.open("w") as output:
+        csv_output = csv.DictWriter(output, fieldnames=col_names)
+        csv_output.writeheader()
+
+        with get_session(snapshot.database_name).begin() as session:
+            sulpub_count = (
+                session.query(func.count(Publication.id))
+                .filter(
+                    and_(
+                        Publication.doi.is_not(None),  # type: ignore
+                        Publication.sulpub_json.is_not(None),  # type: ignore
+                    )
+                )
+                .scalar()
+            )
+
+        csv_output.writerow({"total_count": sulpub_count})
+
+    logging.info("finished writing sul-pub-counts.csv")
+
+    return csv_path
+
+
 def write_contributions_by_source(snapshot: Snapshot):
     col_names = ["doi", "source", "present", "pub_year", "open_access", "types"]
 

@@ -363,7 +363,6 @@ def test_write_source_counts(test_session, snapshot):
             "Dimensions": "dim_json",
             "Openalex": "openalex_json",
             "PubMed": "pubmed_json",
-            "SUL-Pub": "sulpub_json",
             "WoS": "wos_json",
         }
 

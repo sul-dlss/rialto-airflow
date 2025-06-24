@@ -385,6 +385,47 @@ def test_write_source_counts(test_session, snapshot):
             assert session.execute(stmt).scalars().one() == row["count"]
 
 
+def test_write_total_source_count(test_session, snapshot):
+    # create some random data
+    with test_session.begin() as session:
+        for i in range(0, 1000):
+            session.add(
+                Publication(
+                    doi=f"10.000/00000{i}",
+                    pub_year=2024,
+                    dim_json={"a": "b"} if randint(0, 3) == 1 else None,  # ~25% dim
+                    openalex_json={"a": "b"}
+                    if randint(0, 1) == 1
+                    else None,  # ~50% openelex
+                    wos_json={"a": "b"},  # all pubs get WoS
+                    pubmed_json={"a": "b"}
+                    if randint(0, 4) == 1
+                    else None,  # ~20% pubmed
+                )
+            )
+
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1000
+
+        csv_path = data_quality.write_total_source_count(snapshot)
+        assert csv_path.is_file()
+
+        df = pandas.read_csv(csv_path)
+        assert len(df) > 0
+
+        assert list(df.columns) == ["source", "total_count"]
+
+        rows = df.to_dict("records")
+        assert (rows[0]["source"]) == "Dimensions"
+        assert 220 <= rows[0]["total_count"] <= 280, "expect ~25% for Dimensions"
+        assert (rows[1]["source"]) == "Openalex"
+        assert 420 <= rows[1]["total_count"] <= 580, "expect ~50% for Openalex"
+        assert (rows[2]["source"]) == "PubMed"
+        assert 160 <= rows[2]["total_count"] <= 240, "expect ~20% for Pubmed"
+        assert (rows[3]["source"]) == "WoS"
+        assert (rows[3]["total_count"]) == 1000
+
+
 def test_any_url():
     row = TestRow(
         openalex_json={

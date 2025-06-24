@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import pandas
-from sqlalchemy import select
+from sqlalchemy import select, and_, func
 from sqlalchemy.engine.row import Row  # type: ignore
 
 from rialto_airflow.database import Author, Publication, get_session
@@ -101,6 +101,72 @@ def write_sulpub(snapshot: Snapshot) -> Path:
             )
 
     logging.info("finished writing sulpub.csv")
+
+    return csv_path
+
+
+def write_total_source_count(snapshot: Snapshot) -> Path:
+    col_names = ["source", "total_count"]
+
+    logging.info("started writing total-source-counts.csv")
+
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "total-source-counts.csv")
+
+    with csv_path.open("w") as output:
+        csv_output = csv.DictWriter(output, fieldnames=col_names)
+        csv_output.writeheader()
+
+        # these are issued as SQL count queries for each source where DOI and JSON is not null
+        # even though we issue a new query per source, each of them should be very efficient
+        # since no data needs to be loaded into memory and iterated over
+        with get_session(snapshot.database_name).begin() as session:
+            dimensions_count = (
+                session.query(func.count(Publication.id))
+                .filter(
+                    and_(
+                        Publication.doi.is_not(None),  # type: ignore
+                        Publication.dim_json.is_not(None),  # type: ignore
+                    )
+                )
+                .scalar()
+            )
+            openalex_count = (
+                session.query(func.count(Publication.id))
+                .filter(
+                    and_(
+                        Publication.doi.is_not(None),  # type: ignore
+                        Publication.openalex_json.is_not(None),  # type: ignore
+                    )
+                )
+                .scalar()
+            )
+            pubmed_count = (
+                session.query(func.count(Publication.id))
+                .filter(
+                    and_(
+                        Publication.doi.is_not(None),  # type: ignore
+                        Publication.pubmed_json.is_not(None),  # type: ignore
+                    )
+                )
+                .scalar()
+            )
+            wos_count = (
+                session.query(func.count(Publication.id))
+                .filter(
+                    and_(
+                        Publication.doi.is_not(None),  # type: ignore
+                        Publication.wos_json.is_not(None),  # type: ignore
+                    )
+                )
+                .scalar()
+            )
+
+        csv_output.writerow({"source": "Dimensions", "total_count": dimensions_count})
+        csv_output.writerow({"source": "Openalex", "total_count": openalex_count})
+        csv_output.writerow({"source": "PubMed", "total_count": pubmed_count})
+        csv_output.writerow({"source": "WoS", "total_count": wos_count})
+
+    logging.info("finished writing total-source-counts.csv")
 
     return csv_path
 
@@ -223,8 +289,7 @@ def write_publications(snapshot: Snapshot) -> Path:
 def write_source_counts(snapshot):
     logging.info("started writing source-counts.csv")
 
-    csv_path = snapshot.path / google_drive_folder() / "source-counts.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = get_csv_path(snapshot, google_drive_folder(), "source-counts.csv")
 
     source_labels = {
         "dim_json": "Dimensions",

@@ -40,6 +40,7 @@ def publish_data_quality():
         data_quality.write_contributions_by_source(snapshot)
         data_quality.write_publications(snapshot)
         data_quality.write_source_counts(snapshot)
+        data_quality.write_total_source_count(snapshot)
 
     @task()
     def upload(snapshot):
@@ -49,6 +50,7 @@ def publish_data_quality():
             "contributions-by-source.csv",
             "publications.csv",
             "source-counts.csv",
+            "total-source-counts.csv",
         ]
 
         google_folder_id = google.get_file_id(

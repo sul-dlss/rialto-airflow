@@ -230,7 +230,6 @@ def write_source_counts(snapshot):
         "dim_json": "Dimensions",
         "openalex_json": "Openalex",
         "pubmed_json": "PubMed",
-        "sulpub_json": "SUL-Pub",
         "wos_json": "WoS",
     }
 
@@ -245,7 +244,6 @@ def write_source_counts(snapshot):
                 Publication.dim_json,
                 Publication.openalex_json,  # type: ignore
                 Publication.pubmed_json,
-                Publication.sulpub_json,
                 Publication.wos_json,  # type: ignore
             )
             .where(Publication.doi is not None)
@@ -257,6 +255,7 @@ def write_source_counts(snapshot):
             for source in sources:
                 if row._mapping[source] is not None:
                     keys.append(source_labels[source])
+
             key = "|".join(keys)
 
             if key in counts:

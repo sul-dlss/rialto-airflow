@@ -182,13 +182,17 @@ def write_sulpub_source_count(snapshot: Snapshot) -> Path:
         csv_output = csv.DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
 
+        # search for publications that ONLY are available in sul-pub
         with get_session(snapshot.database_name).begin() as session:
             sulpub_count = (
                 session.query(func.count(Publication.id))
                 .filter(
                     and_(
-                        Publication.doi.is_not(None),  # type: ignore
                         Publication.sulpub_json.is_not(None),  # type: ignore
+                        Publication.wos_json.is_(None),  # type: ignore
+                        Publication.openalex_json.is_(None),  # type: ignore
+                        Publication.pubmed_json.is_(None),  # type: ignore
+                        Publication.dim_json.is_(None),  # type: ignore
                     )
                 )
                 .scalar()

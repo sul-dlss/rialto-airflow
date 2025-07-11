@@ -108,7 +108,7 @@ def fill_in(snapshot: Snapshot):
 
             for rows in select_session.execute(stmt).partitions():
                 # use a batch size of 50 DOIs at a time
-                dois = [normalize_doi(row["doi"]) for row in rows]
+                dois = [normalize_doi(row.doi) for row in rows]
 
                 logging.info(f"looking up DOIs {dois}")
 

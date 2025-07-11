@@ -126,6 +126,7 @@ class Publication(Base):  # type: ignore
     sulpub_json = Column(JSONB(none_as_null=True))
     wos_json = Column(JSONB(none_as_null=True))
     pubmed_json = Column(JSONB(none_as_null=True))
+    crossref_json = Column(JSONB(none_as_null=True))
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     authors: RelationshipProperty = relationship(

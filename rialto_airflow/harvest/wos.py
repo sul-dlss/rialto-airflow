@@ -94,7 +94,7 @@ def fill_in(snapshot: Snapshot):
 
             for rows in select_session.execute(stmt).partitions():
                 # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
-                dois = [row["doi"] for row in rows]
+                dois = [row.doi for row in rows]
 
                 logging.info(f"looking up DOIs {dois}")
                 for wos_pub in publications_from_dois(dois):

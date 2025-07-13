@@ -18,13 +18,13 @@ def test_get_dois():
     """
     # get 25 DOIs
     df = pandas.read_csv("test/data/dois.csv")
-    dois = list(df.doi[0:25])
+    dois = list(df.doi[0:100])
 
     # look them up
     results = crossref.get_dois(dois)
 
     # see if they look good
-    assert len(results) == len(dois)
+    assert len(list(results)) == 93  # 7 are invalid DOIs
     for result in results:
         assert "DOI" in result
 
@@ -37,7 +37,7 @@ def test_get_dois_missing():
     dois = [f"{doi}-naw" for doi in df.doi[0:25]]
 
     results = crossref.get_dois(dois)
-    assert len(results) == 0
+    assert len(list(results)) == 0
 
 
 def test_invalid_doi_prefix(caplog):
@@ -46,16 +46,25 @@ def test_invalid_doi_prefix(caplog):
     match doi:10.prefix/suffix where prefix is of length 4 or more.
     """
     results = crossref.get_dois(["10.123/abcdef"])
-    assert len(results) == 0, ".123 prefix is too short"
+    assert len(list(results)) == 0, ".123 prefix is too short"
     assert "Ignoring doi:10.123/abcdef with invalid prefix code 123" in caplog.text
     assert "No valid DOIs to look up" in caplog.text
+
+
+def test_non_numeric_prefix(caplog):
+    """
+    The DOI prefix must be a number.
+    """
+    results = crossref.get_dois(["10.123a/abcdef"])
+    assert len(list(results)) == 0, "ignore dois with non-numeric prefix"
+    assert "Ignoring invalid DOI format doi:10.123a/abcdef" in caplog.text
 
 
 def test_doi_missing_10(caplog):
     """
     DOI must start with "10."
     """
-    assert len(crossref.get_dois(["1234/abcdef"])) == 0, "missing 10."
+    assert len(list(crossref.get_dois(["1234/abcdef"]))) == 0, "missing 10."
     assert "Ignoring invalid DOI format doi:1234/abcdef" in caplog.text
 
 
@@ -63,7 +72,7 @@ def test_doi_missing_suffix(caplog):
     """
     DOIs must have a "/" followed by a string.
     """
-    assert len(crossref.get_dois(["10.2345"])) == 0, "missing /suffix"
+    assert len(list(crossref.get_dois(["10.2345"]))) == 0, "missing /suffix"
     assert "Ignoring invalid DOI format doi:10.2345" in caplog.text
 
 

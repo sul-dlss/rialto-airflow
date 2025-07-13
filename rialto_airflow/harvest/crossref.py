@@ -3,6 +3,8 @@ import logging
 import os
 import re
 import time
+from collections.abc import Iterable
+from itertools import batched
 from pathlib import Path
 from typing import Dict
 
@@ -27,19 +29,12 @@ def fill_in(snapshot: Snapshot) -> Path:
             stmt = (
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
-                .execution_options(yield_per=25)
+                .where(Publication.crossref_json.is_(None))
+                .execution_options(yield_per=1000)
             )
 
             for rows in select_session.execute(stmt).partitions():
-                # since the query uses yield_per=25 we will be looking up 25 DOIs at a time
                 dois = [normalize_doi(row.doi) for row in rows]
-
-                # The public API has a rate limit https://api.crossref.org/swagger-ui/
-                # This should hopefully let us go quickly enough and stay within the limit
-                # We could consider implementing support for the x-rate-limit-limit header.
-                time.sleep(1.0)
-
-                logging.info(f"looking up DOIs {dois}")
                 for crossref_pub in get_dois(dois):
                     doi = normalize_doi(crossref_pub.get("DOI"))
                     if doi is None:
@@ -62,48 +57,57 @@ def fill_in(snapshot: Snapshot) -> Path:
     return jsonl_file
 
 
-def get_dois(dois: list[str]) -> list[dict]:
-    prefixed_dois = []
-    for doi in dois:
-        doi = doi.replace(",", "")  # commas are used to join DOIs in the filter
+def get_dois(dois: Iterable[str]) -> Iterable[dict]:
+    # the API only allows looking up 49 DOIs at a time in a batch
+    for doi_batch in batched(dois, 40):
+        prefixed_dois = []
+        for doi in doi_batch:
+            doi = doi.replace(",", "")  # commas are used to join DOIs in the filter
 
-        # DOIs need to have a prefix in the API works filter call, but we don't store them that way
-        if not doi.startswith("doi:"):
-            doi = f"doi:{doi}"
+            # DOIs need to have a prefix in the API works filter call, but we don't store them that way
+            if not doi.startswith("doi:"):
+                doi = f"doi:{doi}"
 
-        # According to Crossref API error messages the DOI must be of the form:
-        # doi:10.prefix/suffix where prefix is 4 or more digits and suffix is a string
-        if m := re.match(r"^doi:10\.(.+)/.+$", doi):
-            if len(m.group(1)) >= 4:
-                prefixed_dois.append(doi)
+            # According to Crossref API error messages the DOI must be of the form:
+            # doi:10.prefix/suffix where prefix is 4 or more digits and suffix is a string
+            if m := re.match(r"^doi:10\.(\d+)/.+$", doi):
+                if len(m.group(1)) >= 4:
+                    prefixed_dois.append(doi)
+                else:
+                    logging.warning(
+                        f"Ignoring {doi} with invalid prefix code {m.group(1)}"
+                    )
             else:
-                logging.warning(f"Ignoring {doi} with invalid prefix code {m.group(1)}")
+                logging.warning(f"Ignoring invalid DOI format {doi}")
+
+        if len(prefixed_dois) == 0:
+            logging.warning(f"No valid DOIs to look up in {dois}")
+            return
+
+        logging.info(f"Looking up DOIS {prefixed_dois}")
+
+        params: Dict[str, str | int | None] = {
+            "filter": ",".join(prefixed_dois),
+            "rows": len(prefixed_dois),
+            "mailto": RIALTO_EMAIL,
+        }
+
+        # prevent us getting ban from public use
+        time.sleep(1)
+
+        resp = requests.get(  # type: ignore
+            "https://api.crossref.org/works/",
+            params=params,
+            headers={
+                "User-Agent": "Stanford RIALTO: https://github.com/sul-dlss/rialto-airflow"
+            },
+        )
+
+        # be noisy if we don't get a 200 OK
+        resp.raise_for_status()
+
+        results = resp.json()
+        if "message" in results and "items" in results.get("message", {}):
+            yield from results["message"]["items"]
         else:
-            logging.warning(f"Ignoring invalid DOI format {doi}")
-
-    if len(prefixed_dois) == 0:
-        logging.warning(f"No valid DOIs to look up in {dois}")
-        return []
-
-    params: Dict[str, str | int | None] = {
-        "filter": ",".join(prefixed_dois),
-        "rows": len(prefixed_dois),
-        "mailto": RIALTO_EMAIL,
-    }
-
-    resp = requests.get(  # type: ignore
-        "https://api.crossref.org/works/",
-        params=params,
-        headers={
-            "User-Agent": "Stanford RIALTO: https://github.com/sul-dlss/rialto-airflow"
-        },
-    )
-
-    # be noisy if we don't get a 200 OK
-    resp.raise_for_status()
-
-    results = resp.json()
-    if "message" in results and "items" in results.get("message", {}):
-        return results["message"]["items"]
-    else:
-        return []
+            logging.warn(f"Unexpected JSON response {results}")

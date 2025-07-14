@@ -1,4 +1,5 @@
 import logging
+import re
 
 import dotenv
 import pandas
@@ -12,21 +13,17 @@ dotenv.load_dotenv()
 
 def test_get_dois():
     """
-    Test our Crossref API lookups by DOI. Note, we store the DOIs without the
-    'doi:' prefix, however the get_dois() function will add them as needed since
-    the API requires them.
+    Test Crossref API lookups by DOI. 40 can be requested at a time.
     """
     # get 25 DOIs
     df = pandas.read_csv("test/data/dois.csv")
     dois = list(df.doi[0:100])
 
     # look them up
-    results = crossref.get_dois(dois)
+    results = list(crossref.get_dois(dois))
 
-    # see if they look good
-    assert len(list(results)) == 93  # 7 are invalid DOIs
-    for result in results:
-        assert "DOI" in result
+    assert len(results) > 40, "paging worked (some dois are invalid)"
+    assert len(set([r["DOI"] for r in results])) == len(results), "DOIs are unique"
 
 
 def test_get_dois_missing():
@@ -74,6 +71,31 @@ def test_doi_missing_suffix(caplog):
     """
     assert len(list(crossref.get_dois(["10.2345"]))) == 0, "missing /suffix"
     assert "Ignoring invalid DOI format doi:10.2345" in caplog.text
+
+
+def test_http_500(caplog, requests_mock):
+    """
+    Crossref API sometimes throws random 500 errors, which work when retried. We
+    try five times and then give up.
+    """
+    requests_mock.get(re.compile(r"https://api.crossref.org/works.*"), status_code=500)
+    assert len(list(crossref.get_dois(["10.2345/abcdef"]))) == 0, "catches 500 errors"
+    assert "caught 500 error, retrying" in caplog.text
+    assert (
+        "caught 500 error, giving up since there are no more tries left!" in caplog.text
+    )
+
+
+def test_unexpected_json(caplog, requests_mock):
+    """
+    This checks that we don't thow an exception when encountering JSON that
+    doesn't look like what we are expecting.
+    """
+    requests_mock.get(
+        re.compile(r"https://api.crossref.org/works.*"), json={"foo": "bar"}
+    )
+    assert len(list(crossref.get_dois(["10.2345/abcdef"]))) == 0, "catches JSON errors"
+    assert "Unexpected JSON response {'foo': 'bar'}" in caplog.text
 
 
 def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):

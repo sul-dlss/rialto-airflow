@@ -37,9 +37,6 @@ def fill_in(snapshot: Snapshot) -> Path:
                 dois = [normalize_doi(row.doi) for row in rows]
                 for crossref_pub in get_dois(dois):
                     doi = normalize_doi(crossref_pub.get("DOI"))
-                    if doi is None:
-                        logging.warning("unable to determine what DOI to update")
-                        continue
 
                     with get_session(snapshot.database_name).begin() as update_session:
                         update_stmt = (
@@ -57,7 +54,7 @@ def fill_in(snapshot: Snapshot) -> Path:
     return jsonl_file
 
 
-def get_dois(dois: Iterable[str]) -> Iterable[dict]:
+def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
     # the API only allows looking up 49 DOIs at a time in a batch
     for doi_batch in batched(dois, 40):
         prefixed_dois = []
@@ -103,11 +100,23 @@ def get_dois(dois: Iterable[str]) -> Iterable[dict]:
             },
         )
 
-        # be noisy if we don't get a 200 OK
-        resp.raise_for_status()
+        # the API seems to occasionally throw 500 errors, which then work when retried?
+        if resp.status_code == 500:
+            if tries > 1:
+                logging.warning("caught 500 error, retrying")
+                yield from get_dois(doi_batch, tries - 1)
+            else:
+                logging.error(
+                    "caught 500 error, giving up since there are no more tries left!"
+                )
+                return
 
-        results = resp.json()
-        if "message" in results and "items" in results.get("message", {}):
-            yield from results["message"]["items"]
         else:
-            logging.warn(f"Unexpected JSON response {results}")
+            # be noisy if we don't get a 200 OK
+            resp.raise_for_status()
+
+            results = resp.json()
+            if "message" in results and "items" in results.get("message", {}):
+                yield from results["message"]["items"]
+            else:
+                logging.warning(f"Unexpected JSON response {results}")

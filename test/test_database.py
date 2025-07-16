@@ -121,6 +121,7 @@ def test_create_schema(
                 "pub_year",
                 "open_access",
                 "apc",
+                "crossref_json",
                 "dim_json",
                 "openalex_json",
                 "sulpub_json",

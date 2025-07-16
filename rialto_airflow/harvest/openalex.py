@@ -120,7 +120,7 @@ def fill_in(snapshot) -> Path:
 
             for rows in select_session.execute(stmt).partitions():
                 # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
-                dois = [normalize_doi(row["doi"]) for row in rows]
+                dois = [normalize_doi(row.doi) for row in rows]
 
                 # drop dois that are problematic for the openalex api
                 dois_filtered = _clean_dois_for_query(dois)

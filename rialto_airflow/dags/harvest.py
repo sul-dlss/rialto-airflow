@@ -10,6 +10,7 @@ from airflow.models import Variable
 from rialto_airflow import funders
 from rialto_airflow.harvest import (
     authors,
+    crossref,
     dimensions,
     openalex,
     sul_pub,
@@ -149,11 +150,19 @@ def harvest():
         """
         pubmed.fill_in(snapshot)
 
+    @task()
+    def fill_in_crossref(snapshot):
+        """
+        Fill in Crossref data for DOIs from other publication sources.
+        """
+        crossref.fill_in(snapshot)
+
     @task_group()
     def fill_in(snapshot):
         fill_in_openalex(snapshot)
         fill_in_dimensions(snapshot)
         fill_in_wos(snapshot)
+        fill_in_crossref(snapshot)
         # fill_in_pubmed(snapshot)
         # Note: this was disabled on June 9, 2025 because it is running
         # very slowly.  We think we need to figure out how to better

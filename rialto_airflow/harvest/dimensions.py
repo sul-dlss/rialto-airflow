@@ -189,7 +189,7 @@ def fill_in(snapshot: Snapshot):
             )
 
             for rows in select_session.execute(stmt).partitions():
-                dois = [row["doi"] for row in rows]
+                dois = [row.doi for row in rows]
 
                 # note: we could potentially adjust batch_size upwards if we
                 # want to look up more DOIs at a time

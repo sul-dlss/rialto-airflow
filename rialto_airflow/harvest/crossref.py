@@ -67,7 +67,8 @@ def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
 
             # According to Crossref API error messages the DOI must be of the form:
             # doi:10.prefix/suffix where prefix is 4 or more digits and suffix is a string
-            if m := re.match(r"^doi:10\.(\d+)/.+$", doi):
+            # the string must not contain whitespace
+            if m := re.match(r"^doi:10\.(\d+)/\S+$", doi):
                 if len(m.group(1)) >= 4:
                     prefixed_dois.append(doi)
                 else:

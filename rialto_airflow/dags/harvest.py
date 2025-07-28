@@ -164,7 +164,6 @@ def harvest():
         fill_in_wos(snapshot)
         fill_in_crossref(snapshot)
         fill_in_pubmed(snapshot)
-        logging.info("⚠️ pubmed fill in is currently disabled!")
 
     @task()
     def distill_publications(snapshot):

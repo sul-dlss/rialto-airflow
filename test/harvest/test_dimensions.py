@@ -39,7 +39,7 @@ def test_publication_fields():
 
 def test_publications_from_orcid():
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
-    assert len(pubs) == 16
+    assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
     assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
     assert len(pubs[1].keys()) == 73, "second publication has 73 columns"

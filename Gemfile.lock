@@ -40,7 +40,7 @@ GEM
       capistrano-shared_configs
       ed25519
     ed25519 (1.4.0)
-    honeybadger (5.29.1)
+    honeybadger (6.0.2)
       logger
       ostruct
     i18n (1.14.7)
@@ -76,4 +76,4 @@ DEPENDENCIES
   rake
 
 BUNDLED WITH
-   2.7.0
+   2.7.1

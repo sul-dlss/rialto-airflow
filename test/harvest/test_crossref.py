@@ -73,6 +73,16 @@ def test_doi_missing_suffix(caplog):
     assert "Ignoring invalid DOI format doi:10.2345" in caplog.text
 
 
+def test_doi_with_space(caplog):
+    """
+    The API requires that DOIs not include spaces.
+    """
+    assert len(list(crossref.get_dois(["10.1234/ abcdef"]))) == 0, (
+        "doi can't include space"
+    )
+    assert "Ignoring invalid DOI format doi:10.1234/ abcdef" in caplog.text
+
+
 def test_http_500(caplog, requests_mock):
     """
     Crossref API sometimes throws random 500 errors, which work when retried. We

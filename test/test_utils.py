@@ -45,6 +45,7 @@ def test_normalize_doi():
     assert utils.normalize_doi(" 10.1234/5678 ") == "10.1234/5678"
     assert utils.normalize_doi(" doi: 10.1234/5678 ") == "10.1234/5678"
     assert utils.normalize_doi("doi:10.1234/5678") == "10.1234/5678"
+    assert utils.normalize_doi("doi:10.1234/ 56 78") == "10.1234/5678"
     assert utils.normalize_doi(None) is None
 
 

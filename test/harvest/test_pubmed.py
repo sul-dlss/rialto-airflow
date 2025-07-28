@@ -262,10 +262,12 @@ def test_pubmed_search_dois_found_publications():
     """
     This is a live test of the Pubmed Search API to ensure we can get PMIDs back given two DOIs.
     """
-    # These DOIs should both return PMIDs
-    dois = ["10.1118/1.598623", "10.3899/jrheum.220960"]
+    # The first DOIs should both return PMIDs, the last will return nothing
+    dois = ["10.1118/1.598623", "10.3899/jrheum.220960", "bogus"]
     pmids = pubmed.pmids_from_dois(dois)
-    assert pmids == ["10435530", "36243410"], "found both publications"
+    assert set(pmids) == {"10435530", "36243410"}, (
+        "found both publications"
+    )  # ordering is not important
 
 
 def test_pubmed_search_dois_found_one_publication():

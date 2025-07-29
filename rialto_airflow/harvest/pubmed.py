@@ -102,7 +102,7 @@ def fill_in(snapshot: Snapshot):
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.pubmed_json.is_(None))
-                .execution_options(yield_per=50)
+                .execution_options(yield_per=75)
             )
 
             for rows in select_session.execute(stmt).partitions():

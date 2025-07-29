@@ -3,7 +3,6 @@ import logging
 import os
 import re
 from pathlib import Path
-import time
 
 import requests
 import xmltodict
@@ -103,7 +102,7 @@ def fill_in(snapshot: Snapshot):
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.pubmed_json.is_(None))
-                .execution_options(yield_per=50)
+                .execution_options(yield_per=75)
             )
 
             for rows in select_session.execute(stmt).partitions():
@@ -113,6 +112,11 @@ def fill_in(snapshot: Snapshot):
                 logging.info(f"looking up DOIs {dois}")
 
                 # find PMIDs for the DOIs, and then get full records
+                # note that there are likey not as many PMIDs returned as DOIs that were queried
+                # and the ordering may be different thatn the queried DOIs
+                # but this doesn't matter, because we will get the full pubmed record for each PMID returned
+                # and then find the DOI in the full pmbued record to figure out which publication to update
+                # in the database
                 pmids = pmids_from_dois(dois)
                 pubmed_pubs = publications_from_pmids(pmids)
 
@@ -149,22 +153,22 @@ def pmids_from_orcid(orcid: str) -> list[str]:
     return _pubmed_search_api(f"{orcid}[auid]")
 
 
+# NOTE: You will get a list of PMIDs that may be shorter than the list of DOIs if not all are found
+# You cannot assume the ordering is the same as input list of DOIs
 def pmids_from_dois(dois: list[str]) -> list[str]:
     """
     Returns PMIDs associated with given list of DOIs.
     """
+    if not dois:
+        return []
 
-    # Note that we need to do these one by one, since Pubmed doesn't support searching for multiple DOIs
-    pmids = []
-    for doi in dois:
-        # look up the PMID given a DOI
-        pmid_results = _pubmed_search_api(doi)
-        # assuming we get one result, this is probably the PMID we want
-        if len(pmid_results) == 1:
-            pmids.append(pmid_results[0])
-        time.sleep(0.5)  # add a small delay to avoid hitting the API too hard
+    # Build a batch query using OR operator to search for multiple DOIs at once
+    # Format: (doi1[doi] OR doi2[doi] OR doi3[doi])
+    doi_terms = [f'"{doi}"[doi]' for doi in dois]
+    batch_query = "(" + " OR ".join(doi_terms) + ")"
 
-    return pmids
+    # Get all PMIDs for the batch query
+    return _pubmed_search_api(batch_query)
 
 
 def publications_from_pmids(pmids: list[str]) -> list[str]:

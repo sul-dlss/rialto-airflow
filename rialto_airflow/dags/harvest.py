@@ -163,12 +163,7 @@ def harvest():
         fill_in_dimensions(snapshot)
         fill_in_wos(snapshot)
         fill_in_crossref(snapshot)
-        # fill_in_pubmed(snapshot)
-        # Note: this was disabled on June 9, 2025 because it is running
-        # very slowly.  We think we need to figure out how to better
-        # query Pubmed by DOI in bulk.
-        # see https://github.com/sul-dlss/rialto-airflow/issues/400
-        logging.info("⚠️ pubmed fill in is currently disabled!")
+        fill_in_pubmed(snapshot)
 
     @task()
     def distill_publications(snapshot):

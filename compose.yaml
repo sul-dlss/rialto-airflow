@@ -152,6 +152,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
+    image: current-airflow-webserver
     command: webserver
     ports:
       - "8080:8080"
@@ -169,6 +170,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
+    image: current-airflow-scheduler
     command: scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
@@ -184,6 +186,7 @@ services:
 
   airflow-worker:
     <<: *airflow-common
+    image: current-airflow-worker
     command: celery worker
     healthcheck:
       # yamllint disable rule:line-length
@@ -207,6 +210,7 @@ services:
 
   airflow-triggerer:
     <<: *airflow-common
+    image: current-airflow-triggerer
     command: triggerer
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
@@ -222,6 +226,7 @@ services:
 
   airflow-init:
     <<: *airflow-common
+    image: current-airflow-init
     entrypoint: /bin/bash
     # yamllint disable rule:line-length
     command:

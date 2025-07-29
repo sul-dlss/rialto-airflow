@@ -52,4 +52,5 @@ set :docker_compose_rabbitmq_use_hooks, false
 set :docker_compose_build_use_hooks, true
 set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
+set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false

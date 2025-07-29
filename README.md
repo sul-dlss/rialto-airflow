@@ -47,6 +47,7 @@ AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
 AIRFLOW_VAR_OPENALEX_EMAIL=rialto-service@lists.stanford.edu
+AIRFLOW_VAR_OPENALEX_API_KEY: see vault value at puppet/application/rialto-airflow/openalex_api_key
 AIRFLOW_VAR_SUL_PUB_HOST: 'sul-pub-cap-uat.stanford.edu'
 AIRFLOW_VAR_HARVEST_LIMIT: 1000
 ```

@@ -1,7 +1,14 @@
 FROM apache/airflow:2.10.4-python3.12
 
 USER root
-RUN apt-get update && apt-get install -y gcc git libpq-dev
+
+RUN apt-get update
+
+RUN sudo curl -sL https://deb.nodesource.com/setup_24.x | bash -
+
+RUN apt-get install -y gcc git libpq-dev nodejs
+
+RUN npm install -g yarn
 
 ENV PYTHONPATH "${PYTHONPATH}:/opt/airflow/"
 

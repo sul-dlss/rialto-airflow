@@ -292,5 +292,12 @@ def test_colon():
 
 def test_clean_dois_for_query():
     assert openalex._clean_dois_for_query(
-        ["doi:123", "abc/123,45", "aaa/111", "123/abc pmcid:123", "abc/123"]
+        [
+            "doi:123",
+            "abc/123,45",
+            "aaa/111",
+            "123/abc pmcid:123",
+            "abc/123",
+            "10.1093/noajnl/vdad070.013pmcid:pmc10402389",
+        ]
     ) == ["aaa/111", "abc/123"]

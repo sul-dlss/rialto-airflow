@@ -172,7 +172,7 @@ def _clean_dois_for_query(dois: list[str]) -> list[str]:
             continue
         elif doi.startswith("doi:"):
             continue
-        elif " pmcid:" in doi:
+        elif "pmcid:" in doi:
             continue
         else:
             new_dois.append(doi)

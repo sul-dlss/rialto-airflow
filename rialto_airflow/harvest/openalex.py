@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import time
 from pathlib import Path
 
 from pyalex import Authors, Works, config
@@ -22,6 +21,7 @@ config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
 config.retry_http_codes = [429, 500, 503]
+config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
 
 
 def harvest(snapshot: Snapshot, limit=None) -> Path:
@@ -99,9 +99,6 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
 
     # get all the works for the openalex author id
     for page in Works().filter(author={"id": author_id}).paginate(per_page=200):
-        # TODO: get a key so we don't have to sleep!
-        time.sleep(1)
-
         yield from page
 
 
@@ -127,9 +124,6 @@ def fill_in(snapshot) -> Path:
 
                 # looking up multiple DOIs is supported by pipe separating them
                 dois_joined = "|".join(dois_filtered)
-
-                # we could remove this if we get more API privileges
-                time.sleep(1)
 
                 logging.info(f"looking up DOIs {dois_joined}")
                 for openalex_pub in Works().filter(doi=dois_joined).get():

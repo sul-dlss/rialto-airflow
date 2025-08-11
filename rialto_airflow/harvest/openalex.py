@@ -169,12 +169,19 @@ def _clean_dois_for_query(dois: list[str]) -> list[str]:
 
     for doi in dois:
         if "," in doi:
+            _doi_log_message(doi)
             continue
         elif doi.startswith("doi:"):
+            _doi_log_message(doi)
             continue
-        elif " pmcid:" in doi:
+        elif "pmcid:" in doi:
+            _doi_log_message(doi)
             continue
         else:
             new_dois.append(doi)
 
     return new_dois
+
+
+def _doi_log_message(doi: str):
+    logging.warning(f"dropping {doi} from openalex lookup")

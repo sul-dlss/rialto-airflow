@@ -33,7 +33,7 @@ GEM
       capistrano-shared_configs
       ed25519
     ed25519 (1.4.0)
-    honeybadger (6.0.2)
+    honeybadger (6.0.4)
       logger
       ostruct
     i18n (1.14.7)

@@ -139,6 +139,10 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
+    # dlss-capistrano-docker builds images when we deploy with set :docker_compose_build_use_hooks, true
+    # https://github.com/sul-dlss/dlss-capistrano-docker/blob/main/lib/dlss/docker/capistrano/tasks/docker_compose.rake#L100
+    # It will resolve symbolic links, e.g. from the "current" release dir. Providing the anticipated image name as it will be built 
+    # ensures a new image is created each deploy.
     image: current-airflow-webserver
     command: webserver
     ports:

@@ -1,8 +1,17 @@
 import pandas
 import pytest
 
+from sqlalchemy_utils import create_database, database_exists, drop_database
+
 import test.publish.data as test_data
-from rialto_airflow.database import Author, Funder, Publication
+from rialto_airflow.database import (
+    create_schema,
+    engine_setup,
+    RIALTO_REPORTS_DB_NAME,
+    Author,
+    Funder,
+    Publication,
+)
 from rialto_airflow.publish import publication
 
 
@@ -133,6 +142,35 @@ def dataset(test_session):
         session.add(pub2)
 
 
+@pytest.fixture
+def setup_teardown_reports_schema(monkeypatch):
+    """
+    This pytest fixture will ensure that the test reports database exists and has
+    the database schema configured. If the database exists it will be dropped
+    and readded.
+    """
+    db_host = "postgresql+psycopg2://airflow:airflow@localhost:5432"
+
+    db_name = RIALTO_REPORTS_DB_NAME
+    db_uri = f"{db_host}/{db_name}"
+
+    if database_exists(db_uri):
+        drop_database(db_uri)
+
+    create_database(db_uri)
+
+    # note: rialto_airflow.database.create_schema wants the database name not uri
+    monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
+    create_schema(db_name, publication.ReportsSchemaBase)
+
+    # it's handy seeing SQL statements in the log when testing
+    engine_setup(db_name, echo=True)
+
+    yield
+
+    drop_database(db_uri)
+
+
 def test_dataset(test_session, dataset):
     with test_session.begin() as session:
         pub = (
@@ -147,6 +185,7 @@ def test_dataset(test_session, dataset):
         assert len(pub.funders) == 2
 
 
+@pytest.mark.usefixtures("setup_teardown_reports_schema")
 def test_write_publications(test_session, snapshot, dataset, caplog):
     # generate the publications csv file
     csv_path = publication.write_publications(snapshot)

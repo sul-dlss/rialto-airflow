@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
-from rialto_airflow.database import Author
+from rialto_airflow.database import HarvestSchemaBase, Author
 from rialto_airflow.snapshot import Snapshot
 
 
@@ -104,7 +104,7 @@ def test_create_schema(
 
     try:
         database.create_database(snapshot.database_name)
-        database.create_schema(snapshot.database_name)
+        database.create_schema(snapshot.database_name, HarvestSchemaBase)
         # Verify that the tables exist and the columns match the schema
         engine = null_pool_engine(snapshot.database_name)
         with engine.connect() as conn:

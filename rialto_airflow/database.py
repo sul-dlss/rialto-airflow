@@ -16,7 +16,12 @@ from sqlalchemy.sql import expression
 from sqlalchemy.types import DateTime
 
 
-Base = declarative_base()
+# a database with a consistent name, to which we publish summary and denormalized data
+# derived from harvests, for use by e.g. Tableau reports and visualizations
+RIALTO_REPORTS_DB_NAME: str = "rialto_reports_data"
+
+
+HarvestSchemaBase = declarative_base()
 
 
 def db_uri(database_name):
@@ -98,7 +103,7 @@ def pg_utcnow(element, compiler, **kw):
 
 pub_author_association = Table(
     "pub_author_association",
-    Base.metadata,
+    HarvestSchemaBase.metadata,
     Column("publication_id", ForeignKey("publication.id"), primary_key=True),
     Column("author_id", ForeignKey("author.id"), primary_key=True),
 )
@@ -106,13 +111,13 @@ pub_author_association = Table(
 
 pub_funder_association = Table(
     "pub_funder_association",
-    Base.metadata,
+    HarvestSchemaBase.metadata,
     Column("publication_id", ForeignKey("publication.id"), primary_key=True),
     Column("funder_id", ForeignKey("funder.id"), primary_key=True),
 )
 
 
-class Publication(Base):  # type: ignore
+class Publication(HarvestSchemaBase):  # type: ignore
     __tablename__ = "publication"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -137,7 +142,7 @@ class Publication(Base):  # type: ignore
     )
 
 
-class Author(Base):  # type: ignore
+class Author(HarvestSchemaBase):  # type: ignore
     __tablename__ = "author"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -161,7 +166,7 @@ class Author(Base):  # type: ignore
     )
 
 
-class Funder(Base):  # type: ignore
+class Funder(HarvestSchemaBase):  # type: ignore
     __tablename__ = "funder"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -177,11 +182,11 @@ class Funder(Base):  # type: ignore
     )
 
 
-def create_schema(database_name: str):
+def create_schema(database_name: str, schema_base_class):
     """Create tables for the publications and author/orgs data"""
     engine = engine_setup(database_name)
     with engine.connect() as connection:
-        Base.metadata.create_all(engine)
+        schema_base_class.metadata.create_all(engine)
         connection.close()
 
     logging.info(f"Created schema in database {database_name}")

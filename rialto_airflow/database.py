@@ -2,7 +2,7 @@ import logging
 import os
 from functools import cache
 
-from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String, Index
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.compiler import compiles
@@ -13,6 +13,7 @@ from sqlalchemy.orm import (  # type: ignore
     sessionmaker,
 )
 from sqlalchemy.sql import expression
+from sqlalchemy.sql.functions import coalesce
 from sqlalchemy.types import DateTime
 
 
@@ -121,7 +122,7 @@ class Publication(HarvestSchemaBase):  # type: ignore
     __tablename__ = "publication"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    doi = Column(String, unique=True)
+    doi = Column(String)
     title = Column(String)
     pub_year = Column(Integer)
     open_access = Column(String)
@@ -139,6 +140,21 @@ class Publication(HarvestSchemaBase):  # type: ignore
     )
     funders: RelationshipProperty = relationship(
         "Funder", secondary=pub_funder_association, back_populates="publications"
+    )
+
+    __table_args__ = (
+        Index(
+            "doi_wos_idx",
+            coalesce(doi, ""),
+            coalesce(text("(wos_json ->> 'UID')"), ""),
+            unique=True,
+        ),
+        Index(
+            "doi_dim_idx",
+            coalesce(doi, ""),
+            coalesce(text("(dim_json ->> 'id')"), ""),
+            unique=True,
+        ),
     )
 
 
@@ -190,3 +206,10 @@ def create_schema(database_name: str, schema_base_class):
         connection.close()
 
     logging.info(f"Created schema in database {database_name}")
+
+
+def get_index(klass, name) -> Index:
+    """
+    A helper function to look up an index on a model. Maybe there is a SQLAlchemy way of doing this?
+    """
+    return next(filter(lambda index: index.name == name, klass.__table__.indexes))

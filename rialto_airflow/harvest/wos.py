@@ -15,11 +15,14 @@ from rialto_airflow.database import (
     Publication,
     get_session,
     pub_author_association,
+    get_index,
 )
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi
 
 Params = Dict[str, Union[int, str]]
+
+doi_wos_idx = get_index(Publication, "doi_wos_idx")
 
 
 def harvest(snapshot: Snapshot, limit=None) -> Path:
@@ -60,7 +63,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                                 wos_json=wos_pub,
                             )
                             .on_conflict_do_update(
-                                constraint="publication_doi_key",
+                                constraint=doi_wos_idx,
                                 set_=dict(wos_json=wos_pub),
                             )
                             .returning(Publication.id)

@@ -44,12 +44,6 @@ def remove_duplicates(snapshot: Snapshot) -> int:
                             publication_id=main_pub, author_id=author.id
                         )
                     )
-                    session.execute(
-                        delete(pub_author_association)
-                        .where(pub_author_association.c.publication_id == pub.id)
-                        .where(pub_author_association.c.author_id == author.id)
-                    )
-                # Remove the duplicate publication
-                # This could strand an Author with no publications?
-                session.execute(delete(Publication).where(Publication.id == pub.id))
+                # Delete the duplicate
+                session.execute(delete(Publication).where(Publication.id == pub.id))  # type: ignore
     return num_dupes

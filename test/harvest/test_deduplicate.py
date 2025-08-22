@@ -1,8 +1,8 @@
 import pytest
 
+from rialto_airflow.database import Author, Publication
 from rialto_airflow.harvest import deduplicate
 import test.publish.data as test_data
-from rialto_airflow.database import Author, Publication
 
 
 @pytest.fixture
@@ -84,9 +84,13 @@ def test_wos_deduplicate(test_session, dataset, snapshot):
     dupes = deduplicate.remove_duplicates(snapshot)
     assert dupes == 1
     with test_session.begin() as session:
+        # only one publication remains and dupe has been deleted
         assert session.query(Publication).count() == 1
         pubs = session.query(Publication).where(
             Publication.wos_json["UID"].astext == "WOS:000123456789"
         )
         assert pubs.count() == 1
         assert len(pubs.one().authors) == 2
+        # the second author remains and is linked to one publication
+        author2 = session.query(Author).where(Author.orcid == "02980983434").one()
+        assert len(author2.publications) == 1

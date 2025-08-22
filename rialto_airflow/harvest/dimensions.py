@@ -16,9 +16,13 @@ from rialto_airflow.database import (
     Publication,
     get_session,
     pub_author_association,
+    get_index,
 )
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi, normalize_orcid
+
+
+doi_dim_idx = get_index(Publication, "doi_dim_idx")
 
 
 def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
@@ -52,7 +56,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                             insert(Publication)
                             .values(doi=doi, dim_json=dimensions_pub_json)
                             .on_conflict_do_update(
-                                constraint="publication_doi_key",
+                                constraint=doi_dim_idx,
                                 set_=dict(dim_json=dimensions_pub_json),
                             )
                             .returning(Publication.id)

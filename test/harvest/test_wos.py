@@ -208,6 +208,32 @@ def test_harvest_when_doi_exists(
         assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
+def test_wos_id_constraint(snapshot, test_session, mock_authors, monkeypatch):
+    """
+    A database constraint prevents us from loading a publication with the same WoS ID.
+    """
+
+    def mock_pubs(*args, **kwargs):
+        yield from [{"UID": 1}, {"UID": 1}]
+
+    monkeypatch.setattr(wos, "orcid_publications", mock_pubs)
+
+    wos.harvest(snapshot)
+
+    # we write to the jsonl file for all retrieved records
+    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 4
+
+    # mock_authors adds two authors to the database, each of which will get our two mocked
+    # publications. but only one Publication should make it into the database since they
+    # share a UID. The publication should be associated with both authors.
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publication loaded"
+        pub = (
+            session.query(Publication).where(Publication.wos_json["UID"] == "1").first()
+        )
+        assert len(pub.authors) == 2
+
+
 def test_log_message(tmp_path, mock_authors, mock_many_wos, caplog):
     caplog.set_level(logging.INFO)
     snapshot = Snapshot.create(tmp_path, "rialto_test")

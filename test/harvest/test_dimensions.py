@@ -336,3 +336,30 @@ def test_fill_in_no_doi(
     assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_dim_id_constraint(snapshot, test_session, mock_authors, monkeypatch):
+    """
+    A database constraint prevents us from loading a publication with the same
+    Dimensions ID.
+    """
+
+    def mock_pubs(*args, **kwargs):
+        yield from [{"id": 1}, {"id": 1}]
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", mock_pubs)
+
+    dimensions.harvest(snapshot)
+
+    # jsonl file is there and has two lines (one for each author)
+    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 4
+
+    # mock_authors adds two authors to the database, each of which will get our two mocked
+    # publications. but only one Publication should make it into the database since they
+    # share a UID. The publication should be associated with both authors.
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publication loaded"
+        pub = (
+            session.query(Publication).where(Publication.dim_json["id"] == "1").first()
+        )
+        assert len(pub.authors) == 2

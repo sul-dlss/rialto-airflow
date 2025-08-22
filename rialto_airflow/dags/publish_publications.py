@@ -6,6 +6,11 @@ from airflow.decorators import dag, task
 from airflow.models import Variable
 
 import rialto_airflow.google as google
+from rialto_airflow.database import (
+    RIALTO_REPORTS_DB_NAME,
+    create_database,
+    database_exists,
+)
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
@@ -35,6 +40,11 @@ def publish_publications():
 
     @task
     def publish(snapshot):
+        if not database_exists(RIALTO_REPORTS_DB_NAME):
+            create_database(RIALTO_REPORTS_DB_NAME)
+
+        publication.init_reports_data_schema()
+
         # these probably could be run in parallel (separate tasks)?
         publication.write_contributions_by_department(snapshot)
         publication.write_contributions_by_school(snapshot)

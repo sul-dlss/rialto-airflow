@@ -18,7 +18,7 @@ from rialto_airflow.harvest import (
     pubmed,
     distill,
 )
-from rialto_airflow.database import create_database, create_schema
+from rialto_airflow.database import create_database, create_schema, HarvestSchemaBase
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
 from rialto_airflow.honeybadger import default_args
@@ -66,7 +66,7 @@ def harvest():
         snapshot = Snapshot.create(data_dir)
         shutil.copyfile(Path(rialto_authors_file(data_dir)), snapshot.authors_csv)
         create_database(snapshot.database_name)
-        create_schema(snapshot.database_name)
+        create_schema(snapshot.database_name, HarvestSchemaBase)
 
         return snapshot
 

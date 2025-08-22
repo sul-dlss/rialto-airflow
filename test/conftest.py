@@ -5,6 +5,7 @@ from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import (
+    HarvestSchemaBase,
     Author,
     Publication,
     create_schema,
@@ -33,7 +34,7 @@ def test_engine(monkeypatch):
     create_database(db_uri)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
-    create_schema(db_name)
+    create_schema(db_name, HarvestSchemaBase)
 
     # it's handy seeing SQL statements in the log when testing
     return engine_setup(db_name, echo=True)

@@ -2,15 +2,50 @@ import logging
 from csv import DictWriter
 from pathlib import Path
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, Boolean, Column, Integer, String
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import declarative_base  # type: ignore
+from sqlalchemy.types import DateTime
 
-from rialto_airflow.database import get_session, Publication, Author, Funder
+from rialto_airflow.database import (
+    RIALTO_REPORTS_DB_NAME,
+    create_schema,
+    get_session,
+    utcnow,
+    Publication,
+    Author,
+    Funder,
+)
 from rialto_airflow.utils import get_types, get_csv_path, normalize_pmid
 import rialto_airflow.publish.publication_utils as pub_utils
 
 
+ReportsSchemaBase = declarative_base()
+
+
+class PublicationAugmented(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publication_augmented"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doi = Column(String, unique=True)
+    pub_year = Column(Integer)
+    apc = Column(Integer)
+    open_access = Column(String)
+    types = Column(String)
+    funders = Column(String)
+    federally_funded = Column(Boolean)
+    academic_council_authored = Column(Boolean)
+    faculty_authored = Column(Boolean)
+    created_at = Column(DateTime, server_default=utcnow())
+    updated_at = Column(DateTime, onupdate=utcnow())
+
+
 def google_drive_folder() -> str:
     return "publication-dashboard"
+
+
+def init_reports_data_schema() -> None:
+    create_schema(RIALTO_REPORTS_DB_NAME, ReportsSchemaBase)
 
 
 def write_publications(snapshot) -> Path:
@@ -37,7 +72,7 @@ def write_publications(snapshot) -> Path:
         csv_output = DictWriter(output, fieldnames=col_names)
         csv_output.writeheader()
 
-        with get_session(snapshot.database_name).begin() as session:
+        with get_session(snapshot.database_name).begin() as select_session:
             # This query joins the publication and funder tables
             # Since we want one row per publication, and a publication can
             # have multiple funders, the funder names, and the booleans
@@ -70,9 +105,16 @@ def write_publications(snapshot) -> Path:
                 .execution_options(yield_per=10_000)
             )
 
-            for row in session.execute(stmt):
-                csv_output.writerow(
-                    {
+            with get_session(RIALTO_REPORTS_DB_NAME).begin() as insert_session:
+                insert_session.connection(
+                    execution_options={"isolation_level": "SERIALIZABLE"}
+                )
+                insert_session.connection().execute(
+                    f"TRUNCATE {PublicationAugmented.__tablename__}"
+                )
+
+                for row in select_session.execute(stmt):
+                    row_values = {
                         "doi": row.doi,
                         "pub_year": row.pub_year,
                         "apc": row.apc,
@@ -83,8 +125,14 @@ def write_publications(snapshot) -> Path:
                         "academic_council_authored": any(row.academic_council),
                         "faculty_authored": "faculty" in row.primary_role,
                     }
-                )
-                output.flush()
+                    csv_output.writerow(row_values)
+                    output.flush()
+
+                    insert_session.execute(
+                        insert(PublicationAugmented)
+                        .values(**row_values)
+                        .on_conflict_do_nothing()
+                    )
 
         logging.info(f"finished writing publications {csv_path}")
 

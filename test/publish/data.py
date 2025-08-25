@@ -58,6 +58,7 @@ def openalex_no_title_json():
 
 def wos_json():
     return {
+        "UID": "WOS:000123456789",
         "fullrecord_metadata": {
             "normalized_doctypes": {"doctype": ["Article", "Abstract"]}
         },

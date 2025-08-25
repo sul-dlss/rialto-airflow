@@ -17,6 +17,7 @@ from rialto_airflow.harvest import (
     wos,
     pubmed,
     distill,
+    deduplicate,
 )
 from rialto_airflow.database import create_database, create_schema, HarvestSchemaBase
 from rialto_airflow.snapshot import Snapshot
@@ -166,6 +167,13 @@ def harvest():
         fill_in_pubmed(snapshot)
 
     @task()
+    def remove_duplicates(snapshot):
+        """
+        Remove duplicates based on WOS UID.
+        """
+        deduplicate.remove_duplicates(snapshot)
+
+    @task()
     def distill_publications(snapshot):
         """
         Distill the publication metadata into publication table columns.
@@ -181,6 +189,7 @@ def harvest():
 
     @task_group()
     def post_process(snapshot):
+        remove_duplicates(snapshot)
         distill_publications(snapshot)
         link_funders(snapshot)
 

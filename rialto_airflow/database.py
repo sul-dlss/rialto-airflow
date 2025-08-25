@@ -104,9 +104,22 @@ def pg_utcnow(element, compiler, **kw):
 pub_author_association = Table(
     "pub_author_association",
     HarvestSchemaBase.metadata,
-    Column("publication_id", ForeignKey("publication.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "publication_id",
+        ForeignKey("publication.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
     Column("author_id", ForeignKey("author.id", ondelete="CASCADE"), primary_key=True),
 )
+
+
+pub_funder_association = Table(
+    "pub_funder_association",
+    HarvestSchemaBase.metadata,
+    Column("publication_id", ForeignKey("publication.id"), primary_key=True),
+    Column("funder_id", ForeignKey("funder.id"), primary_key=True),
+)
+
 
 class Publication(HarvestSchemaBase):  # type: ignore
     __tablename__ = "publication"

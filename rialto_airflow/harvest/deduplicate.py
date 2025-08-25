@@ -18,6 +18,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
         ).all()
         num_dupes = len(duplicates)
         logging.info(f"Found {num_dupes} publication(s) with duplicates.")
+        count_deleted = 0
 
         wos_uids = [row[1] for row in duplicates]
         for wos_uid in wos_uids:
@@ -34,7 +35,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
             # keep the first one and merge authors
             main_pub = pubs[0].id
             logging.info(
-                f"Keeping publication {main_pub} as the record for this publication."
+                f"Keeping publication {main_pub} as the record for this publication. Removing {len(pubs) - 1} publication records."
             )
             for pub in pubs[1:]:
                 # Move author relationships to the first instance
@@ -46,4 +47,6 @@ def remove_duplicates(snapshot: Snapshot) -> int:
                     )
                 # Delete the duplicate
                 session.execute(delete(Publication).where(Publication.id == pub.id))  # type: ignore
+                count_deleted += 1
+        logging.info(f"Deleted a total of {count_deleted} publication rows.")
     return num_dupes

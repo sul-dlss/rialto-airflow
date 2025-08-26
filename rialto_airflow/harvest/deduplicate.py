@@ -5,7 +5,7 @@ from rialto_airflow.database import Publication, get_session, pub_author_associa
 from rialto_airflow.snapshot import Snapshot
 
 
-def remove_duplicates(snapshot: Snapshot) -> int:
+def remove_wos_duplicates(snapshot: Snapshot) -> int:
     logging.info("Removing any duplicate publications.")
     with get_session(snapshot.database_name).begin() as session:
         # Find all duplicate WOS publications in the snapshot
@@ -17,7 +17,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
             .having(func.count() > 1)
         ).all()
         num_dupes = len(duplicates)
-        logging.info(f"Found {num_dupes} publication(s) with duplicates.")
+        logging.info(f"Found {num_dupes} publications with duplicates.")
         count_deleted = 0
 
         wos_uids = [row[1] for row in duplicates]
@@ -34,9 +34,6 @@ def remove_duplicates(snapshot: Snapshot) -> int:
             # pubs contains all Publications with this WOS UID
             # keep the first one and merge authors
             main_pub = pubs[0].id
-            logging.info(
-                f"Keeping publication {main_pub} as the record for this publication. Removing {len(pubs) - 1} publication records."
-            )
             for pub in pubs[1:]:
                 # Move author relationships to the first instance
                 for author in pub.authors:

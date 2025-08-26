@@ -81,7 +81,7 @@ def test_wos_deduplicate(test_session, dataset, snapshot):
     Test that the publication with a duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
-    dupes = deduplicate.remove_duplicates(snapshot)
+    dupes = deduplicate.remove_wos_duplicates(snapshot)
     assert dupes == 1
     with test_session.begin() as session:
         # only one publication remains and dupe has been deleted

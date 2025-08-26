@@ -171,7 +171,7 @@ def harvest():
         """
         Remove duplicates based on WOS UID.
         """
-        deduplicate.remove_duplicates(snapshot)
+        deduplicate.remove_wos_duplicates(snapshot)
 
     @task()
     def distill_publications(snapshot):

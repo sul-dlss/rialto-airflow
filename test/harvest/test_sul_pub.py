@@ -19,23 +19,30 @@ no_auth = not (sul_pub_host and sul_pub_key)
 response = {
     "records": [
         {
-            "title": "An example title",
-            "identifier": [
-                {"type": "doi", "id": "https://doi.org/10.1515/9781503624153"}
-            ],
+            "title": "An example title with DOI in top level only",
+            "doi": "https://doi.org/10.1515/9781503624153",
             "authorship": [
                 {"status": "approved", "cap_profile_id": "12345"},
                 {"status": "approved", "cap_profile_id": "123456"},
             ],
         },
         {
-            "title": "Another title",
+            "title": "Another title with no approved authors - will be ignored",
             "identifier": [
                 {"type": "doi", "id": "https://doi.org/10.1215/0961754X-9809305"}
             ],
             "authorship": [
                 {"status": "unknown", "cap_profile_id": "12345"},
                 {"status": "unknown", "cap_profile_id": "123456"},
+            ],
+        },
+        {
+            "title": "Another title that will be harvested with DOI in identifier field only",
+            "identifier": [
+                {"type": "doi", "id": "https://doi.org/10.9999/0161754X-9809305"}
+            ],
+            "authorship": [
+                {"status": "approved", "cap_profile_id": "12345"},
             ],
         },
     ]
@@ -51,17 +58,25 @@ def test_harvest(tmp_path, test_session, mock_authors, requests_mock):
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # make sure the jsonl file looks good
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # make sure there are publications in the database
     with test_session.begin() as session:
-        assert session.query(Publication).count() == 1, "one publication loaded"
+        assert session.query(Publication).count() == 2, "two publications loaded"
 
-        pub = session.query(Publication).first()
-        assert pub.doi == "10.1515/9781503624153", "doi was normalized"
+        # Fetch all publications in a deterministic order
+        pubs = session.query(Publication).order_by(Publication.id).all()
+
+        pub = pubs[0]
+        assert pub.doi == "10.1515/9781503624153", "first DOI present"
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].cap_profile_id == "12345"
         assert pub.authors[1].cap_profile_id == "123456"
+
+        pub2 = pubs[1]
+        assert pub2.doi == "10.9999/0161754x-9809305", "second DOI present"
+        assert len(pub2.authors) == 1, "publication has one author"
+        assert pub2.authors[0].cap_profile_id == "12345"
 
 
 def test_harvest_when_doi_exists(
@@ -75,15 +90,17 @@ def test_harvest_when_doi_exists(
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:
-        assert session.query(Publication).count() == 1, "one publication loaded"
-        pub = session.query(Publication).first()
+        assert session.query(Publication).count() == 2, "two publications loaded"
+        pub = session.query(Publication).order_by(Publication.id).first()
 
         assert pub.sulpub_json
-        assert pub.sulpub_json["title"] == "An example title", "sulpub json updated"
+        assert (
+            pub.sulpub_json["title"] == "An example title with DOI in top level only"
+        ), "sulpub json updated"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
 
@@ -108,15 +125,17 @@ def test_harvest_when_author_exists(
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:
-        assert session.query(Publication).count() == 1, "one publication loaded"
-        pub = session.query(Publication).first()
+        assert session.query(Publication).count() == 2, "two publications loaded"
+        pub = session.query(Publication).order_by(Publication.id).first()
 
         assert pub.sulpub_json
-        assert pub.sulpub_json["title"] == "An example title", "sulpub json updated"
+        assert (
+            pub.sulpub_json["title"] == "An example title with DOI in top level only"
+        ), "sulpub json updated"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
 

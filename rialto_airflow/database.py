@@ -104,8 +104,12 @@ def pg_utcnow(element, compiler, **kw):
 pub_author_association = Table(
     "pub_author_association",
     HarvestSchemaBase.metadata,
-    Column("publication_id", ForeignKey("publication.id"), primary_key=True),
-    Column("author_id", ForeignKey("author.id"), primary_key=True),
+    Column(
+        "publication_id",
+        ForeignKey("publication.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("author_id", ForeignKey("author.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -135,7 +139,10 @@ class Publication(HarvestSchemaBase):  # type: ignore
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     authors: RelationshipProperty = relationship(
-        "Author", secondary=pub_author_association, back_populates="publications"
+        "Author",
+        secondary=pub_author_association,
+        back_populates="publications",
+        cascade="all, delete",
     )
     funders: RelationshipProperty = relationship(
         "Funder", secondary=pub_funder_association, back_populates="publications"

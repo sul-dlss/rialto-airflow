@@ -150,3 +150,36 @@ def test_cleanup_snapshots_continues_on_drop_error(tmp_path, monkeypatch, caplog
 
     # the exception class name should be included in the log message
     assert any("RuntimeError" in rec.getMessage() for rec in caplog.records)
+
+
+def test_cleanup_ignores_non_timestamped_rialto_names(tmp_path, monkeypatch):
+    """Ensure databases like `rialto-airflow` and `rialto_reports_data` are not dropped.
+
+    The cleanup logic only drops databases matching `rialto_` followed by a 14-digit timestamp.
+    """
+    # prepare a snapshots dir so cleanup_snapshots can iterate folders
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+
+    calls = []
+
+    def fake_drop(name):
+        calls.append(name)
+
+    # Return a mix of names: two non-timestamped that should be ignored and one timestamped that should be dropped
+    monkeypatch.setattr(
+        "rialto_airflow.cleanup.database_names",
+        lambda: ["rialto-airflow", "rialto_reports_data", "rialto_20000101000000"],
+    )
+    monkeypatch.setattr("rialto_airflow.cleanup.drop_database", fake_drop)
+
+    # run cleanup with 0 interval so the timestamped db is considered old
+    from rialto_airflow.cleanup import cleanup_snapshots
+
+    cleanup_snapshots(0, str(tmp_path))
+
+    # ensure the non-timestamped names were not dropped
+    assert "rialto-airflow" not in calls
+    assert "rialto_reports_data" not in calls
+    # the timestamped name should have been passed to drop_database
+    assert "rialto_20000101000000" in calls

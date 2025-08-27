@@ -111,12 +111,7 @@ def database_names() -> list:
                 "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true AND datname != 'postgres' ORDER BY datname"
             )
         )
-        # prefer scalars() when available to get a list[str]
-        try:
-            return result.scalars().all()
-        except Exception:
-            # fallback for older SQLAlchemy result objects
-            return [row[0] for row in result]
+    return result.scalars().all()
 
 
 class utcnow(expression.FunctionElement):

@@ -58,6 +58,9 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
             age = current_time - database_time
             if age.days > cleanup_interval_days:
                 try:
+                    logging.info(
+                        f"Dropping database: {database_name} (age: {age.days} days)"
+                    )
                     drop_database(database_name)
                 except Exception as exc:
                     logging.exception(

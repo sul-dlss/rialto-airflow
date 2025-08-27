@@ -101,6 +101,24 @@ def database_exists(database_name: str) -> bool:
         return result.fetchone() is not None
 
 
+def database_names() -> list:
+    """Returns a list of database names"""
+
+    engine = engine_setup("postgres")
+    with engine.connect() as connection:
+        result = connection.execute(
+            text(
+                "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true AND datname != 'postgres' ORDER BY datname"
+            )
+        )
+        # prefer scalars() when available to get a list[str]
+        try:
+            return result.scalars().all()
+        except Exception:
+            # fallback for older SQLAlchemy result objects
+            return [row[0] for row in result]
+
+
 class utcnow(expression.FunctionElement):
     """
     Create a UTC timestamp

@@ -118,16 +118,17 @@ def test_cleanup_snapshots_continues_on_drop_error(tmp_path, monkeypatch, caplog
     # monkeypatch database helpers imported in cleanup module
     calls = []
 
-    def fake_db_exists(name):
-        return True
-
     def fake_drop(name):
         calls.append(name)
         # fail the first drop, succeed on the second
         if len(calls) == 1:
             raise RuntimeError("boom")
 
-    monkeypatch.setattr("rialto_airflow.cleanup.database_exists", fake_db_exists)
+    # cleanup now iterates database_names(); return the two rialto_ names in order
+    monkeypatch.setattr(
+        "rialto_airflow.cleanup.database_names",
+        lambda: [f"rialto_{s1.name}", f"rialto_{s2.name}"],
+    )
     monkeypatch.setattr("rialto_airflow.cleanup.drop_database", fake_drop)
 
     caplog.set_level(logging.ERROR)
@@ -138,12 +139,12 @@ def test_cleanup_snapshots_continues_on_drop_error(tmp_path, monkeypatch, caplog
     assert not s1.exists()
     assert not s2.exists()
 
-    # drop_database should have been called for both databases
-    assert calls == [f"rialto_{s2.name}", f"rialto_{s1.name}"]
+    # drop_database should have been called for both databases (in the order returned by database_names)
+    assert calls == [f"rialto_{s1.name}", f"rialto_{s2.name}"]
 
-    # the failure from the first drop should have been logged
+    # the failure from the first drop (for the first name) should have been logged
     assert any(
-        f"Failed to drop database rialto_{s2.name}" in rec.getMessage()
+        f"Failed to drop database rialto_{s1.name}" in rec.getMessage()
         for rec in caplog.records
     )
 

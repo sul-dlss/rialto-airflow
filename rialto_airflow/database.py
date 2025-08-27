@@ -60,7 +60,7 @@ def create_database(database_name: str) -> str:
     return database_name
 
 
-def drop_database(database_name: str, force: bool = False):
+def drop_database(database_name: str, force: bool = True):
     """Drop a DAG-specific database for publications and author/orgs data"""
 
     # set up the connection using the default postgres database
@@ -83,7 +83,7 @@ def drop_database(database_name: str, force: bool = False):
 
         # now drop the database
         connection.execute(text(f"drop database {database_name}"))
-    logging.info(f"Dropped database {database_name}")
+        logging.info(f"Dropped database {database_name}")
 
 
 def database_exists(database_name: str) -> bool:

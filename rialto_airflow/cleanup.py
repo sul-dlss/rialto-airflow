@@ -43,4 +43,9 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
                 database_name = f"rialto_{folder_path.name}"
                 logging.info(f"Searching for database named {database_name}")
                 if database_exists(database_name):
-                    drop_database(database_name)
+                    try:
+                        drop_database(database_name)
+                    except Exception as exc:
+                        logging.exception(
+                            f"Failed to drop database {database_name} for snapshot {folder_path} (error: {exc.__class__.__name__})"
+                        )

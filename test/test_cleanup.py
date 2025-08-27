@@ -101,3 +101,51 @@ def test_cleanup_author_files(tmp_path, caplog):
         "Skipping file authors_active.csv.2025-05-03 as it does not match the expected date format"
         in caplog.text
     )
+
+
+def test_cleanup_snapshots_continues_on_drop_error(tmp_path, monkeypatch, caplog):
+    # create snapshots folder with two old snapshot directories
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+
+    s1 = snapshots / "20000101000000"
+    s2 = snapshots / "20000202000000"
+    s1.mkdir()
+    s2.mkdir()
+    (s1 / "file.txt").write_text("one")
+    (s2 / "file.txt").write_text("two")
+
+    # monkeypatch database helpers imported in cleanup module
+    calls = []
+
+    def fake_db_exists(name):
+        return True
+
+    def fake_drop(name):
+        calls.append(name)
+        # fail the first drop, succeed on the second
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr("rialto_airflow.cleanup.database_exists", fake_db_exists)
+    monkeypatch.setattr("rialto_airflow.cleanup.drop_database", fake_drop)
+
+    caplog.set_level(logging.ERROR)
+    # run cleanup with interval 0 so folders are considered old
+    cleanup_snapshots(0, str(tmp_path))
+
+    # both snapshot folders should be removed by rmtree
+    assert not s1.exists()
+    assert not s2.exists()
+
+    # drop_database should have been called for both databases
+    assert calls == [f"rialto_{s2.name}", f"rialto_{s1.name}"]
+
+    # the failure from the first drop should have been logged
+    assert any(
+        f"Failed to drop database rialto_{s2.name}" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+    # the exception class name should be included in the log message
+    assert any("RuntimeError" in rec.getMessage() for rec in caplog.records)

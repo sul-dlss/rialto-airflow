@@ -60,7 +60,7 @@ def create_database(database_name: str) -> str:
     return database_name
 
 
-def drop_database(database_name: str):
+def drop_database(database_name: str, force: bool = False):
     """Drop a DAG-specific database for publications and author/orgs data"""
 
     # set up the connection using the default postgres database
@@ -69,16 +69,17 @@ def drop_database(database_name: str):
         # ensure we can run DDL outside of a transaction
         connection.execution_options(isolation_level="AUTOCOMMIT")
 
-        # terminate all other backends connected to the target database
-        # (exclude the current session)
-        connection.execute(
-            text(
-                "SELECT pg_terminate_backend(pid) "
-                "FROM pg_stat_activity "
-                "WHERE datname = :db_name AND pid <> pg_backend_pid()"
-            ),
-            {"db_name": database_name},
-        )
+        if force:
+            # terminate all other backends connected to the target database
+            # (exclude the current session)
+            connection.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) "
+                    "FROM pg_stat_activity "
+                    "WHERE datname = :db_name AND pid <> pg_backend_pid()"
+                ),
+                {"db_name": database_name},
+            )
 
         # now drop the database
         connection.execute(text(f"drop database {database_name}"))

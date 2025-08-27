@@ -104,9 +104,15 @@ def publications(host, key, per_page=1000, limit=None):
             yield record
 
 
-def extract_doi(record):
-    for id in record.get("identifier"):
+def extract_doi(pub):
+    if pub.get("doi"):
+        return normalize_doi(pub["doi"])
+
+    for id in pub.get("identifier"):
         if id.get("type") == "doi" and "id" in id:
+            logging.info(
+                f"doi was not available in top level for sulpub id {pub.get('sulpubid')} but found in identifier block"
+            )
             return normalize_doi(id["id"])
     return None
 

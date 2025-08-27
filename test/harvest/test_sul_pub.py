@@ -1,4 +1,5 @@
 import os
+import logging
 
 import dotenv
 
@@ -28,6 +29,7 @@ response = {
         },
         {
             "title": "Another title with no approved authors - will be ignored",
+            "sulpubid": "456012",
             "identifier": [
                 {"type": "doi", "id": "https://doi.org/10.1215/0961754X-9809305"}
             ],
@@ -38,6 +40,7 @@ response = {
         },
         {
             "title": "Another title that will be harvested with DOI in identifier field only",
+            "sulpubid": "123789",
             "identifier": [
                 {"type": "doi", "id": "https://doi.org/10.9999/0161754X-9809305"}
             ],
@@ -49,7 +52,9 @@ response = {
 }
 
 
-def test_harvest(tmp_path, test_session, mock_authors, requests_mock):
+def test_harvest(tmp_path, test_session, mock_authors, caplog, requests_mock):
+    caplog.set_level(logging.INFO)
+
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
@@ -77,6 +82,10 @@ def test_harvest(tmp_path, test_session, mock_authors, requests_mock):
         assert pub2.doi == "10.9999/0161754x-9809305", "second DOI present"
         assert len(pub2.authors) == 1, "publication has one author"
         assert pub2.authors[0].cap_profile_id == "12345"
+        assert (
+            "doi was not available in top level for sulpub id 456012 but found in identifier block"
+            in caplog.text
+        )
 
 
 def test_harvest_when_doi_exists(

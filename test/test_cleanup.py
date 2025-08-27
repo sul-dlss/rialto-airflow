@@ -183,3 +183,61 @@ def test_cleanup_ignores_non_timestamped_rialto_names(tmp_path, monkeypatch):
     assert "rialto_reports_data" not in calls
     # the timestamped name should have been passed to drop_database
     assert "rialto_20000101000000" in calls
+
+
+def test_logs_when_rmtree_fails(tmp_path, monkeypatch, caplog):
+    """Ensure that an exception during shutil.rmtree is logged and does not crash cleanup."""
+    # create a snapshots directory and a single old snapshot folder
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+
+    folder = snapshots / "20000101000000"
+    folder.mkdir()
+    (folder / "file.txt").write_text("x")
+
+    # monkeypatch rmtree in the cleanup module to raise
+    def fake_rmtree(path):
+        raise RuntimeError("rmtree boom")
+
+    monkeypatch.setattr("rialto_airflow.cleanup.shutil.rmtree", fake_rmtree)
+    # avoid touching the database layer during this test
+    monkeypatch.setattr("rialto_airflow.cleanup.database_names", lambda: [])
+
+    caplog.set_level(logging.ERROR)
+
+    # run cleanup; use interval 0 so the folder is considered old
+    from rialto_airflow.cleanup import cleanup_snapshots
+
+    cleanup_snapshots(0, str(tmp_path))
+
+    # The failing rmtree should have been logged with exception name
+    assert any(
+        "Failed to delete folder" in rec.getMessage()
+        and "RuntimeError" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+
+def test_cleanup_drops_timestamped_database(tmp_path, monkeypatch):
+    """Ensure cleanup_snapshots calls drop_database for timestamped rialto databases."""
+    # create snapshots dir so cleanup iterates without error
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+
+    calls = []
+
+    def fake_drop(name):
+        calls.append(name)
+
+    # return a single timestamped database name that should be dropped
+    monkeypatch.setattr(
+        "rialto_airflow.cleanup.database_names",
+        lambda: ["rialto_20000101000000"],
+    )
+    monkeypatch.setattr("rialto_airflow.cleanup.drop_database", fake_drop)
+
+    from rialto_airflow.cleanup import cleanup_snapshots
+
+    cleanup_snapshots(0, str(tmp_path))
+
+    assert calls == ["rialto_20000101000000"]

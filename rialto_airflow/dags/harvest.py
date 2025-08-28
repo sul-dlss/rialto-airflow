@@ -189,9 +189,10 @@ def harvest():
 
     @task_group()
     def post_process(snapshot):
-        remove_duplicates(snapshot)
-        distill_publications(snapshot)
-        link_funders(snapshot)
+        dedupe = remove_duplicates(snapshot)
+        distill = distill_publications(snapshot)
+        link = link_funders(snapshot)
+        dedupe >> [distill, link]
 
     @task()
     def complete(snapshot):

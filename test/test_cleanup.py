@@ -179,6 +179,8 @@ def test_cleanup_ignores_non_timestamped_rialto_names(tmp_path, monkeypatch):
     # ensure the non-timestamped names were not dropped
     assert "rialto-airflow" not in calls
     assert "rialto_reports_data" not in calls
+    # ensure postgres is not dropped!
+    assert "postgres" not in calls
     # the timestamped name should have been passed to drop_database
     assert "rialto_20000101000000" in calls
 

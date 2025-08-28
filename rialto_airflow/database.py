@@ -108,7 +108,7 @@ def database_names() -> list:
     with engine.connect() as connection:
         result = connection.execute(
             text(
-                "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true AND datname != 'postgres' ORDER BY datname"
+                "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true AND datname NOT IN ('postgres', 'airflow', 'rialto-airflow') ORDER BY datname"
             )
         )
     return result.scalars().all()

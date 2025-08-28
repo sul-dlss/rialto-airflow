@@ -48,7 +48,7 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
                     logging.exception(
                         f"Failed to delete folder {folder_path} (error: {exc})"
                     )
-    # next consider all of the the databases
+    # next consider all of the databases (note: the `database_names` method already excludes postgres and airflow)
     for database_name in database_names():
         logging.info(f"Considering database {database_name}")
         # Check if database name matches the expected format "rialto_%Y%m%d%H%M%S"

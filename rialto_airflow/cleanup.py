@@ -46,7 +46,7 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
                     shutil.rmtree(folder_path)  # delete folder and all contents
                 except Exception as exc:
                     logging.exception(
-                        f"Failed to delete folder {folder_path} (error: {exc.__class__.__name__})"
+                        f"Failed to delete folder {folder_path} (error: {exc})"
                     )
     # next consider all of the the databases
     for database_name in database_names():
@@ -64,5 +64,5 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
                     drop_database(database_name)
                 except Exception as exc:
                     logging.exception(
-                        f"Failed to drop database {database_name} (error: {exc.__class__.__name__})"
+                        f"Failed to drop database {database_name} (error: {exc})"
                     )

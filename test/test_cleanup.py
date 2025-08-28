@@ -145,11 +145,9 @@ def test_cleanup_snapshots_continues_on_drop_error(tmp_path, monkeypatch, caplog
     # the failure from the first drop (for the first name) should have been logged
     assert any(
         f"Failed to drop database rialto_{s1.name}" in rec.getMessage()
+        and "boom" in rec.getMessage()
         for rec in caplog.records
     )
-
-    # the exception class name should be included in the log message
-    assert any("RuntimeError" in rec.getMessage() for rec in caplog.records)
 
 
 def test_cleanup_ignores_non_timestamped_rialto_names(tmp_path, monkeypatch):
@@ -210,10 +208,9 @@ def test_logs_when_rmtree_fails(tmp_path, monkeypatch, caplog):
 
     cleanup_snapshots(0, str(tmp_path))
 
-    # The failing rmtree should have been logged with exception name
+    # The failing rmtree should have been logged with exception
     assert any(
-        "Failed to delete folder" in rec.getMessage()
-        and "RuntimeError" in rec.getMessage()
+        "Failed to delete folder" in rec.getMessage() and "boom" in rec.getMessage()
         for rec in caplog.records
     )
 

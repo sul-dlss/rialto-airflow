@@ -15,7 +15,9 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
     total_deleted = wos_dupes + openalex_dupes
-    logging.info(f"Deleted a total of {total_deleted} duplicate publication rows.")
+    logging.info(
+        f"Deleted a total of {total_deleted} duplicate publication rows from all sources."
+    )
     return total_deleted
 
 
@@ -46,7 +48,7 @@ def remove_wos_duplicates(snapshot: Snapshot) -> int:
             )
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
-        logging.info(f"Deleted a total of {count_deleted} publication rows from WOS.")
+        logging.info(f"Deleted {count_deleted} publication rows from WOS.")
     return num_dupes
 
 
@@ -77,9 +79,7 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
             )
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
-        logging.info(
-            f"Deleted a total of {count_deleted} publication rows from OpenAlex."
-        )
+        logging.info(f"Deleted {count_deleted} publication rows from OpenAlex.")
     return num_dupes
 
 

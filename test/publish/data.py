@@ -21,6 +21,7 @@ def dim_json_no_title():
 
 def openalex_json():
     return {
+        "id": "https://openalex.org/W123456789",
         "type": "preprint",
         "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
         "primary_location": {

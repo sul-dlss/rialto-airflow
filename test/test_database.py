@@ -1,4 +1,5 @@
 import os
+import uuid
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -211,3 +212,28 @@ def author(test_session):
 def test_author_fixture(test_session, author):
     with test_session.begin() as session:
         assert session.query(Author).where(Author.sunet == "janes").count() == 1
+
+
+def test_database_names(mock_rialto_postgres, teardown_database):
+    # create two unique databases and ensure database_names() returns them
+    name1 = f"rialto_test_{uuid.uuid4().hex[:8]}"
+    name2 = f"rialto_test_{uuid.uuid4().hex[:8]}"
+
+    try:
+        database.create_database(name1)
+        database.create_database(name2)
+
+        # database.database_names() returns a list of names, but excludes airflow and postgres databases
+        names = database.database_names()
+
+        assert name1 in names
+        assert name2 in names
+        assert "rialto-airflow" not in names
+        assert "postgres" not in names
+
+    finally:
+        # tear down both databases if they exist
+        if database.database_exists(name1):
+            teardown_database(name1)
+        if database.database_exists(name2):
+            teardown_database(name2)

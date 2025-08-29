@@ -3,7 +3,8 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-from rialto_airflow.database import database_exists, drop_database
+from rialto_airflow.database import drop_database, database_names
+import re
 
 
 def cleanup_author_files(cleanup_interval_days: int, data_dir: str):
@@ -29,18 +30,39 @@ def cleanup_author_files(cleanup_interval_days: int, data_dir: str):
 def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
     current_time = datetime.now()
 
+    logging.info(f"Current time: {current_time}")
+    # first the data folders
     base_snapshot_folder = Path(data_dir) / "snapshots"
     for folder_path in base_snapshot_folder.iterdir():
         if folder_path.is_dir():
+            logging.info(f"Considering snapshot folder {folder_path}")
             folder_time = datetime.strptime(folder_path.name, "%Y%m%d%H%M%S")
             age = current_time - folder_time
             if age.days > cleanup_interval_days:
                 logging.info(
                     f"Removing snapshot folder: {folder_path} (age: {age.days} days)"
                 )
-                shutil.rmtree(folder_path)  # delete folder and all contents
-
-                database_name = f"rialto_{folder_path.name}"
-                logging.info(f"Searching for database named {database_name}")
-                if database_exists(database_name):
+                try:
+                    shutil.rmtree(folder_path)  # delete folder and all contents
+                except Exception as exc:
+                    logging.exception(
+                        f"Failed to delete folder {folder_path} (error: {exc})"
+                    )
+    # next consider all of the databases (note: the `database_names` method already excludes postgres and airflow)
+    for database_name in database_names():
+        logging.info(f"Considering database {database_name}")
+        # Check if database name matches the expected format "rialto_%Y%m%d%H%M%S"
+        if re.match(r"^rialto_\d{14}$", database_name):
+            database_name_date_part = database_name.removeprefix("rialto_")
+            database_time = datetime.strptime(database_name_date_part, "%Y%m%d%H%M%S")
+            age = current_time - database_time
+            if age.days > cleanup_interval_days:
+                try:
+                    logging.info(
+                        f"Dropping database: {database_name} (age: {age.days} days)"
+                    )
                     drop_database(database_name)
+                except Exception as exc:
+                    logging.exception(
+                        f"Failed to drop database {database_name} (error: {exc})"
+                    )

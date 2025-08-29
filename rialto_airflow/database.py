@@ -60,15 +60,30 @@ def create_database(database_name: str) -> str:
     return database_name
 
 
-def drop_database(database_name: str):
+def drop_database(database_name: str, force: bool = True):
     """Drop a DAG-specific database for publications and author/orgs data"""
 
     # set up the connection using the default postgres database
     engine = engine_setup("postgres")
     with engine.connect() as connection:
+        # ensure we can run DDL outside of a transaction
         connection.execution_options(isolation_level="AUTOCOMMIT")
+
+        if force:
+            # terminate all other backends connected to the target database
+            # (exclude the current session)
+            connection.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) "
+                    "FROM pg_stat_activity "
+                    "WHERE datname = :db_name AND pid <> pg_backend_pid()"
+                ),
+                {"db_name": database_name},
+            )
+
+        # now drop the database
         connection.execute(text(f"drop database {database_name}"))
-    logging.info(f"Dropped database {database_name}")
+        logging.info(f"Dropped database {database_name}")
 
 
 def database_exists(database_name: str) -> bool:
@@ -84,6 +99,19 @@ def database_exists(database_name: str) -> bool:
         )
         # If the query returns any rows, the database exists
         return result.fetchone() is not None
+
+
+def database_names() -> list:
+    """Returns a list of database names"""
+
+    engine = engine_setup("postgres")
+    with engine.connect() as connection:
+        result = connection.execute(
+            text(
+                "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true AND datname NOT IN ('postgres', 'airflow', 'rialto-airflow') ORDER BY datname"
+            )
+        )
+    return result.scalars().all()
 
 
 class utcnow(expression.FunctionElement):

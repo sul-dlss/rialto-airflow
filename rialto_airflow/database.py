@@ -18,7 +18,7 @@ from sqlalchemy.types import DateTime
 
 # a database with a consistent name, to which we publish summary and denormalized data
 # derived from harvests, for use by e.g. Tableau reports and visualizations
-RIALTO_REPORTS_DB_NAME: str = "rialto_reports_data"
+RIALTO_REPORTS_DB_NAME: str = "rialto_reports"
 
 
 HarvestSchemaBase = declarative_base()

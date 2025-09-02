@@ -27,6 +27,7 @@ dependencies = [
     "xmltodict>=0.14.2",
     "types-xmltodict>=0.14.0.20241009",
     "dominate>=2.9.1",
+    "sqlalchemy-utils==0.41.2", # see: https://github.com/kvesteri/sqlalchemy-utils/issues/791
 ]
 
 [tool.pytest.ini_options]

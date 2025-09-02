@@ -23,8 +23,8 @@ import rialto_airflow.publish.publication_utils as pub_utils
 ReportsSchemaBase = declarative_base()
 
 
-class PublicationAugmented(ReportsSchemaBase):  # type: ignore
-    __tablename__ = "publication_augmented"
+class Publications(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publications"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     doi = Column(String, unique=True)
@@ -48,95 +48,77 @@ def init_reports_data_schema() -> None:
     create_schema(RIALTO_REPORTS_DB_NAME, ReportsSchemaBase)
 
 
-def write_publications(snapshot) -> Path:
+def write_publications(snapshot) -> bool:
     """
-    Write a CSV where there is a row per unique DOI.
+    Write publications information to the reports publications table
     """
-    col_names = [
-        "doi",
-        "pub_year",
-        "apc",
-        "open_access",
-        "types",
-        "funders",
-        "federally_funded",
-        "academic_council_authored",
-        "faculty_authored",
-    ]
 
-    csv_path = get_csv_path(snapshot, google_drive_folder(), "publications.csv")
+    # NOTE: We used to write out this data to a CSV file in google drive as well.
+    # This was removed in https://github.com/sul-dlss/rialto-airflow/pull/528 in case
+    # we need it again in the future.
+    logging.info("started writing publications table")
 
-    logging.info(f"started writing publications {csv_path}")
+    with get_session(snapshot.database_name).begin() as select_session:
+        # This query joins the publication and funder tables
+        # Since we want one row per publication, and a publication can
+        # have multiple funders, the funder names, and the booleans
+        # associated with whether they are federal, are grouped together in
+        # a list using the jsonb_agg_strict function (the strict version
+        # drops null values). In order to use these aggregate functions we
+        # need to group by the Publication.id.
 
-    with csv_path.open("w") as output:
-        csv_output = DictWriter(output, fieldnames=col_names)
-        csv_output.writeheader()
+        stmt = (
+            select(  # type: ignore
+                Publication.doi,  # type: ignore
+                Publication.pub_year,  # type: ignore
+                Publication.apc,  # type: ignore
+                Publication.open_access,
+                Publication.dim_json["type"].label("dim_type"),
+                Publication.openalex_json["type"].label("openalex_type"),
+                Publication.wos_json["static_data"]["fullrecord_metadata"][
+                    "normalized_doctypes"
+                ]["doctype"].label("wos_type"),
+                func.jsonb_agg_strict(Author.academic_council).label(
+                    "academic_council"
+                ),
+                func.jsonb_agg_strict(Author.primary_role).label("primary_role"),
+                func.jsonb_agg_strict(Funder.name).label("funders"),
+                func.jsonb_agg_strict(Funder.federal).label("federal"),
+            )
+            .join(Author, Publication.authors)  # type: ignore
+            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .group_by(Publication.id)
+            .execution_options(yield_per=10_000)
+        )
 
-        with get_session(snapshot.database_name).begin() as select_session:
-            # This query joins the publication and funder tables
-            # Since we want one row per publication, and a publication can
-            # have multiple funders, the funder names, and the booleans
-            # associated with whether they are federal, are grouped together in
-            # a list using the jsonb_agg_strict function (the strict version
-            # drops null values). In order to use these aggregate functions we
-            # need to group by the Publication.id.
-
-            stmt = (
-                select(  # type: ignore
-                    Publication.doi,  # type: ignore
-                    Publication.pub_year,  # type: ignore
-                    Publication.apc,  # type: ignore
-                    Publication.open_access,
-                    Publication.dim_json["type"].label("dim_type"),
-                    Publication.openalex_json["type"].label("openalex_type"),
-                    Publication.wos_json["static_data"]["fullrecord_metadata"][
-                        "normalized_doctypes"
-                    ]["doctype"].label("wos_type"),
-                    func.jsonb_agg_strict(Author.academic_council).label(
-                        "academic_council"
-                    ),
-                    func.jsonb_agg_strict(Author.primary_role).label("primary_role"),
-                    func.jsonb_agg_strict(Funder.name).label("funders"),
-                    func.jsonb_agg_strict(Funder.federal).label("federal"),
-                )
-                .join(Author, Publication.authors)  # type: ignore
-                .join(Funder, Publication.funders, isouter=True)  # type: ignore
-                .group_by(Publication.id)
-                .execution_options(yield_per=10_000)
+        with get_session(RIALTO_REPORTS_DB_NAME).begin() as insert_session:
+            insert_session.connection(
+                execution_options={"isolation_level": "SERIALIZABLE"}
+            )
+            insert_session.connection().execute(
+                f"TRUNCATE {Publications.__tablename__}"
             )
 
-            with get_session(RIALTO_REPORTS_DB_NAME).begin() as insert_session:
-                insert_session.connection(
-                    execution_options={"isolation_level": "SERIALIZABLE"}
+            for row in select_session.execute(stmt):
+                row_values = {
+                    "doi": row.doi,
+                    "pub_year": row.pub_year,
+                    "apc": row.apc,
+                    "open_access": row.open_access,
+                    "types": "|".join(get_types(row)) or None,
+                    "funders": "|".join(sorted(set(row.funders))),
+                    "federally_funded": any(row.federal),
+                    "academic_council_authored": any(row.academic_council),
+                    "faculty_authored": "faculty" in row.primary_role,
+                }
+
+                insert_session.execute(
+                    insert(Publications).values(**row_values).on_conflict_do_nothing()
                 )
-                insert_session.connection().execute(
-                    f"TRUNCATE {PublicationAugmented.__tablename__}"
-                )
 
-                for row in select_session.execute(stmt):
-                    row_values = {
-                        "doi": row.doi,
-                        "pub_year": row.pub_year,
-                        "apc": row.apc,
-                        "open_access": row.open_access,
-                        "types": "|".join(get_types(row)) or None,
-                        "funders": "|".join(sorted(set(row.funders))),
-                        "federally_funded": any(row.federal),
-                        "academic_council_authored": any(row.academic_council),
-                        "faculty_authored": "faculty" in row.primary_role,
-                    }
-                    csv_output.writerow(row_values)
-                    output.flush()
+        logging.info("finished writing publications table")
 
-                    insert_session.execute(
-                        insert(PublicationAugmented)
-                        .values(**row_values)
-                        .on_conflict_do_nothing()
-                    )
-
-        logging.info(f"finished writing publications {csv_path}")
-
-    return csv_path
+    return True
 
 
 def write_contributions_by_school(snapshot) -> Path:

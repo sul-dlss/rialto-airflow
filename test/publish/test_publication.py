@@ -202,28 +202,17 @@ def test_dataset(test_session, dataset):
 def test_write_publications(
     test_session, test_reports_session, snapshot, dataset, caplog
 ):
-    # generate the publications csv file
-    csv_path = publication.write_publications(snapshot)
-    assert csv_path.name == "publications.csv"
+    # generate the publications table
+    result = publication.write_publications(snapshot)
 
-    # read it in and make sure it looks right
-    df = pandas.read_csv(csv_path)
-    # There are two rows in the dataset because there are two publications
-    assert len(df) == 2
+    assert result
 
-    row = df.iloc[0]
-    assert row.doi == "10.000/000001"
-    assert row.pub_year == 2023
-    assert row.apc == 123
-    assert row.open_access == "gold"
-    assert row.types == "article|preprint"
-    assert row.funders == "Andrew Mellon Foundation|National Institutes of Health"
-    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
-    assert bool(row.academic_council_authored) is True
-    assert bool(row.faculty_authored) is True
     with test_reports_session.begin() as session:
-        q = session.query(publication.PublicationAugmented).where(
-            publication.PublicationAugmented.doi == "10.000/000001"
+        assert session.query(publication.Publications).count() == 2
+
+    with test_reports_session.begin() as session:
+        q = session.query(publication.Publications).where(
+            publication.Publications.doi == "10.000/000001"
         )
         db_rows = list(q.all())
         assert len(db_rows) == 1
@@ -235,19 +224,9 @@ def test_write_publications(
         )
         assert db_rows[0].open_access == "gold"
 
-    row = df.iloc[1]
-    assert row.doi == "10.000/000002"
-    assert row.pub_year == 2024
-    assert row.apc == 500
-    assert row.open_access == "green"
-    assert row.types == "article|preprint"
-    assert row.funders == "National Institutes of Health"
-    assert bool(row.federally_funded) is True  # pandas makes federal a numpy.bool_
-    assert bool(row.academic_council_authored) is True
-    assert bool(row.faculty_authored) is True
     with test_reports_session.begin() as session:
-        q = session.query(publication.PublicationAugmented).where(
-            publication.PublicationAugmented.doi == "10.000/000002"
+        q = session.query(publication.Publications).where(
+            publication.Publications.doi == "10.000/000002"
         )
         db_rows = list(q.all())
         assert len(db_rows) == 1
@@ -256,8 +235,8 @@ def test_write_publications(
         assert db_rows[0].funders == "National Institutes of Health"
         assert db_rows[0].open_access == "green"
 
-    assert "started writing publications" in caplog.text
-    assert "finished writing publications" in caplog.text
+    assert "started writing publications table" in caplog.text
+    assert "finished writing publications table" in caplog.text
 
 
 def test_write_contributions_by_school(test_session, snapshot, dataset, caplog):

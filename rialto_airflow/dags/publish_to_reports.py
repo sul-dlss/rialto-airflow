@@ -21,6 +21,10 @@ google_drive_id = Variable.get(
     "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
 )
 
+"""
+This DAG publishes data to postgres that is used to build dashboards
+"""
+
 
 @dag(
     schedule="@weekly",
@@ -29,7 +33,7 @@ google_drive_id = Variable.get(
     catchup=False,
     default_args=default_args(),
 )
-def publish_publications():
+def publish_to_reports():
     @task()
     def get_snapshot():
         snapshot = Snapshot.get_latest(data_dir)
@@ -76,4 +80,4 @@ def publish_publications():
     publish(snapshot) >> upload(snapshot)
 
 
-publish_publications()
+publish_to_reports()

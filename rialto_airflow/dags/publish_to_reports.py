@@ -1,5 +1,4 @@
 import datetime
-import os
 from pathlib import Path
 
 from airflow.decorators import dag, task
@@ -15,11 +14,6 @@ from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
 
 data_dir = Path(Variable.get("data_dir"))
-gcp_conn_id = Variable.get("google_connection")
-google_drive_id = Variable.get(
-    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
-)
-
 """
 This DAG publishes data to postgres that is used to build dashboards
 """

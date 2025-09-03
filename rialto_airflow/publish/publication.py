@@ -54,11 +54,10 @@ def export_publications(snapshot) -> bool:
     with get_session(snapshot.database_name).begin() as select_session:
         # This query joins the publication and funder tables
         # Since we want one row per publication, and a publication can
-        # have multiple funders, the funder names, and the booleans
-        # associated with whether they are federal, are grouped together in
-        # a list using the jsonb_agg_strict function (the strict version
-        # drops null values). In order to use these aggregate functions we
-        # need to group by the Publication.id.
+        # have multiple funders, the booleans associated with whether they
+        # are federal, are grouped together in a list using the jsonb_agg_strict
+        # function (the strict version drops null values). In order to use these
+        # aggregate functions we need to group by the Publication.id.
 
         stmt = (
             select(  # type: ignore

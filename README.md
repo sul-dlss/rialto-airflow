@@ -140,7 +140,21 @@ uv lock --upgrade
 
 Like dependency additions, dependency updates require container rebuild/restart.
 
+### Local Database Creation and Migration
+Make sure that the `postgres` container is up.
+
+Run the following script to get up to date on the DB schema that persists between runs:
+
+```sh
+bin/dev_db_migrate
+```
+
+This will create any missing databases that are expected to exist indefinitely under a consistent name (e.g. the reporting database used by Tableau, but not the harvest databases).
+
+You'll need to do this to run the test suite, run test harvests locally, etc.
+
 ## Run Tests
+Make sure you're current on database migrations locally.
 
 ```
 docker compose up -d postgres

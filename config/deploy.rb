@@ -54,3 +54,78 @@ set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false
+
+set :alembic_dbs, ['rialto_reports']
+
+def alembic_dbs
+  ENV['ALEMBIC_DBS']&.gsub(/\s/, '')&.split(',') || fetch(:alembic_dbs)
+end
+
+namespace :python do
+  desc 'Install uv package manager (to ~/.local/bin/uv)'
+  task :install_uv do
+    on roles(:'/.*/') do
+      execute 'pip3 install --upgrade uv > uv-installation.log'
+    end
+  end
+end
+
+namespace :db do
+  desc 'Create needed databases'
+  task :create do
+    alembic_dbs.each do |database|
+      on roles(:dbmigrate) do
+        execute "cd #{release_path} && ~/.local/bin/uv run python rialto_airflow/schema/bin/create_databases.py"
+      end
+    end
+  end
+end
+
+# TODO: fix these migrations!  there are currently two issues: they aren't invoked automatically, and they
+# raise an authN error when they are invoked manually.  This is probably where the authN error on manual invocation will
+# be fixed.  see https://github.com/sul-dlss/rialto-airflow/issues/548 and https://github.com/sul-dlss/rialto-airflow/issues/547
+namespace :alembic do
+  # TODO: the -name flag is currently ignored, and was somewhat prematurely added because it was in use in libsys-airflow,
+  # which provided an example for this Alembic work.  See https://github.com/sul-dlss/rialto-airflow/issues/549
+  desc 'Run Alembic database migrations'
+  task :migrate do
+    alembic_dbs.each do |database|
+      on roles(:dbmigrate) do
+        execute "cd #{release_path} && ~/.local/bin/uv run alembic --name #{database} upgrade head"
+      end
+    end
+  end
+
+  desc 'Show current Alembic database migration'
+  task :current do
+    alembic_dbs.each do |database|
+      on roles(:dbmigrate) do
+        execute "cd #{release_path} && echo #{database.upcase} && ~/.local/bin/uv run alembic --name #{database} current"
+      end
+    end
+  end
+
+  desc 'Show Alembic database migration history'
+  task :history do
+    alembic_dbs.each do |database|
+      on roles(:dbmigrate) do
+        execute "cd #{release_path} && ~/.local/bin/uv run alembic --name #{database} history --verbose"
+      end
+    end
+  end
+end
+
+# TODO: fix these migrations!  there are currently two issues: they aren't invoked automatically, and they
+# raise an authN error when they are invoked manually.  This is probably where the automatic invocation issue will
+# be fixed. see https://github.com/sul-dlss/rialto-airflow/issues/548 and https://github.com/sul-dlss/rialto-airflow/issues/547
+before 'db:create', 'python:install_uv'
+before 'alembic:migrate', 'python:install_uv'
+before 'alembic:current', 'python:install_uv'
+before 'alembic:history', 'python:install_uv'
+
+on roles(:dbmigrate) do
+  before 'docker_compose:up' do
+    invoke 'db:create'
+    invoke 'alembic:migrate'
+  end
+end

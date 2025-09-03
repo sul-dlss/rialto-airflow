@@ -7,7 +7,6 @@ from sqlalchemy.types import DateTime
 
 from rialto_airflow.database import (
     RIALTO_REPORTS_DB_NAME,
-    create_schema,
     get_session,
     utcnow,
     Publication,
@@ -38,10 +37,6 @@ class Publications(ReportsSchemaBase):  # type: ignore
     faculty_authored = Column(Boolean)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-
-
-def init_reports_data_schema() -> None:
-    create_schema(RIALTO_REPORTS_DB_NAME, ReportsSchemaBase)
 
 
 def export_publications(snapshot) -> bool:

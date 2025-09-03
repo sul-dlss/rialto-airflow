@@ -54,3 +54,67 @@ set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false
+
+set :alembic_dbs, ['rialto_reports']
+
+def alembic_dbs
+  ENV['ALEMBIC_DBS']&.gsub(/\s/, '')&.split(',') || fetch(:alembic_dbs)
+end
+
+namespace :db do
+desc 'Create needed databases'
+  task :create do
+    ['airflow'].concat(alembic_dbs).each do |database|
+      on roles(:app) do
+        execute :psql, <<~PSQL_ARGS
+          -v ON_ERROR_STOP=1 postgresql://$DATABASE_USERNAME:$DATABASE_PASSWORD@$DATABASE_HOSTNAME <<-SQL
+          SELECT 'CREATE DATABASE #{database}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '#{database}')\\gexec
+          GRANT ALL PRIVILEGES ON DATABASE #{database} TO $DATABASE_USERNAME;
+  SQL
+      PSQL_ARGS
+      end
+    end
+  end
+end
+
+namespace :alembic do
+  desc 'Run Alembic database migrations'
+  task :migrate do
+    alembic_dbs.each do |database|
+      on roles(:app) do
+        execute "cd #{release_path} && source #{fetch(:venv)} && uv run alembic --name #{database} upgrade head"
+      end
+    end
+  end
+
+  desc 'Show current Alembic database migration'
+  task :current do
+    alembic_dbs.each do |database|
+      on roles(:app) do
+        execute "cd #{release_path} && source #{fetch(:venv)} && echo #{database.upcase} && uv run alembic --name #{database} current"
+      end
+    end
+  end
+
+  desc 'Show Alembic database migration history'
+  task :history do
+    alembic_dbs.each do |database|
+      on roles(:app) do
+        execute "cd #{release_path} && source #{fetch(:venv)} && uv run alembic --name #{database} history --verbose"
+      end
+    end
+  end
+end
+
+namespace :airflow do
+  desc 'start airflow'
+  task :start do
+    on roles(:app) do
+      invoke 'airflow:build'
+      invoke 'airflow:init'
+      execute "cd #{release_path} && source #{fetch(:venv)} && docker compose -f docker-compose.prod.yaml -p libsys_airflow up -d"
+      invoke 'db:create'
+      invoke 'alembic:migrate'
+    end
+  end
+end

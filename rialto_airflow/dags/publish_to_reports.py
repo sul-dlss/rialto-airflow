@@ -5,7 +5,6 @@ from pathlib import Path
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-import rialto_airflow.google as google
 from rialto_airflow.database import (
     RIALTO_REPORTS_DB_NAME,
     create_database,
@@ -49,35 +48,11 @@ def publish_to_reports():
 
         publication.init_reports_data_schema()
 
-        # these probably could be run in parallel (separate tasks)?
-        publication.write_contributions_by_department(snapshot)
-        publication.write_contributions_by_school(snapshot)
-        publication.write_publications(snapshot)
-        publication.write_contributions(snapshot)
-
-    @task()
-    def upload(snapshot):
-        csv_files = [
-            "publications.csv",
-            "contributions.csv",
-            "contributions-by-school.csv",
-            "contributions-by-school-department.csv",
-        ]
-
-        google_folder_id = google.get_file_id(
-            google_drive_id, publication.google_drive_folder()
-        )
-
-        for csv_file in csv_files:
-            file_path = snapshot.path / publication.google_drive_folder() / csv_file
-
-            google.upload_or_replace_file_in_google_drive(
-                str(file_path), google_folder_id
-            )
+        publication.export_publications(snapshot)
 
     snapshot = get_snapshot()
 
-    publish(snapshot) >> upload(snapshot)
+    publish(snapshot)
 
 
 publish_to_reports()

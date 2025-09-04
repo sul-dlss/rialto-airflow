@@ -2,7 +2,7 @@ import logging
 import os
 from functools import cache
 
-from sqlalchemy import Table, Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Table, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.compiler import compiles
@@ -174,6 +174,13 @@ class Publication(HarvestSchemaBase):  # type: ignore
     )
     funders: RelationshipProperty = relationship(
         "Funder", secondary=pub_funder_association, back_populates="publications"
+    )
+
+    __table_args__ = (
+        Index("idx_openalex_id", text("(openalex_json->>'id')")),
+        Index("idx_wos_id", text("(wos_json->>'UID')")),
+        Index("idx_sulpub_id", text("(sulpub_json->>'sulpubid')")),
+        Index("idx_dim_id", text("(dim_json->>'id')")),
     )
 
 

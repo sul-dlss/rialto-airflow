@@ -7,10 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from urllib3.util import Retry
 
-from rialto_airflow.database import (
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
     Author,
     Publication,
-    get_session,
     pub_author_association,
 )
 from rialto_airflow.utils import normalize_doi

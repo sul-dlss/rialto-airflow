@@ -2,7 +2,8 @@ import logging
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import Publication, get_session, pub_author_association
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import Publication, pub_author_association
 from rialto_airflow.snapshot import Snapshot
 
 

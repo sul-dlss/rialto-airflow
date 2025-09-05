@@ -9,7 +9,8 @@ import pandas
 from sqlalchemy import select, and_, func
 from sqlalchemy.engine.row import Row  # type: ignore
 
-from rialto_airflow.database import Author, Publication, get_session
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import Author, Publication
 from rialto_airflow.distiller import JsonPathRule, first
 from rialto_airflow.harvest.sul_pub import extract_doi
 from rialto_airflow.utils import get_types, get_csv_path

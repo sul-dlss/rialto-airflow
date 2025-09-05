@@ -9,7 +9,7 @@ import pandas
 import pytest
 import requests
 
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import wos
 from rialto_airflow.snapshot import Snapshot
 from test.utils import num_jsonl_objects

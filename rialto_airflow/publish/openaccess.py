@@ -5,7 +5,12 @@ from rialto_airflow.utils import get_types, get_csv_path
 
 from sqlalchemy import select, func
 
-from rialto_airflow.database import get_session, Publication, Author, Funder
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
+    Author,
+    Funder,
+    Publication,
+)
 
 
 def google_drive_folder() -> str:

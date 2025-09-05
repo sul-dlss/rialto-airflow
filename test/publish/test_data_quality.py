@@ -8,7 +8,7 @@ import sqlalchemy
 from sqlalchemy import select
 
 from rialto_airflow.publish import data_quality
-from rialto_airflow.database import Publication, Author, Funder
+from rialto_airflow.schema.harvest import Publication, Author, Funder
 from test.utils import TestRow
 
 

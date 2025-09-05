@@ -4,14 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
-from rialto_airflow.database import (
-    HarvestSchemaBase,
+from rialto_airflow.database import create_schema, engine_setup
+from rialto_airflow.schema.harvest import (
     Author,
     Publication,
-    create_schema,
-    engine_setup,
     pub_author_association,
 )
+from rialto_airflow.schema.harvest import HarvestSchemaBase
 from rialto_airflow.snapshot import Snapshot
 
 

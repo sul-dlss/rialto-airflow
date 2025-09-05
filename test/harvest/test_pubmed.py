@@ -4,7 +4,7 @@ import pytest
 import re
 import dotenv
 
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import pubmed
 from test.utils import num_jsonl_objects, load_jsonl_file
 

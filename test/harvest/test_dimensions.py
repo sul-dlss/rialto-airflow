@@ -7,7 +7,7 @@ import dotenv
 import dimcli
 
 from rialto_airflow.harvest import dimensions
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 
 from test.utils import num_jsonl_objects
 

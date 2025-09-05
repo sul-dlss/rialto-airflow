@@ -5,9 +5,8 @@ from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 import test.publish.data as test_data
-from rialto_airflow.database import (
-    create_schema,
-    engine_setup,
+from rialto_airflow.database import create_schema, engine_setup
+from rialto_airflow.schema.harvest import (
     Author,
     Funder,
     Publication,

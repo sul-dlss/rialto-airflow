@@ -3,7 +3,7 @@ import logging
 
 import dotenv
 
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import sul_pub
 from rialto_airflow.snapshot import Snapshot
 

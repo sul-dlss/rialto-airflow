@@ -5,7 +5,7 @@ import pytest
 
 import pyalex
 from rialto_airflow.harvest import openalex
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 
 from test.utils import num_jsonl_objects
 

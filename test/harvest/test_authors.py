@@ -1,6 +1,6 @@
 import csv
 import pytest
-from rialto_airflow.database import Author
+from rialto_airflow.schema.harvest import Author
 from rialto_airflow.harvest.authors import load_authors_table
 
 

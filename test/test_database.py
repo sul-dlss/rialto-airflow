@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
-from rialto_airflow.database import HarvestSchemaBase, Author
+from rialto_airflow.schema.harvest import HarvestSchemaBase, Author
 from rialto_airflow.snapshot import Snapshot
 
 
@@ -198,7 +198,7 @@ def test_create_schema(
 def author(test_session):
     with test_session.begin() as session:
         session.add(
-            database.Author(
+            Author(
                 sunet="janes",
                 cap_profile_id="12345",
                 orcid="https://orcid.org/0000-0000-0000-0001",

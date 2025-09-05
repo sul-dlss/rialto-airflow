@@ -12,11 +12,12 @@ from alembic import op
 import sqlalchemy as sa
 
 from rialto_airflow.database import (
-    RIALTO_REPORTS_DB_NAME,
     create_database,
     database_exists,
     utcnow,
 )
+from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME
+
 
 # revision identifiers, used by Alembic.
 revision: str = "f47e769bc111"

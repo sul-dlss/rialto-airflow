@@ -3,7 +3,8 @@ import logging
 import jsonpath_ng
 from sqlalchemy import select, update
 
-from rialto_airflow.database import Publication, get_session
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.apc import get_apc
 from rialto_airflow.distiller import first, JsonPathRule, FuncRule

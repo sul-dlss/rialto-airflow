@@ -11,7 +11,8 @@ from typing import Dict
 import requests
 from sqlalchemy import select, update
 
-from rialto_airflow.database import Publication, get_session
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi
 

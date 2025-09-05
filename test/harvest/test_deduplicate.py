@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from rialto_airflow.database import Author, Publication
+from rialto_airflow.schema.harvest import Author, Publication
 from rialto_airflow.harvest import deduplicate
 import test.publish.data as test_data
 

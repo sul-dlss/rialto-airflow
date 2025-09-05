@@ -4,8 +4,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
 
 import test.publish.data as test_data
-from rialto_airflow.database import (
-    engine_setup,
+from rialto_airflow.database import engine_setup
+from rialto_airflow.schema.harvest import (
     Author,
     Funder,
     Publication,

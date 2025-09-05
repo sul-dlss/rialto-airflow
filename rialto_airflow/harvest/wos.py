@@ -10,10 +10,10 @@ from typing import Generator, Optional, Dict, Union
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import (
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
     Author,
     Publication,
-    get_session,
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot

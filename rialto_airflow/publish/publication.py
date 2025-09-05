@@ -3,8 +3,8 @@ import logging
 from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import (
-    get_session,
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
     Publication,
     Author,
     Funder,

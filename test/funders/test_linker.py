@@ -1,6 +1,6 @@
 import requests
 
-from rialto_airflow.database import Publication, Funder
+from rialto_airflow.schema.harvest import Publication, Funder
 from rialto_airflow.funders import linker
 
 

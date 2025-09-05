@@ -6,6 +6,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME, ReportsSchemaBase
+
 # this is the Alembic Config object, which provides
 # access to the values within the pyproject.toml and/or alembic.ini file in use.
 config = context.config
@@ -19,7 +21,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = ReportsSchemaBase.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -58,7 +60,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    sqlalchemy_url = f"postgresql+psycopg2://{os.getenv('DATABASE_USERNAME')}:{os.getenv('DATABASE_PASSWORD')}@{os.getenv('DATABASE_HOSTNAME')}/vendor_loads"
+    sqlalchemy_url = f"postgresql+psycopg2://{os.getenv('DATABASE_USERNAME')}:{os.getenv('DATABASE_PASSWORD')}@{os.getenv('DATABASE_HOSTNAME')}/{RIALTO_REPORTS_DB_NAME}"
     config.set_section_option(
         config.config_ini_section, "sqlalchemy.url", sqlalchemy_url
     )

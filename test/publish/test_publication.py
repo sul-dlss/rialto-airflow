@@ -6,12 +6,15 @@ from sqlalchemy.orm.session import close_all_sessions
 import test.publish.data as test_data
 from rialto_airflow.database import (
     engine_setup,
-    RIALTO_REPORTS_DB_NAME,
     Author,
     Funder,
     Publication,
 )
 from rialto_airflow.publish import publication
+from rialto_airflow.schema.reports import (
+    RIALTO_REPORTS_DB_NAME,
+    Publications,
+)
 
 
 @pytest.fixture
@@ -175,12 +178,10 @@ def test_export_publications(
     assert result
 
     with test_reports_session.begin() as session:
-        assert session.query(publication.Publications).count() == 2
+        assert session.query(Publications).count() == 2
 
     with test_reports_session.begin() as session:
-        q = session.query(publication.Publications).where(
-            publication.Publications.doi == "10.000/000001"
-        )
+        q = session.query(Publications).where(Publications.doi == "10.000/000001")
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 123
@@ -188,9 +189,7 @@ def test_export_publications(
         assert db_rows[0].open_access == "gold"
 
     with test_reports_session.begin() as session:
-        q = session.query(publication.Publications).where(
-            publication.Publications.doi == "10.000/000002"
-        )
+        q = session.query(Publications).where(Publications.doi == "10.000/000002")
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 500

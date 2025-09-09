@@ -3,8 +3,12 @@ import logging
 
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import RIALTO_REPORTS_DB_NAME, get_session
-from rialto_airflow.publish.reports_database import AuthorOrcids, OrcidIntegrationStats  # type: ignore
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.reports import (
+    RIALTO_REPORTS_DB_NAME,
+    AuthorOrcids,
+    OrcidIntegrationStats,
+)
 from rialto_airflow.mais import current_orcid_users, get_orcid_stats
 from rialto_airflow.utils import rialto_active_authors_file
 
@@ -56,15 +60,15 @@ def export_orcid_integration_stats(
         mais_client_id, mais_client_secret, mais_token_url, mais_base_url
     )
     orcid_stats = get_orcid_stats(current_users)
-    # TODO: How to handle historic data? Will do as a migration once available
+
     with get_session(RIALTO_REPORTS_DB_NAME).begin() as insert_session:
         insert_session.connection(execution_options={"isolation_level": "SERIALIZABLE"})
 
-        print(f"ORCID STATS ARE: {orcid_stats}")
         row_values = {
             "date_label": orcid_stats[0],
             "read_only_scope": orcid_stats[1],
             "read_write_scope": orcid_stats[2],
         }
         insert_session.execute(insert(OrcidIntegrationStats).values(**row_values))
+    logging.info(f"wrote {row_values} to orcid_integration_stats table")
     return orcid_stats

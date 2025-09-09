@@ -2,21 +2,12 @@ import csv
 import dotenv
 import pytest
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm.session import close_all_sessions
-from sqlalchemy_utils import create_database, database_exists, drop_database
 
-from rialto_airflow.publish import orcid
 from rialto_airflow import mais
-from rialto_airflow.database import (
-    engine_setup,
-    RIALTO_REPORTS_DB_NAME,
-)
-from rialto_airflow.publish.reports_database import (
-    create_schema,
+from rialto_airflow.publish import orcid
+from rialto_airflow.schema.reports import (
     AuthorOrcids,
     OrcidIntegrationStats,
-    ReportsSchemaBase,
 )
 
 
@@ -106,78 +97,13 @@ def authors_active_csv(tmp_path):
     return fixture_file
 
 
-@pytest.fixture(autouse=True)
-def mock_current_orcid_users(monkeypatch, authors_active_csv):
-    def _mocked(*args, **kwargs):
-        # Return a list of dicts matching the CSV row
-        return [
-            {
-                "sunetid": "janes",
-                "first_name": "Jane",
-                "last_name": "Stanford",
-                "full_name": "Jane Stanford",
-                "orcidid": "https://orcid.org/0000-0000-0000-0001",
-                "orcid_update_scope": "true",
-                "cap_profile_id": "12345",
-                "role": "staff",
-                "academic_council": "false",
-                "primary_affiliation": "Engineering",
-                "primary_school": "School of Engineering",
-                "primary_department": "Computer Science",
-                "primary_division": "Philanthropy Division",
-                "all_schools": "Independent Labs, Institutes, and Centers (Dean of Research)|School of Humanities and Sciences",
-                "all_departments": "Computer Science|Horticulture",
-                "all_divisions": "Philanthropy Division|Other Division",
-                "active": "true",
-            }
-        ]
-
-    monkeypatch.setattr(mais, "current_orcid_users", _mocked)
-
-
 @pytest.fixture
-def test_reports_session():
-    """
-    Returns a sqlalchemy session for the test database.
-    """
-    try:
-        yield sessionmaker(engine_setup(RIALTO_REPORTS_DB_NAME, echo=True))
-    finally:
-        close_all_sessions()
+def rialto_reports_db_name(monkeypatch):
+    monkeypatch.setattr(orcid, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
 
 
-@pytest.fixture
-def setup_teardown_reports_schema(monkeypatch):
-    """
-    This pytest fixture will ensure that the test reports database exists and has
-    the database schema configured. If the database exists it will be dropped
-    and readded.
-    """
-    db_host = "postgresql+psycopg2://airflow:airflow@localhost:5432"
-
-    db_name = RIALTO_REPORTS_DB_NAME
-    db_uri = f"{db_host}/{db_name}"
-
-    if database_exists(db_uri):
-        drop_database(db_uri)
-
-    create_database(db_uri)
-
-    # note: rialto_airflow.database.create_schema wants the database name not uri
-    monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
-    create_schema(db_name, ReportsSchemaBase)
-
-    # it's handy seeing SQL statements in the log when testing
-    engine_setup(db_name, echo=True)
-
-    yield
-
-    drop_database(db_uri)
-
-
-@pytest.mark.usefixtures("setup_teardown_reports_schema")
 def test_export_author_orcids(
-    test_reports_session, authors_active_csv, caplog, data_dir
+    test_reports_session, rialto_reports_db_name, authors_active_csv, caplog, data_dir
 ):
     result = orcid.export_author_orcids(data_dir)
     # Add assertions here to verify the expected behavior
@@ -187,7 +113,7 @@ def test_export_author_orcids(
         rows = session.query(AuthorOrcids).all()
         assert len(rows) == 1
         assert rows[0].orcidid == "https://orcid.org/0000-0000-0000-0001"
-        assert rows[0].orcid_update_scope # is True
+        assert rows[0].orcid_update_scope  # is True
         assert rows[0].sunetid == "janes"
         assert rows[0].full_name == "Jane Stanford"
         assert rows[0].role == "staff"
@@ -199,18 +125,19 @@ def test_export_author_orcids(
     assert "finished writing author_orcids table" in caplog.text
 
 
-@pytest.mark.usefixtures("setup_teardown_reports_schema")
-def test_export_orcid_integration_stats(
-    monkeypatch,
-    test_reports_session,
-    caplog,
-    client_id,
-    client_secret,
-    token_url,
-    base_url,
+@pytest.fixture
+def mock_mais_token(monkeypatch):
+    def mock_token(client_id, client_secret, token_url):
+        return "fake_access_token"
+
+    monkeypatch.setattr(mais, "get_token", mock_token)
+
+
+@pytest.fixture
+def mock_current_orcid_users(
+    monkeypatch, client_id, client_secret, token_url, base_url
 ):
-    # Mock current_users
-    def mock_current_orcid_users(client_id, client_secret, token_url, base_url):
+    def mock_orcid_users(client_id, client_secret, token_url, base_url):
         return [
             {
                 "orcidid": "https://orcid.org/0000-0000-0000-0001",
@@ -219,29 +146,45 @@ def test_export_orcid_integration_stats(
             }
         ]
 
-    monkeypatch.setattr(orcid, "current_orcid_users", mock_current_orcid_users)
+    monkeypatch.setattr(orcid, "current_orcid_users", mock_orcid_users)
 
-    # Mock get_orcid_stats
-    def mock_get_orcid_stats(users):
-        return ["2026-09-01", 5, 3]
 
-    monkeypatch.setattr(orcid, "get_orcid_stats", mock_get_orcid_stats)
+@pytest.fixture
+def mock_get_orcid_stats(monkeypatch):
+    # Avoid contacting live MAIS API for data
+    def mock_orcid_stats(users):
+        return ["09/01/2025", 5, 3]
 
-    # Mock get_token
-    def mock_token(client_id, client_secret, token_url):
-        return "fake_access_token"
+    monkeypatch.setattr(orcid, "get_orcid_stats", mock_orcid_stats)
 
-    monkeypatch.setattr(mais, "get_token", mock_token)
 
+def test_export_orcid_integration_stats(
+    monkeypatch,
+    test_reports_session,
+    rialto_reports_db_name,
+    mock_mais_token,
+    mock_current_orcid_users,
+    mock_get_orcid_stats,
+    caplog,
+    client_id,
+    client_secret,
+    token_url,
+    base_url,
+):
     stats = orcid.export_orcid_integration_stats(
         client_id, client_secret, token_url, base_url
     )
-    assert stats == ["2026-09-01", 5, 3]
+    assert stats == ["09/01/2025", 5, 3]
 
     # Check the database for the inserted row
     with test_reports_session.begin() as session:
-        rows = session.query(OrcidIntegrationStats).all()
-        assert len(rows) == 1
-        assert rows[0].date_label == "2026-09-01"
-        assert rows[0].read_only_scope == 5
-        assert rows[0].read_write_scope == 3
+        assert session.query(OrcidIntegrationStats).count() == 1
+        row = (
+            session.query(OrcidIntegrationStats)
+            .where(OrcidIntegrationStats.date_label == "09/01/2025")
+            .scalar()
+        )
+        assert row is not None
+        assert row.date_label == "09/01/2025"
+        assert row.read_only_scope == 5
+        assert row.read_write_scope == 3

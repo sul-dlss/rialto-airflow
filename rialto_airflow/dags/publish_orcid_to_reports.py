@@ -16,6 +16,8 @@ data_dir = Variable.get("data_dir")
 """
 Publishes data to postgres that is used to build ORCID dashboards
 """
+
+
 @dag(
     schedule="@weekly",
     max_active_runs=1,
@@ -38,7 +40,7 @@ def publish_orcid_to_reports():
 
         return True
 
-    author_orcids >> orcid_integration_stats
+    author_orcids() >> orcid_integration_stats()
 
 
 publish_orcid_to_reports()

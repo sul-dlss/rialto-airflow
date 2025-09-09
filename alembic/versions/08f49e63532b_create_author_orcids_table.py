@@ -25,9 +25,9 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
         "author_orcids",
-        sa.Column("orcidid", sa.String, primary_key=True),
-        sa.Column("sunetid", sa.String),
+        sa.Column("sunetid", sa.String, primary_key=True),
         sa.Column("full_name", sa.String),
+        sa.Column("orcidid", sa.String),
         sa.Column("orcid_update_scope", sa.Boolean),
         sa.Column("role", sa.String),
         sa.Column("primary_affiliation", sa.String),

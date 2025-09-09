@@ -6,9 +6,11 @@ from itertools import batched
 from pathlib import Path
 
 import requests
+from requests.adapters import HTTPAdapter
 from typing import Generator, Optional, Dict, Union
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
+from urllib3.util import Retry
 
 from rialto_airflow.database import (
     Author,
@@ -159,14 +161,15 @@ def _wos_api(query) -> Generator[dict, None, None]:
         "optionView": "SR",  # SR = Short Records, which gives us the most basic info about the publication, skipping authors, to keep
     }
 
+    # retry any 429 statuses and stay within rate limits
     http = requests.Session()
+    retries = Retry(status=3, status_forcelist=[429], backoff_factor=0.25)
+    http.mount("https://", HTTPAdapter(max_retries=retries))
 
     # get the initial set of results, which also gives us a Query ID to fetch
     # subsequent pages of results if there are any
-
     logging.info(f"fetching {base_url} with {params}")
     resp: requests.Response = http.get(base_url, params=params, headers=headers)
-
     if not check_status(resp):
         return
 
@@ -193,10 +196,13 @@ def _wos_api(query) -> Generator[dict, None, None]:
         page_params: Params = {"firstRecord": first_record, "count": count}
         logging.info(f"fetching {base_url}/query/{query_id} with {page_params}")
 
+        # retry any 429 errors and stay within rate limits
+        http = requests.Session()
+        retries = Retry(status=3, status_forcelist=[429], backoff_factor=0.25)
+        http.mount("https://", HTTPAdapter(max_retries=retries))
         resp = http.get(
             f"{base_url}/query/{query_id}", params=page_params, headers=headers
         )
-
         if not check_status(resp):
             return
 

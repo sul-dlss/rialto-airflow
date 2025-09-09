@@ -1,47 +1,21 @@
 import logging
 
-from sqlalchemy import select, func, Boolean, Column, Integer, String
+from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import declarative_base  # type: ignore
-from sqlalchemy.types import DateTime
 
-from rialto_airflow.database import (
-    RIALTO_REPORTS_DB_NAME,
-    create_schema,
-    get_session,
-    utcnow,
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
     Publication,
     Author,
     Funder,
 )
+from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME, Publications
 from rialto_airflow.utils import get_types
 
-
-ReportsSchemaBase = declarative_base()
 
 # NOTE: We used to write out CSV files to google drive as well.
 # This was removed in https://github.com/sul-dlss/rialto-airflow/pull/528 in case
 # we need it again in the future.  This PR also removed the related CSV writing tests in test_publication.py
-
-
-class Publications(ReportsSchemaBase):  # type: ignore
-    __tablename__ = "publications"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    doi = Column(String, unique=True)
-    pub_year = Column(Integer)
-    apc = Column(Integer)
-    open_access = Column(String)
-    types = Column(String)
-    federally_funded = Column(Boolean)
-    academic_council_authored = Column(Boolean)
-    faculty_authored = Column(Boolean)
-    created_at = Column(DateTime, server_default=utcnow())
-    updated_at = Column(DateTime, onupdate=utcnow())
-
-
-def init_reports_data_schema() -> None:
-    create_schema(RIALTO_REPORTS_DB_NAME, ReportsSchemaBase)
 
 
 def export_publications(snapshot) -> bool:

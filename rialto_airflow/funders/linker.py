@@ -9,10 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import (
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.harvest import (
     Funder,
     Publication,
-    get_session,
     pub_funder_association,
 )
 from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id

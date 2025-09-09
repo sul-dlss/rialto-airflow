@@ -1,4 +1,4 @@
-from rialto_airflow.database import Publication
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest.distill import distill
 
 # Set up JSON data that mirrors (in part) what we get from the respective APIs

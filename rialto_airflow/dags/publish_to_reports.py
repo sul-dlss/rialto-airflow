@@ -4,11 +4,6 @@ from pathlib import Path
 from airflow.decorators import dag, task
 from airflow.models import Variable
 
-from rialto_airflow.database import (
-    RIALTO_REPORTS_DB_NAME,
-    create_database,
-    database_exists,
-)
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
@@ -37,11 +32,6 @@ def publish_to_reports():
 
     @task
     def publish(snapshot):
-        if not database_exists(RIALTO_REPORTS_DB_NAME):
-            create_database(RIALTO_REPORTS_DB_NAME)
-
-        publication.init_reports_data_schema()
-
         publication.export_publications(snapshot)
 
     snapshot = get_snapshot()

@@ -30,6 +30,9 @@ jobs:
       - name: Bring up postgres container
         run: docker compose -f compose.yaml up -d --wait postgres
 
+      - name: Create the databases that persist between runs
+        run: bin/dev_db_migrate
+
       - name: Run type checking
         run: uv run mypy .
 
@@ -50,6 +53,9 @@ jobs:
           AIRFLOW_VAR_MAIS_BASE_URL: ${{ secrets.AIRFLOW_VAR_MAIS_BASE_URL }}
           AIRFLOW_VAR_MAIS_CLIENT_ID: ${{ secrets.AIRFLOW_VAR_MAIS_CLIENT_ID }}
           AIRFLOW_VAR_MAIS_SECRET: ${{ secrets.AIRFLOW_VAR_MAIS_SECRET }}
+          DATABASE_USERNAME: airflow
+          DATABASE_PASSWORD: airflow
+          DATABASE_HOSTNAME: localhost
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

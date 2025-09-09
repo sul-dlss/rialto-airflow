@@ -2,7 +2,7 @@ import pandas
 import pytest
 
 from rialto_airflow.publish import openaccess
-from rialto_airflow.database import Publication, Author, Funder
+from rialto_airflow.schema.harvest import Publication, Author, Funder
 
 
 @pytest.fixture

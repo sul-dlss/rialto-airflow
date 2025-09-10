@@ -50,10 +50,11 @@ AIRFLOW_VAR_OPENALEX_EMAIL=rialto-service@lists.stanford.edu
 AIRFLOW_VAR_OPENALEX_API_KEY: see vault value at puppet/application/rialto-airflow/openalex_api_key
 AIRFLOW_VAR_SUL_PUB_HOST: 'sul-pub-cap-uat.stanford.edu'
 AIRFLOW_VAR_HARVEST_LIMIT: 1000
+AIRFLOW_VAR_WOS_KEY: see vault value at puppet/application/rialto-airflow/dev/wos_key
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.
+4. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.  Note that you should use the WOS key from the dev environment as described above, not the stage environment which will be output below.
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
@@ -316,6 +317,23 @@ upload_or_replace_file_in_google_drive(
     "LONG-GOOGLE-FOLDER-ID-GOES-HERE",
 )
 ```
+
+### API Keys
+
+In order to run harvests locally and in stage, you will need actual API keys for the various services in your local .env file.  In some cases, the same API key can be used for all environments, but in other cases where there are usage limits, we will need to use different API keys for dev, stage and/or prod.
+
+The setup section above describes how to obtain API keys from vault.  For local development, you will generally use the ones indicated in the stage vault environment.
+
+The following API keys are actually the same in all environments because they are pulling publication data and we do not believe the usage limits will be exceeded:
+
+- Dimensions
+- OpenAlex
+- Pubmed
+- Mais ORCID (note there is a UAT key available, but it will return limited test data only and so is not useful for us)
+
+The following API keys should be different in each environment (i.e. local dev has a different key than stage and a different key than prod), even though they are all pulling from the same data, in order to better isolate usage and avoid hitting usage limits:
+
+- WoS
 
 ### GCP Setup
 

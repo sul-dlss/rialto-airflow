@@ -1,10 +1,7 @@
 import pytest
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm.session import close_all_sessions
 
 import test.publish.data as test_data
-from rialto_airflow.database import engine_setup
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -12,7 +9,6 @@ from rialto_airflow.schema.harvest import (
 )
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import (
-    RIALTO_REPORTS_DB_NAME,
     Publications,
 )
 
@@ -144,17 +140,6 @@ def dataset(test_session):
         session.add(pub2)
 
 
-@pytest.fixture
-def test_reports_session():
-    """
-    Returns a sqlalchemy session for the test database.
-    """
-    try:
-        yield sessionmaker(engine_setup(RIALTO_REPORTS_DB_NAME, echo=True))
-    finally:
-        close_all_sessions()
-
-
 def test_dataset(test_session, dataset):
     with test_session.begin() as session:
         pub = (
@@ -169,8 +154,13 @@ def test_dataset(test_session, dataset):
         assert len(pub.funders) == 2
 
 
+@pytest.fixture
+def rialto_reports_db_name(monkeypatch):
+    monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
+
+
 def test_export_publications(
-    test_session, test_reports_session, snapshot, dataset, caplog
+    test_reports_session, snapshot, dataset, caplog, rialto_reports_db_name
 ):
     # generate the publications table
     result = publication.export_publications(snapshot)

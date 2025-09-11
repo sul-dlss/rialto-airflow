@@ -150,14 +150,6 @@ def test_reports_engine(monkeypatch):
 
 
 @pytest.fixture
-def test_reports_conn(test_reports_engine):
-    """
-    Returns a sqlalchemy connection for the test database.
-    """
-    return test_reports_engine.connect()
-
-
-@pytest.fixture
 def test_reports_session(test_reports_engine):
     """
     Returns a sqlalchemy session for the test database.

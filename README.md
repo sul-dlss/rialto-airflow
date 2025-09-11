@@ -3,35 +3,7 @@
 [![.github/workflows/test.yml](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml/badge.svg)](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/sul-dlss/rialto-airflow/graph/badge.svg?token=rmO5oWki9D)](https://codecov.io/gh/sul-dlss/rialto-airflow)
 
-Airflow for harvesting data for open access analysis and research intelligence. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/) and [Dimensions](https://www.dimensions.ai/) APIs to provide a view of publication data for Stanford University research. The basic workflow is: fetch Stanford Research publications from SUL-Pub, OpenAlex, and Dimensions, enrich them with additional metadata from OpenAlex and Dimensions using the DOI, merge the organizational data found in [rialto_orgs], and publish the data to our JupyterHub environment.
-
-```mermaid
-flowchart TD
-  sul_pub_harvest(SUL-Pub harvest) --> sul_pub_pubs[/SUL-Pub publications/]
-  rialto_orgs_export(Manual RIALTO app export) --> org_data[/Stanford organizational data/]
-  org_data --> dimensions_harvest_orcid(Dimensions harvest ORCID)
-  org_data --> openalex_harvest_orcid(OpenAlex harvest ORCID)
-  dimensions_harvest_orcid --> dimensions_orcid_doi_dict[/Dimensions DOI-ORCID dictionary/]
-  openalex_harvest_orcid --> openalex_orcid_doi_dict[/OpenAlex DOI-ORCID dictionary/]
-  dimensions_orcid_doi_dict -- DOI --> doi_set(DOI set)
-  openalex_orcid_doi_dict -- DOI --> doi_set(DOI set)
-  sul_pub_pubs -- DOI --> doi_set(DOI set)
-  doi_set --> dois[/All unique DOIs/]
-  dois --> dimensions_enrich(Dimensions harvest DOI)
-  dois --> openalex_enrich(OpenAlex harvest DOI)
-  dimensions_enrich --> dimensions_enriched[/Dimensions publications/]
-  openalex_enrich --> openalex_enriched[/OpenAlex publications/]
-  dimensions_enriched -- DOI --> merge_pubs(Merge publications)
-  openalex_enriched -- DOI --> merge_pubs
-  sul_pub_pubs -- DOI --> merge_pubs
-  merge_pubs --> all_enriched_publications[/All publications/]
-  all_enriched_publications --> join_org_data(Join organizational data)
-  org_data --> join_org_data
-  join_org_data --> publications_with_org[/Publication with organizational data/]
-  publications_with_org -- DOI & SUNET --> contributions(Publications to contributions)
-  contributions --> contributions_set[/All contributions/]
-  contributions_set --> publish(Publish)
-```
+This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
 
 ## Running Locally with Docker
 
@@ -39,9 +11,7 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 
 1. Clone repository `git clone git@github.com:sul-dlss/rialto-airflow.git` (cloning using the git over ssh URL will make it easier to push changes back than using the https URL)
 
-2. Start up docker locally.
-
-3. Create a `.env` file with the following values. For local development these can usually be as below.  To ensure the tests work correctly, look at the section below labeled `Test Setup`, which will tell you exactly which values need to be set and from where in order to have the tests work.
+2. Create a `.env` file with the following values. For local development these can usually be as below.  To ensure the tests work correctly, look at the section below labeled `Test Setup`, which will tell you exactly which values need to be set and from where in order to have the tests work.
 ```
 AIRFLOW_UID=50000
 AIRFLOW_GROUP=0
@@ -54,7 +24,7 @@ AIRFLOW_VAR_WOS_KEY: see vault value at puppet/application/rialto-airflow/dev/wo
 ```
 (See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
 
-4. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.  Note that you should use the WOS key from the dev environment as described above, not the stage environment which will be output below.
+3. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.  Note that you should use the WOS key from the dev environment as described above, not the stage environment which will be output below.
 
 ```
 for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | sed 's/- //'` ; do \
@@ -63,15 +33,15 @@ for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | s
 done
 ```
 
-5. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
+4. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
 https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory.
 
-6. Bring up containers.
+5. Bring up containers.
 ```
 docker compose up -d
 ```
 
-7. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password.
+6. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password: "airflow" and "airflow".
 
 ## Development
 

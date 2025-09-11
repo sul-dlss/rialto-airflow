@@ -5,6 +5,8 @@ Revises: ad15040c0085
 Create Date: 2025-09-10 10:27:27.060148
 
 """
+
+import csv
 import os
 from typing import Sequence, Union
 
@@ -20,17 +22,30 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Get the directory of the current migration file
-    dirname = os.path.dirname(__file__).parent
-    # Construct the path to your CSV file (assuming it's relative to the migration file)
-    csv_filepath = os.path.join(dirname, 'orcid-integration-stats-seed.csv')
+    # Get the seed (historic) orcid stats data
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_filepath = os.path.join(
+        os.path.dirname(current_dir), "orcid-integration-stats-seed.csv"
+    )
 
-    # Execute the COPY command to load data from the CSV
-    op.execute(f"COPY orcid_integration_stats FROM '{csv_filepath}' WITH (FORMAT CSV, HEADER TRUE);")
+    # turn CSV into a list of dicts for bulk insert
+    orcid_stats = []
+    with open(csv_filepath, newline="") as filename:
+        reader = csv.DictReader(filename)
+        for row in reader:
+            orcid_stats.append(row)
+
+    op.bulk_insert(
+        sa.table(
+            "orcid_integration_stats",
+            sa.column("date_label", sa.String),
+            sa.column("read_only_scope", sa.Integer),
+            sa.column("read_write_scope", sa.Integer),
+        ),
+        orcid_stats,
+    )
 
 
 def downgrade():
     # Delete all rows from the orcid_integration_stats table
     op.execute("DELETE FROM orcid_integration_stats;")
-
-

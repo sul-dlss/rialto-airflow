@@ -34,8 +34,8 @@ class Publications(ReportsSchemaBase):  # type: ignore
 class AuthorOrcids(ReportsSchemaBase):  # type: ignore
     __tablename__ = "author_orcids"
 
-    orcidid = Column(String, primary_key=True)
-    sunetid = Column(String)
+    sunetid = Column(String, primary_key=True)
+    orcidid = Column(String)
     full_name = Column(String)
     orcid_update_scope = Column(Boolean)
     role = Column(String)

@@ -106,7 +106,6 @@ def test_export_author_orcids(
     test_reports_session, rialto_reports_db_name, authors_active_csv, caplog, data_dir
 ):
     result = orcid.export_author_orcids(data_dir)
-    # Add assertions here to verify the expected behavior
     assert result is True
 
     with test_reports_session.begin() as session:
@@ -175,8 +174,12 @@ def test_export_orcid_integration_stats(
         client_id, client_secret, token_url, base_url
     )
     assert stats == ["09/01/2025", 5, 3]
+    assert (
+        "wrote {'date_label': '09/01/2025', 'read_only_scope': 5, 'read_write_scope': 3} to orcid_integration_stats table"
+        in caplog.text
+    )
 
-    # Check the database for the inserted row
+    # Check the database for the inserted row with new stats
     with test_reports_session.begin() as session:
         assert session.query(OrcidIntegrationStats).count() == 1
         row = (

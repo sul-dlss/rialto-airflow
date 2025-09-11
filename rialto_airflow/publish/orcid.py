@@ -15,9 +15,9 @@ from rialto_airflow.utils import rialto_active_authors_file
 
 def export_author_orcids(data_dir):
     """
-    Write the relevant authors data to the table
+    Write the active authors data to the reports table
     """
-    # insert rows from the authors CSV into the author_orcids table
+    # insert rows from the authors_active CSV into the author_orcids table
     authors_file = rialto_active_authors_file(data_dir)
     logging.info(f"Loading authors from {authors_file} into the author_orcids table")
     with open(authors_file, "r") as file:
@@ -54,7 +54,7 @@ def export_orcid_integration_stats(
     mais_client_id, mais_client_secret, mais_token_url, mais_base_url
 ):
     """
-    Get current ORCID integration stats from the MAIS ORCID integration API and write to orcid_integrations reports table.
+    Get current ORCID integration stats from the MAIS ORCID integration API and write to orcid_integration_stats reports table.
     """
     current_users = current_orcid_users(
         mais_client_id, mais_client_secret, mais_token_url, mais_base_url

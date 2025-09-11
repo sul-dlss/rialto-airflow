@@ -8,7 +8,8 @@ ENV PYTHONPATH "${PYTHONPATH}:/opt/airflow/"
 USER airflow
 
 COPY rialto_airflow ./rialto_airflow
-COPY README.md uv.lock pyproject.toml .
+COPY alembic ./alembic
+COPY README.md uv.lock pyproject.toml alembic.ini .
 
 # For the Airflow application to be able to find dependencies they need to be
 # installed for the airflow user in $VIRTUAL_ENV /home/airflow/.local 

@@ -215,6 +215,29 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  rialto-db-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    user: airflow
+    environment:
+      DATABASE_HOSTNAME: ${DATABASE_HOSTNAME}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOSTNAME}"
+    command:
+      - -c
+      - |
+        uv run python rialto_airflow/schema/bin/create_databases.py
+        uv run alembic upgrade head
+        uv run alembic history --verbose
+    depends_on:
+      # We want PG to be up, and we want Airflow to do its own initialization first.
+      # For prod, the only dependency is airflow-init, because we run PG on
+      # its own VM, as we usually do (not in a compose defined container like
+      # the dev setup).
+      airflow-init:
+        condition: service_completed_successfully
+
   airflow-init:
     <<: *airflow-common
     image: current-airflow-init

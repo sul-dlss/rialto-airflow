@@ -111,23 +111,38 @@ uv lock --upgrade
 
 Like dependency additions, dependency updates require container rebuild/restart.
 
-### Local Database Creation and Migration
-Make sure that the `postgres` container is up.
+## Database Management (Creation and Migration)
+As of Sept 2025, we have 3 types of database:
+* The internal Airflow DB, which the Airflow Docker containers manage.
+* Harvest snapshot DBs, one of which is created on each harvest run.
+* Other persistent databases with stable names, e.g. the `rialto_reports` DB to which Tableau connects to render dashboard visualizations.
 
-Run the following script to get up to date on the DB schema that persists between runs:
+We use [SQLAlchemy](https://www.sqlalchemy.org/) as our ORM, and [Alembic](https://alembic.sqlalchemy.org/en/latest/) to manage migrations as our schema(s) evolve.
 
+For migrations to run properly, the PostgreSQL database must be running and available.  In local dev and in CI, this will be a Docker container.  In stage and prod, it will be a standalone PG VM, as is typical of our other app setups.
+
+For local (laptop) dev and for deployed environments (stage and prod), database migrations should automatically run as one of the services defined by the Docker `compose.yaml` and `compose.prod.yaml` files.  Since CI doesn't spin up the full Docker stack, just the `postgres` container, the migration commands are run as a CI step.
+
+If you need to manually run migrations or related Alembic commands in a deployed environment, you can do one of the following from an SSH session on the VM:
 ```sh
-bin/dev_db_migrate
+# in stage and prod, make sure that uv is installed, and is up to date, as it's needed for all of the other commands
+pip3 install --upgrade uv # in stage and prod, will install to ~/.local/bin/uv (which should be in $PATH by default)
+
+# run the following from the rialto-airflow project directory (the git project dir on localhost, or ~/rialto-airflow/current in deployed envs)
+
+# create the database(s) for which Alembic manages migrations -- this must happen before migrations run
+uv run python rialto_airflow/schema/bin/create_databases.py
+
+uv run alembic upgrade head # run the migrations to get to the current DB schema for the deployment
+uv run alembic current # show the current migration revision for this env
+uv run alembic history --verbose # show the history of migrations that have been run in this env
 ```
-
-This will create any missing databases that are expected to exist indefinitely under a consistent name (e.g. the reporting database used by Tableau, but not the harvest databases).
-
-You'll need to do this to run the test suite, run test harvests locally, etc.
 
 ## Run Tests
-Make sure you're current on database migrations locally.
+To run the tests, you'll need to be up to date on database migrations in your local dev environment.  That should happen automatically if you've started the full Docker stack since the last migration was added, and not wiped the `postgres` volume since that.  If you've not done that, and you just want to manually run the migrations after starting the `postgres` container, see the Database Management section above.
 
-```
+Once you're up to date on migrations, you can run:
+```sh
 docker compose up -d postgres
 uv run pytest
 ```

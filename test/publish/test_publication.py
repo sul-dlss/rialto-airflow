@@ -12,7 +12,6 @@ from rialto_airflow.schema.harvest import (
 )
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import (
-    RIALTO_REPORTS_DB_NAME,
     Publications,
 )
 
@@ -145,12 +144,17 @@ def dataset(test_session):
 
 
 @pytest.fixture
-def test_reports_session():
+def rialto_reports_db_name(monkeypatch):
+    monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
+
+
+@pytest.fixture
+def test_reports_session(test_reports_engine):
     """
     Returns a sqlalchemy session for the test database.
     """
     try:
-        yield sessionmaker(engine_setup(RIALTO_REPORTS_DB_NAME, echo=True))
+        yield sessionmaker(engine_setup("rialto_reports_test", echo=True))
     finally:
         close_all_sessions()
 
@@ -170,7 +174,7 @@ def test_dataset(test_session, dataset):
 
 
 def test_export_publications(
-    test_session, test_reports_session, snapshot, dataset, caplog
+    test_reports_session, snapshot, dataset, caplog, rialto_reports_db_name
 ):
     # generate the publications table
     result = publication.export_publications(snapshot)

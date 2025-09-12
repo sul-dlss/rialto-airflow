@@ -33,8 +33,9 @@ for i in `vault kv list -format yaml puppet/application/rialto-airflow/stage | s
 done
 ```
 
-4. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. This is not yet automatically available, so to set up locally, download the file at
-https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. Put the `authors.csv` file in the `data/` directory.
+4. The harvest DAG requires a CSV file of authors from rialto-orgs to be available. The publish_orcid_to_reports DAG requires a CSV of active authors. These files are not yet automatically available, so to set up locally, download the file at
+https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=. The `authors_active.csv` file is not available via the UI but can be obtained from the stage server at `/rialto-data/authors_active.csv`. Put the `authors.csv` and `authors_active.csv` file in the `data/` directory.
+
 
 5. Bring up containers.
 ```

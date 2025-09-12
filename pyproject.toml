@@ -43,7 +43,7 @@ omit = ["test/*"]
 check_untyped_defs = true # Type-checks the interior of functions without type annotations.
 
 [[tool.mypy.overrides]]
-module = ["dimcli", "pyalex", "requests_oauthlib", "sqlalchemy_utils", "jsonpath_ng", "googleapiclient.http", "dominate", "dominate.tags"]
+module = ["dimcli", "honeybadger", "pyalex", "requests_oauthlib", "sqlalchemy_utils", "jsonpath_ng", "googleapiclient.http", "dominate", "dominate.tags"]
 ignore_missing_imports = true
 
 [dependency-groups]

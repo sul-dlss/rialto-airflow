@@ -1,4 +1,4 @@
-from honeybadger import honeybadger  # type: ignore
+from honeybadger import honeybadger
 from airflow.models import Variable
 import logging
 
@@ -6,7 +6,7 @@ honeybadger.configure(
     api_key=Variable.get("honeybadger_api_key"),
     environment=Variable.get("honeybadger_env"),
     force_sync=True,
-)  # type: ignore
+)
 
 
 def task_failure_notify(context):

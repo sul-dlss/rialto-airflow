@@ -31,7 +31,16 @@ jobs:
         run: docker compose -f compose.yaml up -d --wait postgres
 
       - name: Create the databases that persist between runs
-        run: bin/dev_db_migrate
+        # the history command at the end is there as a debuggging aid if needed -- it has no side-effects
+        run: |
+          uv run python rialto_airflow/schema/bin/create_databases.py
+          uv run alembic upgrade head
+          uv run alembic history --verbose
+        env:
+          DATABASE_USERNAME: airflow
+          DATABASE_PASSWORD: airflow
+          DATABASE_HOSTNAME: localhost # localhost because the migration is running from the host VM, not container-land
+          AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@localhost"
 
       - name: Run type checking
         run: uv run mypy .

@@ -6,11 +6,11 @@ Create Date: 2025-09-10 10:27:27.060148
 
 """
 
-import csv
 import os
 from typing import Sequence, Union
 
 from alembic import op
+import pandas as pd
 import sqlalchemy as sa
 
 
@@ -29,11 +29,8 @@ def upgrade() -> None:
     )
 
     # turn CSV into a list of dicts for bulk insert
-    orcid_stats = []
-    with open(csv_filepath, newline="") as filename:
-        reader = csv.DictReader(filename)
-        for row in reader:
-            orcid_stats.append(row)
+    df = pd.read_csv(csv_filepath)
+    orcid_stats = df.to_dict(orient="records")
 
     op.bulk_insert(
         sa.table(

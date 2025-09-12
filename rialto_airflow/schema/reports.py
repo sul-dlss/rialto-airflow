@@ -29,3 +29,28 @@ class Publications(ReportsSchemaBase):  # type: ignore
     faculty_authored = Column(Boolean)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
+
+
+class AuthorOrcids(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "author_orcids"
+
+    sunetid = Column(String, primary_key=True)
+    orcidid = Column(String)
+    full_name = Column(String)
+    orcid_update_scope = Column(Boolean)
+    role = Column(String)
+    primary_affiliation = Column(String)
+    primary_school = Column(String)
+    primary_department = Column(String)
+    primary_division = Column(String)
+    created_at = Column(DateTime, server_default=utcnow())
+    updated_at = Column(DateTime, onupdate=utcnow())
+
+
+class OrcidIntegrationStats(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "orcid_integration_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date_label = Column(String)
+    read_only_scope = Column(Integer)
+    read_write_scope = Column(Integer)

@@ -3,11 +3,10 @@ import pytest
 
 from rialto_airflow.schema.harvest import Author, Publication
 from rialto_airflow.harvest import deduplicate
-import test.publish.data as test_data
 
 
 @pytest.fixture
-def dataset(test_session):
+def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
     """
     This fixture will create two publications that are duplicates and lack DOIs.
     """
@@ -18,11 +17,11 @@ def dataset(test_session):
             apc=123,
             open_access="green",
             pub_year=2024,
-            dim_json=test_data.dim_json(),
-            openalex_json=test_data.openalex_json(),
-            wos_json=test_data.wos_json(),
-            sulpub_json=test_data.sulpub_json(),
-            pubmed_json=test_data.pubmed_json(),
+            dim_json=dim_json,
+            openalex_json=openalex_json,
+            wos_json=wos_json,
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
         )
 
         pub2 = Publication(
@@ -31,11 +30,11 @@ def dataset(test_session):
             apc=123,
             open_access="green",
             pub_year=2024,
-            dim_json=test_data.dim_json(),
-            openalex_json=test_data.openalex_json(),
-            wos_json=test_data.wos_json(),
-            sulpub_json=test_data.sulpub_json(),
-            pubmed_json=test_data.pubmed_json(),
+            dim_json=dim_json,
+            openalex_json=openalex_json,
+            wos_json=wos_json,
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
         )
 
         author1 = Author(
@@ -146,7 +145,7 @@ def test_merge_pubs(test_session, dataset):
 
 
 @pytest.fixture
-def dataset2(test_session):
+def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
     """
     This fixture will create two publications that are duplicates within different platfordmsand lack DOIs.
     """
@@ -157,11 +156,11 @@ def dataset2(test_session):
             apc=123,
             open_access="green",
             pub_year=2024,
-            dim_json=test_data.dim_json(),
-            openalex_json=test_data.openalex_json(),
-            wos_json=test_data.wos_json(),
-            sulpub_json=test_data.sulpub_json(),
-            pubmed_json=test_data.pubmed_json(),
+            dim_json=dim_json,
+            openalex_json=openalex_json,
+            wos_json=wos_json,
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
         )
 
         pub2 = Publication(
@@ -170,11 +169,11 @@ def dataset2(test_session):
             apc=123,
             open_access="green",
             pub_year=2024,
-            dim_json=test_data.dim_json(),
+            dim_json=dim_json,
             openalex_json=None,
-            wos_json=test_data.wos_json(),
-            sulpub_json=test_data.sulpub_json(),
-            pubmed_json=test_data.pubmed_json(),
+            wos_json=wos_json,
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
         )
 
         pub3 = Publication(
@@ -183,11 +182,11 @@ def dataset2(test_session):
             apc=123,
             open_access="green",
             pub_year=2024,
-            dim_json=test_data.dim_json(),
-            openalex_json=test_data.openalex_json(),
+            dim_json=dim_json,
+            openalex_json=openalex_json,
             wos_json=None,
-            sulpub_json=test_data.sulpub_json(),
-            pubmed_json=test_data.pubmed_json(),
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
         )
 
         author1 = Author(

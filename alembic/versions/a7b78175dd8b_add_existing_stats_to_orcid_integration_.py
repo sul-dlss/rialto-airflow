@@ -39,7 +39,9 @@ def upgrade() -> None:
             sa.column("read_only_scope", sa.Integer),
             sa.column("read_write_scope", sa.Integer),
         ),
-        orcid_stats,
+        # mypy expects keys in the dict to be type string, but the result of the df.to_dict() will have keys with type Hashable.
+        # This is known data, so not worrying about it.
+        orcid_stats,  # type: ignore
     )
 
 

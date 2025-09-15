@@ -69,7 +69,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["rialto_airflow"]
 
-
 [tool.alembic]
 
 # path to migration scripts.

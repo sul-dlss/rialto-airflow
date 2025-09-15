@@ -1,4 +1,3 @@
-# import test.publish.data as test_data
 import rialto_airflow.publish.publication_utils as pub_utils
 from test.utils import TestRow
 

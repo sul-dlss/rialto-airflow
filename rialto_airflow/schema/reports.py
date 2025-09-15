@@ -31,6 +31,37 @@ class Publications(ReportsSchemaBase):  # type: ignore
     updated_at = Column(DateTime, onupdate=utcnow())
 
 
+class PublicationsBySchool(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publications_by_school"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doi = Column(String)
+    pub_year = Column(Integer)
+    apc = Column(Integer)
+    open_access = Column(String)
+    types = Column(String)
+    federally_funded = Column(Boolean)
+    academic_council_authored = Column(Boolean)
+    faculty_authored = Column(Boolean)
+    primary_school = Column(String)
+
+
+class PublicationsByDepartment(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publications_by_department"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doi = Column(String)
+    pub_year = Column(Integer)
+    apc = Column(Integer)
+    open_access = Column(String)
+    types = Column(String)
+    federally_funded = Column(Boolean)
+    academic_council_authored = Column(Boolean)
+    faculty_authored = Column(Boolean)
+    primary_school = Column(String)
+    primary_department = Column(String)
+
+
 class AuthorOrcids(ReportsSchemaBase):  # type: ignore
     __tablename__ = "author_orcids"
 

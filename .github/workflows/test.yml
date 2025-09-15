@@ -31,9 +31,11 @@ jobs:
         run: docker compose -f compose.yaml up -d --wait postgres
 
       - name: Create the databases that persist between runs
-        # the history command at the end is there as a debuggging aid if needed -- it has no side-effects
+        # the history command at the end is there as a debuggging aid if needed -- it has no side-effects.
+        # migration history doesn't persist between CI runs, but it's still helpful to see which migrations were
+        # applied on this run.
         run: |
-          uv run python rialto_airflow/schema/bin/create_databases.py
+          uv run python bin/create_databases.py
           uv run alembic upgrade head
           uv run alembic history --verbose
         env:

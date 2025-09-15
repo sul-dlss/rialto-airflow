@@ -233,7 +233,7 @@ services:
     command:
       - -c
       - |
-        uv run python rialto_airflow/schema/bin/create_databases.py
+        uv run python bin/create_databases.py
         uv run alembic upgrade head
         uv run alembic history --verbose
     depends_on:

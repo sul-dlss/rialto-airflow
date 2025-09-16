@@ -94,6 +94,27 @@ def authors_active_csv(tmp_path):
                 "true",
             ]
         )
+        writer.writerow(
+            [
+                "senaj",
+                "Enaj",
+                "Stanford",
+                "Enaj Stanford",
+                None,
+                "false",
+                "23456",
+                "staff",
+                "false",
+                "Engineering",
+                "School of Engineering",
+                "Computer Science",
+                "Philanthropy Division",
+                "Independent Labs, Institutes, and Centers (Dean of Research)|School of Humanities and Sciences",
+                "Computer Science|Horticulture",
+                "Philanthropy Division|Other Division",
+                "true",
+            ]
+        )
     return fixture_file
 
 
@@ -109,8 +130,8 @@ def test_export_author_orcids(
     assert result is True
 
     with test_reports_session.begin() as session:
-        rows = session.query(AuthorOrcids).all()
-        assert len(rows) == 1
+        rows = session.query(AuthorOrcids).order_by(AuthorOrcids.sunetid).all()
+        assert len(rows) == 2
         assert rows[0].orcidid == "https://orcid.org/0000-0000-0000-0001"
         assert rows[0].orcid_update_scope  # is True
         assert rows[0].sunetid == "janes"
@@ -120,6 +141,8 @@ def test_export_author_orcids(
         assert rows[0].primary_school == "School of Engineering"
         assert rows[0].primary_department == "Computer Science"
         assert rows[0].primary_division == "Philanthropy Division"
+        assert rows[1].sunetid == "senaj"
+        assert rows[1].orcidid is None
 
     assert "finished writing author_orcids table" in caplog.text
 

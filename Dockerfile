@@ -9,6 +9,7 @@ USER airflow
 
 COPY rialto_airflow ./rialto_airflow
 COPY alembic ./alembic
+COPY bin ./bin
 COPY README.md uv.lock pyproject.toml alembic.ini .
 
 # For the Airflow application to be able to find dependencies they need to be

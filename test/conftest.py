@@ -6,12 +6,12 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import create_schema, engine_setup
 from rialto_airflow.schema.harvest import (
+    HarvestSchemaBase,
     Author,
     Funder,
     Publication,
     pub_author_association,
 )
-from rialto_airflow.schema.harvest import HarvestSchemaBase
 from rialto_airflow.schema.reports import ReportsSchemaBase
 from rialto_airflow.snapshot import Snapshot
 

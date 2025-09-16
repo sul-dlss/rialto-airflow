@@ -134,7 +134,7 @@ pip3 install --upgrade uv # in stage and prod, will install to ~/.local/bin/uv (
 # run the following from the rialto-airflow project directory (the git project dir on localhost, or ~/rialto-airflow/current in deployed envs)
 
 # create the database(s) for which Alembic manages migrations -- this must happen before migrations run
-uv run python rialto_airflow/schema/bin/create_databases.py
+uv run python bin/create_databases.py
 
 uv run alembic upgrade head # run the migrations to get to the current DB schema for the deployment
 uv run alembic current # show the current migration revision for this env

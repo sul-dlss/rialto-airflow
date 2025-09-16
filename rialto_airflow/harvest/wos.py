@@ -4,6 +4,7 @@ import os
 import re
 from itertools import batched
 from pathlib import Path
+from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -163,7 +164,9 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
     # retry any 429 statuses and stay within rate limits
     http = requests.Session()
-    retries = Retry(status=3, status_forcelist=[429], backoff_factor=0.25)
+    retries = Retry(
+        status=3, status_forcelist=[429], backoff_factor=1
+    )  # there is an immediate retry; wait another 2 seconds before trying again
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
     # get the initial set of results, which also gives us a Query ID to fetch
@@ -193,12 +196,15 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
     logging.info(f"{records_found} records found")
     while first_record < records_found:
+        sleep(0.5)
         page_params: Params = {"firstRecord": first_record, "count": count}
         logging.info(f"fetching {base_url}/query/{query_id} with {page_params}")
 
         # retry any 429 errors and stay within rate limits
         http = requests.Session()
-        retries = Retry(status=3, status_forcelist=[429], backoff_factor=0.25)
+        retries = Retry(
+            status=3, status_forcelist=[429], backoff_factor=1
+        )  # there is an immediate retry; wait another 2 seconds before trying again
         http.mount("https://", HTTPAdapter(max_retries=retries))
         resp = http.get(
             f"{base_url}/query/{query_id}", params=page_params, headers=headers

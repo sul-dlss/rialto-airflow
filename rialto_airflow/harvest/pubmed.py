@@ -188,7 +188,7 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
 
         results = response.content
 
-        json_results = xmltodict.parse(results)
+        json_results = xmltodict.parse(results, disable_entities=False)
         pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
         if not isinstance(pubs, list):
             # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it

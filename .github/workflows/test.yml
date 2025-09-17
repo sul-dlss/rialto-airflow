@@ -39,9 +39,6 @@ jobs:
           uv run alembic upgrade head
           uv run alembic history --verbose
         env:
-          DATABASE_USERNAME: airflow
-          DATABASE_PASSWORD: airflow
-          DATABASE_HOSTNAME: localhost # localhost because the migration is running from the host VM, not container-land
           AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@localhost"
 
       - name: Run type checking
@@ -64,9 +61,7 @@ jobs:
           AIRFLOW_VAR_MAIS_BASE_URL: ${{ secrets.AIRFLOW_VAR_MAIS_BASE_URL }}
           AIRFLOW_VAR_MAIS_CLIENT_ID: ${{ secrets.AIRFLOW_VAR_MAIS_CLIENT_ID }}
           AIRFLOW_VAR_MAIS_SECRET: ${{ secrets.AIRFLOW_VAR_MAIS_SECRET }}
-          DATABASE_USERNAME: airflow
-          DATABASE_PASSWORD: airflow
-          DATABASE_HOSTNAME: localhost
+          AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@localhost"
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

@@ -165,7 +165,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
     # retry any 429 statuses and stay within rate limits
     http = requests.Session()
     retries = Retry(
-        status=3, status_forcelist=[429], backoff_factor=1
+        status=5, status_forcelist=[429], backoff_factor=1
     )  # there is an immediate retry; wait another 2 seconds before trying again
     http.mount("https://", HTTPAdapter(max_retries=retries))
 
@@ -203,7 +203,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
         # retry any 429 errors and stay within rate limits
         http = requests.Session()
         retries = Retry(
-            status=3, status_forcelist=[429], backoff_factor=1
+            status=5, status_forcelist=[429], backoff_factor=1
         )  # there is an immediate retry; wait another 2 seconds before trying again
         http.mount("https://", HTTPAdapter(max_retries=retries))
         resp = http.get(

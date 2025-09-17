@@ -31,12 +31,24 @@ def publish_to_reports():
             return snapshot
 
     @task
-    def publish(snapshot):
+    def publish_publications(snapshot):
         publication.export_publications(snapshot)
+
+    @task
+    def publish_publications_by_school(snapshot):
+        publication.export_publications_by_school(snapshot)
+
+    @task
+    def publish_publications_by_department(snapshot):
+        publication.export_publications_by_department(snapshot)
 
     snapshot = get_snapshot()
 
-    publish(snapshot)
+    (
+        publish_publications(snapshot)
+        >> publish_publications_by_school(snapshot)
+        >> publish_publications_by_department(snapshot)
+    )
 
 
 publish_to_reports()

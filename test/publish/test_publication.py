@@ -1,6 +1,3 @@
-import pytest
-
-
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
@@ -20,18 +17,10 @@ def test_dataset(test_session, dataset):
         assert len(pub.funders) == 2
 
 
-@pytest.fixture
-def rialto_reports_db_name(monkeypatch):
-    monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
-
-
-def test_export_publications(
-    test_reports_session, snapshot, dataset, caplog, rialto_reports_db_name
-):
+def test_export_publications(test_reports_session, snapshot, dataset, caplog):
     # generate the publications table
     result = publication.export_publications(snapshot)
-
-    assert result
+    assert result == 2
 
     with test_reports_session.begin() as session:
         assert session.query(Publications).count() == 2

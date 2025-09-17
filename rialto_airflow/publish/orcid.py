@@ -34,7 +34,7 @@ def export_author_orcids(data_dir):
                 row_values = {
                     "sunetid": row["sunetid"],
                     "full_name": row["full_name"],
-                    "orcidid": row["orcidid"],
+                    "orcidid": row["orcidid"] if row["orcidid"].strip() != "" else None,
                     "orcid_update_scope": row["orcid_update_scope"].lower() == "true",
                     "role": row["role"],
                     "primary_affiliation": row["primary_affiliation"],

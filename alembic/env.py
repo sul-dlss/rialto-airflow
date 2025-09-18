@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -6,6 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from rialto_airflow.database import db_uri
 from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME, ReportsSchemaBase
 
 # this is the Alembic Config object, which provides
@@ -60,7 +60,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    sqlalchemy_url = f"postgresql+psycopg2://{os.getenv('DATABASE_USERNAME')}:{os.getenv('DATABASE_PASSWORD')}@{os.getenv('DATABASE_HOSTNAME')}/{RIALTO_REPORTS_DB_NAME}"
+    sqlalchemy_url = db_uri(RIALTO_REPORTS_DB_NAME)
     config.set_section_option(
         config.config_ini_section, "sqlalchemy.url", sqlalchemy_url
     )

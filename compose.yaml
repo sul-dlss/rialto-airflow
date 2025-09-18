@@ -225,11 +225,6 @@ services:
     <<: *airflow-common
     entrypoint: /bin/bash
     user: airflow
-    environment:
-      DATABASE_HOSTNAME: postgres
-      DATABASE_USERNAME: airflow
-      DATABASE_PASSWORD: airflow
-      AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@postgres"
     command:
       - -c
       - |

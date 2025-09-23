@@ -16,6 +16,7 @@ def dataset(test_session):
             pub_year=2023,
             dim_json={"type": "article"},
             openalex_json={"type": "preprint"},
+            types=["article", "preprint"],
         )
 
         pub.authors.append(

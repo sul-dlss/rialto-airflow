@@ -245,7 +245,10 @@ def wos_json():
                         {"type": "bogus", "content": "Bogus"},
                     ],
                 },
-            }
+            },
+            "fullrecord_metadata": {
+                "normalized_doctypes": {"doctype": ["article", "review"]}
+            },
         },
         "dynamic_data": {
             "cluster_related": {
@@ -294,6 +297,9 @@ def pubmed_json():
         "MedlineCitation": {
             "Article": {
                 "ArticleTitle": "Example Title",
+                "PublicationTypeList": {
+                    "PublicationType": {"@UI": "D016428", "#text": "Journal Article"}
+                },
             },
         },
         "PubmedData": {
@@ -337,6 +343,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            types=["article", "preprint"],
         )
 
         pub2 = Publication(
@@ -350,6 +357,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            types=["article", "preprint"],
         )
 
         author1 = Author(

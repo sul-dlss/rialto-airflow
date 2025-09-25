@@ -1,13 +1,13 @@
 import logging
+from typing import Generator, Optional
 
-import jsonpath_ng
 from sqlalchemy import select, update
 
+from rialto_airflow.apc import get_apc
 from rialto_airflow.database import get_session
+from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.apc import get_apc
-from rialto_airflow.distiller import first, JsonPathRule, FuncRule
 
 
 def distill(snapshot: Snapshot) -> int:
@@ -32,6 +32,7 @@ def distill(snapshot: Snapshot) -> int:
                 "title": _title(pub),
                 "pub_year": _pub_year(pub),
                 "open_access": _open_access(pub),
+                "types": _types(pub),
             }
 
             # pub_year and open_access in cols is needed to determine the apc
@@ -145,7 +146,7 @@ def _apc(pub, context):
 
 
 def _wos_title(wos_json):
-    jsonp = jsonpath_ng.parse("static_data.summary.titles[*].title[*]")
+    jsonp = json_path("static_data.summary.titles[*].title[*]")
     for title in jsonp.find(wos_json):
         if isinstance(title.value, dict) and title.value.get("type") == "item":
             return title.value.get("content")
@@ -153,11 +154,11 @@ def _wos_title(wos_json):
     return None
 
 
-def _open_access_dim(dim_json):
+def _open_access_dim(dim_json: dict) -> Optional[str]:
     """
     Get the open access value, but ignore "oa_all"
     """
-    jsonp = jsonpath_ng.parse("open_access[*]")
+    jsonp = json_path("open_access[*]")
     for oa in jsonp.find(dim_json):
         if oa.value and oa.value != "oa_all":
             return oa.value
@@ -185,3 +186,53 @@ def _apc_oa_dataset(dim_json, context):
             return cost
 
     return None
+
+
+def _types(pub) -> list[str]:
+    types = all(
+        pub,
+        rules=[
+            JsonPathRule("dim_json", "type"),
+            JsonPathRule("openalex_json", "type"),
+            JsonPathRule("sulpub_json", "type"),
+            JsonPathRule("crossref_json", "type"),
+            JsonPathRule(
+                "wos_json",
+                "static_data.fullrecord_metadata.normalized_doctypes.doctype",
+            ),
+            FuncRule("pubmed_json", _pubmed_type),
+        ],
+    )
+
+    # the wos and pubmed types return list[str] and the others are str
+    types = list(_flatten(types))
+
+    # make lowercase, unique and in order
+    return sorted(set([str(s).lower() for s in types]))
+
+
+def _pubmed_type(pubmed_json: dict) -> list[str]:
+    """
+    PubMed publication types can point to a dictionary or a list of dictionaries.
+    """
+    types = []
+    jsonp = json_path("MedlineCitation.Article.PublicationTypeList.PublicationType[*]")
+    for pub_type in jsonp.find(pubmed_json):
+        types.append(pub_type.value.get("#text"))
+
+    return types
+
+
+def _flatten(obj: list) -> Generator[str, None, None]:
+    """
+    Flattens a list that potentially contains other lists.
+
+    >>> _flatten([1, [2, [3, 4]]])
+    >>> [1, 2, 3, 4]
+    """
+
+    if isinstance(obj, list):
+        for item in obj:
+            yield from _flatten(item)
+    else:
+        yield obj

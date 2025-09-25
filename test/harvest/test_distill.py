@@ -8,18 +8,21 @@ sulpub_json = {"title": "On the dangers of stochastic parrots (sulpub)", "year":
 dim_json_future_year = {
     "title": "On the dangers of stochastic parrots (dim future)",
     "year": "2105",
+    "type": "article",
 }
 
 dim_json = {
     "title": "On the dangers of stochastic parrots (dim)",
     "year": 2021,
     "open_access": ["oa_all", "green"],
+    "type": "article",
 }
 
 openalex_json = {
     "title": "On the dangers of stochastic parrots (openalex)",
     "publication_year": 2022,
     "open_access": {"oa_status": "gold"},
+    "type": "preprint",
 }
 
 wos_json = {
@@ -41,7 +44,7 @@ wos_json = {
                     },
                 ],
             },
-        }
+        },
     }
 }
 
@@ -598,6 +601,54 @@ def test_non_int_year_fallback(test_session, snapshot, caplog):
     distill(snapshot)
     assert _pub(session).pub_year == 2022
     assert 'got "nope" instead of int' in caplog.text
+
+
+def test_types(test_session, snapshot, caplog):
+    """
+    Test that all types are returned lowercased, unique and sorted.
+    """
+    with test_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                Publication(
+                    doi="10.1515/9781503624153",
+                    dim_json={"type": "dim-article"},
+                    openalex_json={"type": "openalex-article"},
+                    sulpub_json={"type": "sulpub-article"},
+                    crossref_json={"type": "crossref-article"},
+                    wos_json={
+                        "static_data": {
+                            "fullrecord_metadata": {
+                                "normalized_doctypes": {"doctype": "wos-article"}
+                            }
+                        }
+                    },
+                    pubmed_json={
+                        "MedlineCitation": {
+                            "Article": {
+                                "PublicationTypeList": {
+                                    "PublicationType": [
+                                        {"#text": "pubmed-article"},
+                                        {"#text": "pubmed-book"},
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                )
+            ]
+        )
+
+    distill(snapshot)
+    assert _pub(session).types == [
+        "crossref-article",
+        "dim-article",
+        "openalex-article",
+        "pubmed-article",
+        "pubmed-book",
+        "sulpub-article",
+        "wos-article",
+    ]
 
 
 def _pub(session, doi="10.1515/9781503624153"):

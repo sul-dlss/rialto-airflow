@@ -1,5 +1,6 @@
-from pathlib import Path
 import re
+from pathlib import Path
+from typing import Optional
 
 
 def rialto_authors_file(data_dir):
@@ -57,23 +58,6 @@ def normalize_orcid(orcid):
     return orcid
 
 
-def get_types(row):
-    types = set()
-    if row.dim_type:
-        types.add(row.dim_type)
-    if row.openalex_type:
-        types.add(row.openalex_type)
-    # the wos type can be a single value or a list
-    if row.wos_type:
-        if isinstance(row.wos_type, list):
-            for wos_type in row.wos_type:
-                types.add(wos_type.lower())
-        else:
-            types.add(row.wos_type.lower())
-
-    return sorted(types)
-
-
 def get_csv_path(snapshot, google_drive_folder, filename) -> Path:
     """
     Get the base path for a CSV file in the shared google drive
@@ -81,3 +65,12 @@ def get_csv_path(snapshot, google_drive_folder, filename) -> Path:
     csv_path = snapshot.path / google_drive_folder / filename
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     return csv_path
+
+
+def piped(lst: list[str]) -> Optional[str]:
+    """
+    Return a list as pipe delimited or None if None is passed in.
+    """
+    if lst is None:
+        return None
+    return "|".join(lst)

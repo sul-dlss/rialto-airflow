@@ -95,7 +95,21 @@ def first(pub: Row, rules: list[Rule]) -> Optional[str | int]:
     """
     Examines a Publication row using a list of rules and returns the result of the first rule that matches.
     """
+    results = all(pub, rules=rules)
+    return results[0] if len(results) > 0 else None
+
+
+def all(pub: Row, rules: list[Rule]) -> list[str | int]:
+    """
+    Examines a Publication row using a list of rules and returns the result of
+    all rule matches.
+    """
+    results = []
+
     for rule in rules:
+        if not isinstance(rule, Rule):
+            raise Exception("Rule must be JsonPathRule or FuncRule")
+
         # get the appropriate bit of json to analyze
         data = getattr(pub, rule.col)
 
@@ -106,21 +120,16 @@ def first(pub: Row, rules: list[Rule]) -> Optional[str | int]:
             result = _jsonpath_match(rule, data)
         elif isinstance(rule, FuncRule):
             result = _func_match(rule, data)
-        else:
-            raise Exception(
-                "unknown rule matcher: should be JsonPath string or function"
-            )
 
         # if a rule matched return it, otherwise we continue to the next rule
         if result is not None:
-            return result
+            results.append(result)
 
-    # none of the rules matched, oh well
-    return None
+    return results
 
 
 def _jsonpath_match(rule: JsonPathRule, data) -> Optional[str | int]:
-    jpath = _json_path(rule.matcher)
+    jpath = json_path(rule.matcher)
     results = jpath.find(data)
 
     if len(results) > 0:
@@ -172,5 +181,5 @@ def _func_match(rule: FuncRule, data: dict) -> Optional[str | int]:
 
 
 @cache
-def _json_path(path):
+def json_path(path):
     return jsonpath_ng.parse(path)

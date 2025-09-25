@@ -49,6 +49,7 @@ class Publication(HarvestSchemaBase):  # type: ignore
     crossref_json = Column(JSONB(none_as_null=True))
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
+    types = Column(ARRAY(String))
     authors: RelationshipProperty = relationship(
         "Author",
         secondary=pub_author_association,

@@ -15,7 +15,7 @@ from rialto_airflow.schema.reports import (
     PublicationsBySchool,
     PublicationsByDepartment,
 )
-from rialto_airflow.utils import get_types
+from rialto_airflow.utils import piped
 
 # NOTE: We used to write out CSV files to google drive as well.
 # This was removed in https://github.com/sul-dlss/rialto-airflow/pull/528 in case
@@ -43,11 +43,7 @@ def export_publications(snapshot) -> int:
                 Publication.pub_year,  # type: ignore
                 Publication.apc,  # type: ignore
                 Publication.open_access,
-                Publication.dim_json["type"].label("dim_type"),
-                Publication.openalex_json["type"].label("openalex_type"),
-                Publication.wos_json["static_data"]["fullrecord_metadata"][
-                    "normalized_doctypes"
-                ]["doctype"].label("wos_type"),
+                Publication.types,
                 func.jsonb_agg_strict(Author.academic_council).label(
                     "academic_council"
                 ),
@@ -72,7 +68,7 @@ def export_publications(snapshot) -> int:
                     "pub_year": row.pub_year,
                     "apc": row.apc,
                     "open_access": row.open_access,
-                    "types": "|".join(get_types(row)) or None,
+                    "types": piped(row.types),
                     "federally_funded": any(row.federal),
                     "academic_council_authored": any(row.academic_council),
                     "faculty_authored": "faculty" in row.primary_role,
@@ -101,16 +97,11 @@ def export_publications_by_school(snapshot) -> int:
                 Publication.open_access,  # type: ignore
                 Author.primary_school,
                 Publication.pub_year,  # type: ignore
+                Publication.types,
                 # for academic_council
                 func.jsonb_agg_strict(Author.academic_council).label(
                     "academic_council"
                 ),
-                # for publication types
-                Publication.dim_json["type"].label("dim_type"),
-                Publication.openalex_json["type"].label("openalex_type"),
-                Publication.wos_json["static_data"]["fullrecord_metadata"][
-                    "normalized_doctypes"
-                ]["doctype"].label("wos_type"),
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
                 # for faculty_authored
@@ -138,7 +129,7 @@ def export_publications_by_school(snapshot) -> int:
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,
                     "pub_year": row.pub_year,
-                    "types": "|".join(get_types(row)),
+                    "types": piped(row.types),
                 }
 
                 insert_session.execute(
@@ -167,16 +158,11 @@ def export_publications_by_department(snapshot) -> int:
                 Author.primary_school,
                 Author.primary_dept,
                 Publication.pub_year,  # type: ignore
+                Publication.types,  # type: ignore
                 # for academic_council
                 func.jsonb_agg_strict(Author.academic_council).label(
                     "academic_council"
                 ),
-                # for publication types
-                Publication.dim_json["type"].label("dim_type"),
-                Publication.openalex_json["type"].label("openalex_type"),
-                Publication.wos_json["static_data"]["fullrecord_metadata"][
-                    "normalized_doctypes"
-                ]["doctype"].label("wos_type"),
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
                 # for faculty_authored
@@ -205,7 +191,7 @@ def export_publications_by_department(snapshot) -> int:
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
                     "pub_year": row.pub_year,
-                    "types": "|".join(get_types(row)),
+                    "types": piped(row.types),
                 }
 
                 insert_session.execute(

@@ -1,9 +1,9 @@
 import logging
 from csv import DictWriter
 from pathlib import Path
-from rialto_airflow.utils import get_types, get_csv_path
+from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.harvest import (
@@ -11,6 +11,7 @@ from rialto_airflow.schema.harvest import (
     Funder,
     Publication,
 )
+from rialto_airflow.utils import get_csv_path, piped
 
 
 def google_drive_folder() -> str:
@@ -56,11 +57,7 @@ def write_publications(snapshot) -> Path:
                     Publication.pub_year,  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.open_access,
-                    Publication.dim_json["type"].label("dim_type"),
-                    Publication.openalex_json["type"].label("openalex_type"),
-                    Publication.wos_json["static_data"]["fullrecord_metadata"][
-                        "normalized_doctypes"
-                    ]["doctype"].label("wos_type"),
+                    Publication.types,
                     func.jsonb_agg_strict(Author.academic_council).label(
                         "academic_council"
                     ),
@@ -82,7 +79,7 @@ def write_publications(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(get_types(row)) or None,
+                        "types": piped(row.types),
                         "funders": "|".join(sorted(set(row.funders))) or None,
                         "federally_funded": any(row.federal),
                         "academic_council_authored": any(row.academic_council),
@@ -144,11 +141,7 @@ def write_contributions(snapshot) -> Path:
                     Publication.pub_year,  # type: ignore
                     Publication.apc,  # type: ignore
                     Publication.open_access,  # type: ignore
-                    Publication.dim_json["type"].label("dim_type"),
-                    Publication.openalex_json["type"].label("openalex_type"),
-                    Publication.wos_json["static_data"]["fullrecord_metadata"][
-                        "normalized_doctypes"
-                    ]["doctype"].label("wos_type"),
+                    Publication.types,  # type: ignore
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                 )
                 .join(Author, Publication.authors)  # type: ignore
@@ -170,7 +163,7 @@ def write_contributions(snapshot) -> Path:
                         "pub_year": row.pub_year,
                         "apc": row.apc,
                         "open_access": row.open_access,
-                        "types": "|".join(get_types(row)),
+                        "types": piped(row.types),
                         "federally_funded": any(row.federal),
                     }
                 )
@@ -215,16 +208,11 @@ def write_contributions_by_school(snapshot) -> Path:
                     Publication.open_access,  # type: ignore
                     Author.primary_school,
                     Publication.pub_year,  # type: ignore
+                    Publication.types,
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
                         "academic_council"
                     ),
-                    # for publication types
-                    Publication.dim_json["type"].label("dim_type"),
-                    Publication.openalex_json["type"].label("openalex_type"),
-                    Publication.wos_json["static_data"]["fullrecord_metadata"][
-                        "normalized_doctypes"
-                    ]["doctype"].label("wos_type"),
                     # for federally_funded
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                     # for faculty_authored
@@ -248,7 +236,7 @@ def write_contributions_by_school(snapshot) -> Path:
                         "open_access": row.open_access,
                         "primary_school": row.primary_school,
                         "pub_year": row.pub_year,
-                        "types": "|".join(get_types(row)),
+                        "types": piped(row.types),
                     }
                 )
 
@@ -295,16 +283,11 @@ def write_contributions_by_department(snapshot) -> Path:
                     Author.primary_school,
                     Author.primary_dept,
                     Publication.pub_year,  # type: ignore
+                    Publication.types,  # type: ignore
                     # for academic_council
                     func.jsonb_agg_strict(Author.academic_council).label(
                         "academic_council"
                     ),
-                    # for publication types
-                    Publication.dim_json["type"].label("dim_type"),
-                    Publication.openalex_json["type"].label("openalex_type"),
-                    Publication.wos_json["static_data"]["fullrecord_metadata"][
-                        "normalized_doctypes"
-                    ]["doctype"].label("wos_type"),
                     # for federally_funded
                     func.jsonb_agg_strict(Funder.federal).label("federal"),
                     # for faculty_authored
@@ -329,7 +312,7 @@ def write_contributions_by_department(snapshot) -> Path:
                         "primary_school": row.primary_school,
                         "primary_department": row.primary_dept,
                         "pub_year": row.pub_year,
-                        "types": "|".join(get_types(row)),
+                        "types": piped(row.types),
                     }
                 )
 

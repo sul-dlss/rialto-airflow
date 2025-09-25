@@ -130,6 +130,7 @@ def test_create_schema(
                 "pubmed_json",
                 "created_at",
                 "updated_at",
+                "types",
             }
 
             author_result = conn.execute(

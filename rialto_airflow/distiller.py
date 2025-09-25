@@ -121,7 +121,7 @@ def all(pub: Row, rules: list[Rule]) -> list[str | int]:
         elif isinstance(rule, FuncRule):
             result = _func_match(rule, data)
 
-        # if a rule matched return it, otherwise we continue to the next rule
+        # a non-None result indicates the rule hit a match
         if result is not None:
             results.append(result)
 

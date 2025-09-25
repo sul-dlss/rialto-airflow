@@ -222,9 +222,9 @@ services:
     command:
       - -c
       - |
-        uv run python bin/create_databases.py
-        uv run alembic upgrade head
-        uv run alembic history --verbose
+        python bin/create_databases.py
+        alembic upgrade head
+        alembic history --verbose
     depends_on:
       # We want PG to be up, and we want Airflow to do its own initialization first.
       # For prod, the only dependency is airflow-init, because we run PG on

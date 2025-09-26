@@ -54,3 +54,27 @@ set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false
+
+after 'deploy:finishing', 'honeybadger:notify'
+after 'deploy:finishing_rollback', 'honeybadger:notify'
+
+namespace :honeybadger do
+  desc 'Notify Honeybadger of a deploy (using the API via curl)'
+  task notify: %i[deploy:set_current_revision] do
+    on roles(:app) do
+      info 'Notifying Honeybadger of deploy.'
+      remote_api_key = capture(:echo, '$HONEYBADGER_API_KEY')
+      remote_env = capture(:echo, '$HONEYBADGER_ENV')
+      options = {
+        'deploy[environment]' => remote_env,
+        'deploy[local_username]' => fetch(:honeybadger_user, ENV['USER'] || ENV.fetch('USERNAME', nil)),
+        'deploy[revision]' => fetch(:current_revision),
+        'deploy[repository]' => fetch(:repo_url),
+        'api_key' => remote_api_key
+      }
+      data = options.to_a.map { |pair| pair.join('=') }.join('&')
+      execute(:curl, '--no-progress-meter', '--data', "\"#{data}\"", 'https://api.honeybadger.io/v1/deploys')
+      info 'Honeybadger notification complete.'
+    end
+  end
+end

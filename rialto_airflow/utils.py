@@ -58,15 +58,6 @@ def normalize_orcid(orcid):
     return orcid
 
 
-def get_csv_path(snapshot, google_drive_folder, filename) -> Path:
-    """
-    Get the base path for a CSV file in the shared google drive
-    """
-    csv_path = snapshot.path / google_drive_folder / filename
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    return csv_path
-
-
 def piped(lst: list[str]) -> Optional[str]:
     """
     Return a list as pipe delimited or None if None is passed in.

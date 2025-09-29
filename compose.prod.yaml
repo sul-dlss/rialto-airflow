@@ -88,10 +88,6 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-    AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON: ${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}
-    AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: 'google-cloud-platform://?keyfile_dict=${AIRFLOW_VAR_GOOGLE_SERVICE_ACCOUNT_JSON}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets&project=sul-rialto&num_retries=5'
-    AIRFLOW_VAR_GOOGLE_CONNECTION: google_cloud_default
-    AIRFLOW_VAR_GOOGLE_DRIVE_ID: ${AIRFLOW_VAR_GOOGLE_DRIVE_ID}
     AIRFLOW_VAR_DIMENSIONS_API_KEY: ${AIRFLOW_VAR_DIMENSIONS_API_KEY}
     AIRFLOW_VAR_MAIS_TOKEN_URL: https://mais.auth.us-west-2.amazoncognito.com
     AIRFLOW_VAR_MAIS_BASE_URL: https://mais.suapi.stanford.edu
@@ -141,7 +137,7 @@ services:
     <<: *airflow-common
     # dlss-capistrano-docker builds images when we deploy with set :docker_compose_build_use_hooks, true
     # https://github.com/sul-dlss/dlss-capistrano-docker/blob/main/lib/dlss/docker/capistrano/tasks/docker_compose.rake#L100
-    # It will resolve symbolic links, e.g. from the "current" release dir. Providing the anticipated image name as it will be built 
+    # It will resolve symbolic links, e.g. from the "current" release dir. Providing the anticipated image name as it will be built
     # ensures a new image is created each deploy.
     image: current-airflow-webserver
     command: webserver

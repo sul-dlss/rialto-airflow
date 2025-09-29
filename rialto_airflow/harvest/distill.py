@@ -75,7 +75,7 @@ def _title(pub):
 
 def _pub_year(pub):
     """
-    Get the pub_year from sulpub, dimensions, openalex and then wos.
+    Get the pub_year from dimensions, openalex, wos and then sul-pub
     """
     return first(
         pub,

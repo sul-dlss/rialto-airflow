@@ -2,7 +2,6 @@ import datetime
 import logging
 from pathlib import Path
 import shutil
-import os
 
 from airflow.decorators import dag, task, task_group
 from airflow.models import Variable
@@ -25,13 +24,9 @@ from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import rialto_authors_file
 from rialto_airflow.honeybadger import default_args
 
-gcp_conn_id = Variable.get("google_connection")
 data_dir = Path(Variable.get("data_dir"))
 sul_pub_host = Variable.get("sul_pub_host")
 sul_pub_key = Variable.get("sul_pub_key")
-google_drive_id = Variable.get(
-    "google_drive_id", os.environ.get("AIRFLOW_TEST_GOOGLE_DRIVE_ID")
-)
 
 # to artificially limit the API activity in development
 harvest_limit = None

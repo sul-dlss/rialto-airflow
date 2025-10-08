@@ -1,3 +1,5 @@
+import pytest
+
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest.distill import distill
 
@@ -605,50 +607,122 @@ def test_non_int_year_fallback(test_session, snapshot, caplog):
 
 def test_types(test_session, snapshot, caplog):
     """
-    Test that all types are returned lowercased, unique and sorted.
+    Test that only the types from the first match are returned.
     """
+
+    # set up a publication with some initial type metadata where we would expect
+    # to find it, and slowly pare the different platform metadata away to make
+    # sure the rules are matching correctly.
+
     with test_session.begin() as session:
-        session.bulk_save_objects(
-            [
-                Publication(
-                    doi="10.1515/9781503624153",
-                    dim_json={"type": "dim-article"},
-                    openalex_json={"type": "openalex-article"},
-                    sulpub_json={"type": "sulpub-article"},
-                    crossref_json={"type": "crossref-article"},
-                    wos_json={
-                        "static_data": {
-                            "fullrecord_metadata": {
-                                "normalized_doctypes": {"doctype": "wos-article"}
-                            }
+        pub = Publication(
+            doi="10.1515/9781503624153",
+            dim_json={"type": "dim-article"},
+            openalex_json={"type": "openalex-article"},
+            sulpub_json={"type": "sulpub-article"},
+            crossref_json={"type": "crossref-article"},
+            wos_json={
+                "static_data": {
+                    "fullrecord_metadata": {
+                        "normalized_doctypes": {"doctype": "wos-article"}
+                    }
+                }
+            },
+            pubmed_json={
+                "MedlineCitation": {
+                    "Article": {
+                        "PublicationTypeList": {
+                            "PublicationType": [
+                                {"#text": "pubmed-article"},
+                                {"#text": "pubmed-preprint"},
+                            ]
                         }
-                    },
-                    pubmed_json={
-                        "MedlineCitation": {
-                            "Article": {
-                                "PublicationTypeList": {
-                                    "PublicationType": [
-                                        {"#text": "pubmed-article"},
-                                        {"#text": "pubmed-book"},
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                )
-            ]
+                    }
+                }
+            },
         )
+        session.add(pub)
+
+    # dimensions takes priority
+    distill(snapshot)
+    assert _pub(session).types == ["dim-article"]
+
+    # openalex next
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.dim_json = None
+        session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == [
-        "crossref-article",
-        "dim-article",
-        "openalex-article",
-        "pubmed-article",
-        "pubmed-book",
-        "sulpub-article",
-        "wos-article",
-    ]
+    assert _pub(session).types == ["openalex-article"]
+
+    # pubmed next
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.openalex_json = None
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == ["pubmed-article", "pubmed-preprint"]
+
+    # wos next
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.pubmed_json = None
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == ["wos-article"]
+
+    # crossref next
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.wos_json = None
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == ["crossref-article"]
+
+    # sulpub next
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.crossref_json = None
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == ["sulpub-article"]
+
+    # unepected json shouldn't cause a problem
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.sulpub_json = {"foo": "bar"}
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == []
+
+    # no json would be weird, but shouldn't cause a problem w/ distill
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.sulpub_json = None
+        session.add(pub)
+
+    distill(snapshot)
+    assert _pub(session).types == []
+
+    # unexpected json throws an distiller exception
+    with test_session.begin() as session:
+        pub = _pub(session)
+        pub.sulpub_json = {"type": {"foo": "bar"}}
+        session.add(pub)
+
+    with pytest.raises(Exception) as e:
+        distill(snapshot)
+
+    assert (
+        str(e.value)
+        == "types distill rules generated unexpected result: <class 'dict'>"
+    )
 
 
 def _pub(session, doi="10.1515/9781503624153"):

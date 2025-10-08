@@ -91,9 +91,11 @@ class FuncRule:
 Rule = JsonPathRule | FuncRule
 
 
-def first(pub: Row, rules: list[Rule]) -> Optional[str | int]:
+def first(pub: Row, rules: list[Rule]) -> Optional[str | int | list]:
     """
-    Examines a Publication row using a list of rules and returns the result of the first rule that matches.
+    Examines a Publication row using a list of rules and returns the result of
+    the first rule that matches. A rule could potentially return a list of
+    values.
     """
     results = all(pub, rules=rules)
     return results[0] if len(results) > 0 else None
@@ -121,8 +123,8 @@ def all(pub: Row, rules: list[Rule]) -> list[str | int]:
         elif isinstance(rule, FuncRule):
             result = _func_match(rule, data)
 
-        # a non-None result indicates the rule hit a match
-        if result is not None:
+        # a non-None, non-empty result indicates the rule hit a match
+        if result is not None and result != []:
             results.append(result)
 
     return results

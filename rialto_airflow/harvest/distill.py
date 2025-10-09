@@ -189,26 +189,34 @@ def _apc_oa_dataset(dim_json, context):
 
 
 def _types(pub) -> list[str]:
-    types = all(
+    types = first(
         pub,
         rules=[
             JsonPathRule("dim_json", "type"),
             JsonPathRule("openalex_json", "type"),
-            JsonPathRule("sulpub_json", "type"),
-            JsonPathRule("crossref_json", "type"),
+            FuncRule("pubmed_json", _pubmed_type),
             JsonPathRule(
                 "wos_json",
                 "static_data.fullrecord_metadata.normalized_doctypes.doctype",
             ),
-            FuncRule("pubmed_json", _pubmed_type),
+            JsonPathRule("crossref_json", "type"),
+            JsonPathRule("sulpub_json", "type"),
         ],
     )
 
-    # the wos and pubmed types return list[str] and the others are str
-    types = list(_flatten(types))
+    if types is None:
+        return []
 
-    # make lowercase, unique and in order
-    return sorted(set([str(s).lower() for s in types]))
+    if isinstance(types, str):
+        types = [types]
+
+    elif not isinstance(types, list):
+        raise Exception(
+            f"types distill rules generated unexpected result: {type(types)}"
+        )
+
+    # make lowercase and ordered
+    return sorted([str(s).lower() for s in types])
 
 
 def _pubmed_type(pubmed_json: dict) -> list[str]:
@@ -221,18 +229,3 @@ def _pubmed_type(pubmed_json: dict) -> list[str]:
         types.append(pub_type.value.get("#text"))
 
     return types
-
-
-def _flatten(obj: list) -> Generator[str, None, None]:
-    """
-    Flattens a list that potentially contains other lists.
-
-    >>> _flatten([1, [2, [3, 4]]])
-    >>> [1, 2, 3, 4]
-    """
-
-    if isinstance(obj, list):
-        for item in obj:
-            yield from _flatten(item)
-    else:
-        yield obj

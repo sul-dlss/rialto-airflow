@@ -2,8 +2,8 @@
 
 source 'https://rubygems.org'
 
-gem 'rake'
 gem 'honeybadger'
+gem 'rake'
 
 group :deployment do
   gem 'capistrano'

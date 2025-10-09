@@ -54,3 +54,28 @@ set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false
+
+before 'docker_compose:build', 'check_running_airflow_dag'
+
+desc 'Check for running Airflow DAG'
+task :check_running_airflow_dag do
+  on roles(fetch(:build_roles)) do
+    within current_path do
+      # get a list of all DAGs
+      dags = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c',
+                     '"airflow dags list --columns dag_id -o json"')
+      dag_list = JSON.parse(dags)
+      dag_list.each do |dag|
+        command = "airflow dags list-runs -d #{dag['dag_id']} --state running"
+        # Check if the DAG is running
+        output = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c', "\"#{command}\"")
+        # if the output of the above command is anything other than "No data found"
+        # then the DAG is running and the deploy should exit
+        next if output.include? 'No data found'
+
+        error "Airflow DAG #{dag['dag_id']} is currently running. Aborting deploy."
+        exit 1
+      end
+    end
+  end
+end

@@ -53,28 +53,28 @@ set :docker_compose_build_use_hooks, true
 set :docker_compose_restart_use_hooks, true
 set :docker_compose_copy_assets_use_hooks, false
 set :docker_compose_check_running_airflow_dag_use_hooks, true
-set :airflow_dag_id, 'harvest'
 set :docker_prune_use_hooks, true
 set :honeybadger_use_hooks, false
-set :airflow_dag_running_command, "airflow dags list-runs -d #{fetch(:airflow_dag_id)} --state running"
-before 'deploy:starting', 'check_running_airflow_dag_hooks'
+
+before 'docker_compose:build', 'check_running_airflow_dag'
 
 desc 'Check for running Airflow DAG'
-task :check_running_airflow_dag_hooks do
+task :check_running_airflow_dag do
   on roles(fetch(:build_roles)) do
     within current_path do
-      # exec -it airflow-worker  /bin/bash -c "airflow dags list-runs -d harvest --state running"
-      execute(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c',
-              fetch(:airflow_dag_running_command))
-      # if the output of the above command is anything other than "No data found"
-      # then a DAG is running and the deploy should exit
-      if test "[ $(#{fetch(:airflow_dag_running_command)}) != *'No data found'* ]"
-        error "Airflow DAG #{fetch(:airflow_dag_id)} is currently running. Aborting deploy."
+      dags = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c',
+                     '"airflow dags list --columns dag_id -o json"')
+      dag_list = JSON.parse(dags)
+      dag_list.each do |dag|
+        command = "airflow dags list-runs -d #{dag['dag_id']} --state running"
+        output = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c', "\"#{command}\"")
+        # if the output of the above command is anything other than "No data found"
+        # then the DAG is running and the deploy should exit
+        next if output.include? 'No data found'
+
+        error "Airflow DAG #{dag['dag_id']} is currently running. Aborting deploy."
         exit 1
-      else
-        info "No running DAG found for #{fetch(:airflow_dag_id)}. Continuing with deploy."
       end
     end
   end
 end
-

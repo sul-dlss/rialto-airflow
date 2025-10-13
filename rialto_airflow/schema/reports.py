@@ -67,6 +67,8 @@ class AuthorOrcids(ReportsSchemaBase):  # type: ignore
 
     sunetid = Column(String, primary_key=True)
     orcidid = Column(String)
+    first_name = Column(String)
+    last_name = Column(String)
     full_name = Column(String)
     orcid_update_scope = Column(Boolean)
     role = Column(String)

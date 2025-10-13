@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base  # type: ignore
 from sqlalchemy.types import DateTime
 
@@ -60,6 +60,45 @@ class PublicationsByDepartment(ReportsSchemaBase):  # type: ignore
     faculty_authored = Column(Boolean)
     primary_school = Column(String)
     primary_department = Column(String)
+
+
+class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publications_by_author"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doi = Column(String, nullable=True)
+    sunet = Column(String, nullable=False)
+    orcid = Column(String)
+    abstract = Column(Text)
+    academic_council = Column(String)
+    apc = Column(String)
+    author_list_names = Column(Text)
+    author_list_orcids = Column(Text)
+    citation_count = Column(Integer)
+    federally_funded = Column(Boolean)
+    first_author_name = Column(String)
+    first_author_orcid = Column(String)
+    funder_list_grid = Column(Text)
+    funder_list_name = Column(Text)
+    grant_ids = Column(Text)
+    issue = Column(String)
+    journal_issn = Column(String)
+    journal_name = Column(String)
+    last_author_name = Column(String)
+    last_author_orcid = Column(String)
+    open_access = Column(String)
+    pages = Column(String)
+    primary_department = Column(String)
+    primary_school = Column(String)
+    pub_year = Column(Integer)
+    publisher = Column(String)
+    role = Column(String)
+    title = Column(Text)
+    types = Column(String)
+    volume = Column(String)
+    __table_args__ = (
+        UniqueConstraint("doi", "sunet", name="uq_publications_by_author_doi_sunet"),
+    )
 
 
 class AuthorOrcids(ReportsSchemaBase):  # type: ignore

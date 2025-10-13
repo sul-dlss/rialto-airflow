@@ -62,6 +62,7 @@ class PublicationsByDepartment(ReportsSchemaBase):  # type: ignore
     primary_department = Column(String)
 
 
+<<<<<<< HEAD
 class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     __tablename__ = "publications_by_author"
 
@@ -101,6 +102,48 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     )
 
 
+||||||| parent of 05dc643 (Add publications_by_author table)
+=======
+class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
+    __tablename__ = "publications_by_author"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doi = Column(String, nullable=True)
+    sunetid = Column(String, nullable=False)
+    orcid = Column(String)
+    abstract = Column(Text)
+    academic_council = Column(String)
+    apc = Column(String)
+    author_list_names = Column(Text)
+    author_list_orcids = Column(Text)
+    citation_count = Column(Integer)
+    faculty_authored = Column(Boolean)
+    federally_funded = Column(Boolean)
+    first_author_name = Column(String)
+    first_author_orcid = Column(String)
+    funder_list_grid = Column(Text)
+    funder_list_name = Column(Text)
+    grant_ids = Column(Text)
+    issue = Column(String)
+    journal_issn = Column(String)
+    journal_name = Column(String)
+    open_access = Column(String)
+    pages = Column(String)
+    primary_department = Column(String)
+    primary_school = Column(String)
+    pub_year = Column(Integer)
+    publisher = Column(String)
+    title = Column(Text)
+    types = Column(String)
+    volume = Column(String)
+    __table_args__ = (
+        UniqueConstraint(
+            "doi", "sunetid", name="uq_publications_by_author_doi_sunetid"
+        ),
+    )
+
+
+>>>>>>> 05dc643 (Add publications_by_author table)
 class AuthorOrcids(ReportsSchemaBase):  # type: ignore
     __tablename__ = "author_orcids"
 

@@ -127,6 +127,8 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     issue = Column(String)
     journal_issn = Column(String)
     journal_name = Column(String)
+    last_author_name = Column(String)
+    last_author_orcid = Column(String)
     open_access = Column(String)
     pages = Column(String)
     primary_department = Column(String)

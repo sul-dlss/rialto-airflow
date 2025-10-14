@@ -1,11 +1,11 @@
 import logging
-from typing import Generator, Optional
+from typing import Optional
 
 from sqlalchemy import select, update
 
 from rialto_airflow.apc import get_apc
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.distiller import FuncRule, JsonPathRule, first, json_path
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
 

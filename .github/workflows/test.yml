@@ -20,6 +20,11 @@ jobs:
       - name: Lint
         uses: astral-sh/ruff-action@v3
         with:
+          args: 'check'
+
+      - name: Format
+        uses: astral-sh/ruff-action@v3
+        with:
           # if files would be reformatted: print the diff between the current file and
           # the re-formatted file, then exit with non-zero status code (which should fail the build step)
           args: 'format --diff'

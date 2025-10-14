@@ -109,7 +109,7 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     doi = Column(String, nullable=True)
-    sunetid = Column(String, nullable=False)
+    sunet = Column(String, nullable=False)
     orcid = Column(String)
     abstract = Column(Text)
     academic_council = Column(String)
@@ -140,7 +140,7 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     volume = Column(String)
     __table_args__ = (
         UniqueConstraint(
-            "doi", "sunetid", name="uq_publications_by_author_doi_sunetid"
+            "doi", "sunet", name="uq_publications_by_author_doi_sunet"
         ),
     )
 

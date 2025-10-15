@@ -70,8 +70,8 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     sunet = Column(String, nullable=False)
     orcid = Column(String)
     abstract = Column(Text)
-    academic_council = Column(String)
-    apc = Column(String)
+    academic_council = Column(Boolean)
+    apc = Column(Integer)
     author_list_names = Column(Text)
     author_list_orcids = Column(Text)
     citation_count = Column(Integer)
@@ -97,9 +97,7 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     types = Column(String)
     volume = Column(String)
     __table_args__ = (
-        UniqueConstraint(
-            "doi", "sunet", name="uq_publications_by_author_doi_sunet"
-        ),
+        UniqueConstraint("doi", "sunet", name="uq_publications_by_author_doi_sunet"),
     )
 
 

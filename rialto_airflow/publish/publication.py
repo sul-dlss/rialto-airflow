@@ -14,7 +14,7 @@ from rialto_airflow.schema.reports import (
     Publications,
     PublicationsBySchool,
     PublicationsByDepartment,
-    PublicationsByAuthor
+    PublicationsByAuthor,
 )
 from rialto_airflow.utils import piped
 
@@ -214,26 +214,22 @@ def export_publications_by_author(snapshot) -> int:
 
     with get_session(snapshot.database_name).begin() as select_session:
         stmt = (
-            select(  # type: ignore
+            select(
                 Publication.apc,  # type: ignore
-                Publication.doi,  # type: ignore
+                Publication.doi,
                 Publication.open_access,  # type: ignore
                 Author.primary_school,
                 Author.primary_dept,
                 Author.primary_role,
-                Author.sunet,
+                Author.sunet,  # type: ignore
+                Author.academic_council,  # type: ignore
                 Publication.pub_year,  # type: ignore
                 Publication.types,  # type: ignore
-                Publication.open_access,
-                # for academic_council
-                func.jsonb_agg_strict(Author.academic_council).label(
-                    "academic_council"
-                ),
-                # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
             .join(Author, Publication.authors)  # type: ignore
             .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .group_by(Publication.id, Author.id)
             .execution_options(yield_per=100)
         )
 
@@ -252,7 +248,7 @@ def export_publications_by_author(snapshot) -> int:
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
-                    "primary_role": row.primary_role,
+                    "role": row.primary_role,
                     "sunet": row.sunet,
                     "pub_year": row.pub_year,
                     "types": piped(row.types),
@@ -264,6 +260,8 @@ def export_publications_by_author(snapshot) -> int:
                     .on_conflict_do_nothing()
                 )
 
-        logging.info("finished writing publications_by_author table")
+        logging.info(
+            f"finished writing {count} rows to the publications_by_author table"
+        )
 
     return count

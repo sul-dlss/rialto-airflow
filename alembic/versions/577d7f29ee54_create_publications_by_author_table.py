@@ -54,9 +54,7 @@ def upgrade() -> None:
         sa.Column("title", sa.Text, nullable=True),
         sa.Column("types", sa.String, nullable=True),
         sa.Column("volume", sa.String, nullable=True),
-        sa.UniqueConstraint(
-            "doi", "sunet", name="uq_publications_by_author_doi_sunet"
-        ),
+        sa.UniqueConstraint("doi", "sunet", name="uq_publications_by_author_doi_sunet"),
     )
 
 

@@ -14,6 +14,7 @@ from rialto_airflow.schema.reports import (
     Publications,
     PublicationsBySchool,
     PublicationsByDepartment,
+    PublicationsByAuthor,
 )
 from rialto_airflow.utils import piped
 
@@ -201,5 +202,66 @@ def export_publications_by_department(snapshot) -> int:
                 )
 
         logging.info("finished writing publications_by_department table")
+
+    return count
+
+
+def export_publications_by_author(snapshot) -> int:
+    """
+    Export publication and author information to the publications_by_author table.
+    """
+    logging.info("started writing publications_by_author table")
+
+    with get_session(snapshot.database_name).begin() as select_session:
+        stmt = (
+            select(
+                Publication.apc,  # type: ignore
+                Publication.doi,
+                Publication.open_access,  # type: ignore
+                Author.primary_school,
+                Author.primary_dept,
+                Author.primary_role,
+                Author.sunet,  # type: ignore
+                Author.academic_council,  # type: ignore
+                Publication.pub_year,  # type: ignore
+                Publication.types,  # type: ignore
+                func.jsonb_agg_strict(Funder.federal).label("federal"),
+            )
+            .join(Author, Publication.authors)  # type: ignore
+            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .group_by(Publication.id, Author.id)
+            .execution_options(yield_per=100)
+        )
+
+        with get_session(RIALTO_REPORTS_DB_NAME).begin() as insert_session:
+            conn = insert_session.connection(
+                execution_options={"isolation_level": "SERIALIZABLE"}
+            )
+            conn.execute(f"TRUNCATE {PublicationsByAuthor.__tablename__}")
+
+            for count, row in enumerate(select_session.execute(stmt), start=1):
+                row_values = {
+                    "academic_council": row.academic_council,
+                    "apc": row.apc,
+                    "doi": row.doi,
+                    "federally_funded": any(row.federal),
+                    "open_access": row.open_access,
+                    "primary_school": row.primary_school,
+                    "primary_department": row.primary_dept,
+                    "role": row.primary_role,
+                    "sunet": row.sunet,
+                    "pub_year": row.pub_year,
+                    "types": piped(row.types),
+                }
+
+                insert_session.execute(
+                    insert(PublicationsByAuthor)
+                    .values(**row_values)
+                    .on_conflict_do_nothing()
+                )
+
+        logging.info(
+            f"finished writing {count} rows to the publications_by_author table"
+        )
 
     return count

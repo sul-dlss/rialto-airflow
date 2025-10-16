@@ -42,12 +42,17 @@ def publish_to_reports():
     def publish_publications_by_department(snapshot):
         publication.export_publications_by_department(snapshot)
 
+    @task
+    def publish_publications_by_author(snapshot):
+        publication.export_publications_by_author(snapshot)
+
     snapshot = get_snapshot()
 
     (
         publish_publications(snapshot)
         >> publish_publications_by_school(snapshot)
         >> publish_publications_by_department(snapshot)
+        >> publish_publications_by_author(snapshot)
     )
 
 

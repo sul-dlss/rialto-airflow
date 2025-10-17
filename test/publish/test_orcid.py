@@ -137,7 +137,6 @@ def test_export_author_orcids(
         assert rows[0].sunetid == "janes"
         assert rows[0].first_name == "Jane"
         assert rows[0].last_name == "Stanford"
-        assert rows[0].full_name == "Jane Stanford"
         assert rows[0].role == "staff"
         assert rows[0].primary_affiliation == "Engineering"
         assert rows[0].primary_school == "School of Engineering"
@@ -166,7 +165,8 @@ def mock_current_orcid_users(
             {
                 "orcidid": "https://orcid.org/0000-0000-0000-0001",
                 "sunetid": "janes",
-                "full_name": "Jane Stanford",
+                "first_name": "Jane",
+                "last_name": "Stanford",
             }
         ]
 

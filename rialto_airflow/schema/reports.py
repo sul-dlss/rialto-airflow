@@ -108,7 +108,6 @@ class AuthorOrcids(ReportsSchemaBase):  # type: ignore
     orcidid = Column(String)
     first_name = Column(String)
     last_name = Column(String)
-    full_name = Column(String)
     orcid_update_scope = Column(Boolean)
     role = Column(String)
     primary_affiliation = Column(String)

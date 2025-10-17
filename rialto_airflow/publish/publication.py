@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
+from rialto_airflow.distiller import FuncRule, JsonPathRule, first, json_path
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -209,6 +210,7 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.apc,  # type: ignore
                 Publication.doi,
                 Publication.open_access,  # type: ignore
+                Publication.title,  # type: ignore
                 Author.primary_school,
                 Author.primary_dept,
                 Author.primary_role,
@@ -216,6 +218,10 @@ def export_publications_by_author(snapshot) -> int:
                 Author.academic_council,  # type: ignore
                 Publication.pub_year,  # type: ignore
                 Publication.types,  # type: ignore
+                Publication.openalex_json,
+                Publication.dim_json,
+                Publication.pubmed_json,
+                Publication.crossref_json,
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
             .join(Author, Publication.authors)  # type: ignore
@@ -232,6 +238,7 @@ def export_publications_by_author(snapshot) -> int:
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
+                    "abstract": _abstract(row),
                     "academic_council": row.academic_council,
                     "apc": row.apc,
                     "doi": row.doi,
@@ -242,6 +249,7 @@ def export_publications_by_author(snapshot) -> int:
                     "role": row.primary_role,
                     "sunet": row.sunet,
                     "pub_year": row.pub_year,
+                    "title": row.title,
                     "types": piped(row.types),
                 }
 
@@ -256,3 +264,64 @@ def export_publications_by_author(snapshot) -> int:
         )
 
     return count
+
+
+def _abstract(row):
+    """
+    Get the abstract from openalex, dimensions, pubmed then crossref.
+    """
+    return first(
+        row,
+        rules=[
+            FuncRule("openalex_json", _rebuild_abstract),
+            JsonPathRule("dim_json", "abstract"),
+            FuncRule("pubmed_json", _pubmed_abstract),
+            JsonPathRule("crossref_json", "abstract"),
+        ],
+    )
+
+
+def _pubmed_abstract(pubmed_json: dict) -> str:
+    """
+    Get the abstract from PubMed JSON.
+    """
+    full_abstract = []
+    jsonp = json_path("MedlineCitation.Article.Abstract.AbstractText[*]")
+    abstracts = jsonp.find(pubmed_json)
+    for abstract in abstracts:
+        full_abstract.append(abstract.value.get("#text"))
+
+    return " ".join(full_abstract)
+
+
+def _rebuild_abstract(openalex_json: dict) -> str:
+    """
+    Rebuilds an abstract from a positional inverted index.
+    """
+
+    # openalex metadata isn't always defined
+    if openalex_json is None:
+        return None
+
+    # guard against the abstract data being missing
+    inverted_index = openalex_json.get("abstract_inverted_index")
+    if inverted_index is None:
+        return None
+
+    # Create a list to hold the words in their correct positions.
+    # We find the max position to make sure the list is large enough.
+    max_position = 0
+    for positions in inverted_index.values():
+        if positions:
+            max_position = max(max_position, max(positions))
+
+    # The list is zero-indexed, so we need max_position + 1 length.
+    abstract_words = [""] * (max_position + 1)
+
+    # Place each word in its correct position.
+    for word, positions in inverted_index.items():
+        for position in positions:
+            abstract_words[position] = word
+
+    # Join the words to form the final abstract.
+    return " ".join(abstract_words)

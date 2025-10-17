@@ -175,6 +175,7 @@ def dim_json():
         "mesh_terms": ["Delicions", "Limes"],
         "pmid": "123",
         "linkout": "https://example_dim.com",
+        "abstract": "This is a sample Dimensions abstract.",
     }
 
 
@@ -206,6 +207,16 @@ def openalex_json():
         "ids": {
             "doi": "10.000/000001",
             "pmid": "1234",
+        },
+        "abstract_inverted_index": {
+            "This": [0],
+            "is": [1, 5],
+            "an": [2],
+            "abstract": [3],
+            "which": [
+                4,
+            ],
+            "inverted.": [6],
         },
     }
 
@@ -301,7 +312,18 @@ def pubmed_json():
                 "PublicationTypeList": {
                     "PublicationType": {"@UI": "D016428", "#text": "Journal Article"}
                 },
-            },
+                "Abstract": {
+                    "AbstractText": [
+                        {
+                            "#text": "Comorbid insomnia with obstructive sleep apnea (COMISA) is associated with worse daytime function and more medical/psychiatric comorbidities vs either condition alone.",
+                            "@Label": "OBJECTIVE/BACKGROUND",
+                        },
+                        {
+                            "#text": "E2006-G000-304 was a phase 3, one-month polysomnography trial in adults aged ≥55 years with insomnia.",
+                        },
+                    ]
+                },
+            }
         },
         "PubmedData": {
             "ArticleIdList": {
@@ -357,7 +379,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             open_access="green",
             pub_year=2024,
             dim_json=dim_json,
-            openalex_json=openalex_json,
+            openalex_json=None,
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,

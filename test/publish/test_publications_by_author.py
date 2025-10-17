@@ -18,6 +18,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
 
         row = rows[0][0]
         assert bool(row.academic_council) is False
+        assert row.abstract == "This is an abstract which is inverted."
         assert row.apc == 123
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
@@ -28,6 +29,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.pub_year == 2023
         assert row.types == "article|preprint"
         assert row.sunet == "folms"
+        assert row.title == "My Life"
 
         row = rows[1][0]
         assert bool(row.academic_council) is True
@@ -41,6 +43,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.pub_year == 2023
         assert row.types == "article|preprint"
         assert row.sunet == "fterm"
+        assert row.title == "My Life"
 
         row = rows[2][0]
         assert bool(row.academic_council) is True
@@ -54,6 +57,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.pub_year == 2023
         assert row.types == "article|preprint"
         assert row.sunet == "janes"
+        assert row.title == "My Life"
 
         row = rows[3][0]
         assert bool(row.academic_council) is False
@@ -67,6 +71,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.pub_year == 2023
         assert row.types == "article|preprint"
         assert row.sunet == "lelands"
+        assert row.title == "My Life"
 
         row = rows[4][0]
         assert bool(row.academic_council) is True
@@ -80,6 +85,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.pub_year == 2024
         assert row.types == "article|preprint"
         assert row.sunet == "janes"
+        assert row.title == "My Life Part 2"
 
         assert "started writing publications_by_author table" in caplog.text
         assert (

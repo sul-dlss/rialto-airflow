@@ -140,6 +140,20 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
         yield from _wos_api(f"DO=({' '.join(doi_batch)})")
 
 
+def _wos_api_retry() -> Retry:
+    # Retry on HTTP 429.  We want to make sure we really back off, since status code 429
+    # indicates we're being rate limited.
+    # Retry up to 10 times on status code errors.
+    #
+    # {backoff_factor} * (2 ** ({number of previous retries})) + random.uniform(0, {backoff_jitter})
+    #
+    # For our configuration that means there's an immediate retry; then:
+    # * wait another 6 seconds before trying again (then 12s, then 24s, ..., 25m 36s).
+    #  * Additionally, add up to one minute of wait time to each retry, regardless of which iteration it is.
+    #  * This could total up to just under an hour of waiting for retries for each occurrence.
+    return Retry(status=10, status_forcelist=[429], backoff_factor=3, backoff_jitter=60)
+
+
 def _wos_api(query) -> Generator[dict, None, None]:
     """
     A generator that returns publications associated a list of DOIs.
@@ -164,10 +178,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
     # retry any 429 statuses and stay within rate limits
     http = requests.Session()
-    retries = Retry(
-        status=5, status_forcelist=[429], backoff_factor=1
-    )  # there is an immediate retry; wait another 2 seconds before trying again
-    http.mount("https://", HTTPAdapter(max_retries=retries))
+    http.mount("https://", HTTPAdapter(max_retries=_wos_api_retry()))
 
     # get the initial set of results, which also gives us a Query ID to fetch
     # subsequent pages of results if there are any
@@ -202,10 +213,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
         # retry any 429 errors and stay within rate limits
         http = requests.Session()
-        retries = Retry(
-            status=5, status_forcelist=[429], backoff_factor=1
-        )  # there is an immediate retry; wait another 2 seconds before trying again
-        http.mount("https://", HTTPAdapter(max_retries=retries))
+        http.mount("https://", HTTPAdapter(max_retries=_wos_api_retry()))
         resp = http.get(
             f"{base_url}/query/{query_id}", params=page_params, headers=headers
         )

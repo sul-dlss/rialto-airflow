@@ -285,7 +285,7 @@ def _abstract(row):
             FuncRule("openalex_json", _rebuild_abstract),
             JsonPathRule("dim_json", "abstract"),
             FuncRule("pubmed_json", _pubmed_abstract),
-            # JsonPathRule("crossref_json", "abstract"),
+            JsonPathRule("crossref_json", "abstract"),
         ],
     )
 
@@ -307,9 +307,16 @@ def _rebuild_abstract(openalex_json: dict) -> str:
     """
     Rebuilds an abstract from a positional inverted index.
     """
-    # jsonp = json_path("abstract_inverted_index")
-    # inverted_index = jsonp.find(openalex_json)
-    inverted_index = openalex_json.get("abstract_inverted_index", None)
+
+    # openalex metadata isn't always defined
+    if openalex_json is None:
+        return None
+
+    # guard against the abstract data being missing
+    inverted_index = openalex_json.get("abstract_inverted_index")
+    if inverted_index is None:
+        return None
+
     # Create a list to hold the words in their correct positions.
     # We find the max position to make sure the list is large enough.
     max_position = 0

@@ -195,6 +195,8 @@ def openalex_json():
                 "type": "journal",
                 "display_name": "Ok Limes Journal of Science",
                 "host_organization_name": "Science Publisher Inc.",
+                "issn_l": "0009-4978",
+                "issn": ["0009-4978", "1523-8253", "1943-5975"],
             }
         },
         "locations": [
@@ -337,7 +339,38 @@ def pubmed_json():
 
 
 @pytest.fixture
-def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
+def crossref_json():
+    return {
+        "title": ["My Life"],
+        "author": [
+            {
+                "given": "Jane",
+                "family": "Stanford",
+                "affiliation": [{"name": "Stanford University"}],
+            },
+            {
+                "given": "Leland",
+                "family": "Stanford",
+                "affiliation": [{"name": "Stanford University"}],
+            },
+        ],
+        "container-title": ["Bad Limes Journal of Science"],
+        "issued": {"date-parts": [[2023]]},
+        "DOI": "10.000/000001",
+        "ISSN": ["1234-5678"],
+    }
+
+
+@pytest.fixture
+def dataset(
+    test_session,
+    dim_json,
+    openalex_json,
+    wos_json,
+    sulpub_json,
+    pubmed_json,
+    crossref_json,
+):
     """
     This fixture will create two publications, four authors, and two funders.
     It is designed to test the various types of reports we want to output, where
@@ -366,6 +399,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            crossref_json=crossref_json,
             types=["article", "preprint"],
             publisher="Science Publisher Inc.",
             academic_council_authored=True,

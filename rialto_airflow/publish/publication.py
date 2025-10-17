@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import FuncRule, JsonPathRule, first, json_path
+from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -221,6 +221,7 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.openalex_json,
                 Publication.dim_json,
                 Publication.pubmed_json,
+                Publication.sulpub_json,
                 Publication.crossref_json,
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
@@ -243,6 +244,7 @@ def export_publications_by_author(snapshot) -> int:
                     "apc": row.apc,
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
+                    "journal_issn": _journal_issn(row),
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
@@ -285,11 +287,20 @@ def _pubmed_abstract(pubmed_json: dict) -> str:
     """
     Get the abstract from PubMed JSON.
     """
+    if pubmed_json is None:
+        return None
+
     full_abstract = []
     jsonp = json_path("MedlineCitation.Article.Abstract.AbstractText[*]")
-    abstracts = jsonp.find(pubmed_json)
-    for abstract in abstracts:
-        full_abstract.append(abstract.value.get("#text"))
+    abstract_text = jsonp.find(pubmed_json)
+    for abstract in abstract_text:
+        if abstract.value is None:
+            continue
+        # sometimes the abstract is a string and not a dict of text segments
+        if isinstance(abstract.value, str):
+            full_abstract.append(abstract.value)
+        else:
+            full_abstract.append(abstract.value.get("#text", None))
 
     return " ".join(full_abstract)
 
@@ -325,3 +336,27 @@ def _rebuild_abstract(openalex_json: dict) -> str:
 
     # Join the words to form the final abstract.
     return " ".join(abstract_words)
+
+
+def _journal_issn(row) -> str:
+    # get all ISSNs available and return unique values as pipe delimited string
+    rules = [
+        JsonPathRule("openalex_json", "primary_location.source.issn_l"),
+        JsonPathRule("openalex_json", "primary_location.source.issn"),  # list
+        JsonPathRule("sulpub_json", "issn"),
+        JsonPathRule("dim_json", "issn"),
+        JsonPathRule("crossref_json", "ISSN"),  # list
+    ]
+
+    all_issns = all(row, rules=rules)
+
+    flat_issns = []
+    for issn in all_issns:
+        if isinstance(issn, list):
+            flat_issns.extend(issn)
+        elif issn is not None:
+            flat_issns.append(issn)
+
+    unique_issns = sorted(list(set(flat_issns)))
+
+    return piped(unique_issns)

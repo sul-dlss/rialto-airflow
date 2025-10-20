@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 
 from rialto_airflow.publish import publication
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.schema.reports import PublicationsByAuthor
 
 
@@ -24,6 +25,10 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
         assert row.journal_issn == "0009-4978|1234-5678|1523-8253|1943-5975"
+        assert (
+            row.journal_name
+            == "Proceedings of the National Academy of Sciences of the United States of America"
+        )
         assert row.open_access == "gold"
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Mechanical Engineering"
@@ -112,6 +117,9 @@ def pubmed_json_text():
                 "PublicationTypeList": {
                     "PublicationType": {"@UI": "D016428", "#text": "Journal Article"}
                 },
+                "Journal": {
+                    "Title": "Example Journal",
+                },
                 "Abstract": {
                     "AbstractText": [
                         "This is the abstract.",
@@ -131,6 +139,111 @@ def pubmed_json_text():
     }
 
 
-def test_pubmed_abstract_text(pubmed_json_text):
-    abstract = publication._pubmed_abstract(pubmed_json_text)
-    assert abstract == "This is the abstract. It provides a summary of the article."
+def test_pubmed_fields(pubmed_json_text, test_session):
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.000/000003",
+            title="My PubMed Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=None,
+            openalex_json=None,
+            wos_json=None,
+            sulpub_json=None,
+            pubmed_json=pubmed_json_text,
+            crossref_json=None,
+            types=["article", "preprint"],
+        )
+    session.add(pub)
+
+    with test_session.begin() as select_session:
+        result = select_session.execute(
+            select(Publication).where(Publication.doi == "10.000/000003")
+        )
+        for row in result:
+            abstract = publication._pubmed_abstract(row)
+            assert (
+                abstract
+                == "This is the abstract. It provides a summary of the article."
+            )
+            journal_name = publication._journal_name(row)
+            assert journal_name == "Example Journal"
+
+
+@pytest.fixture
+def dim_json_fields():
+    return {
+        "type": "article",
+        "doi": "10.000/000003",
+        "journal": {"title": "Delicious Limes Journal of Science"},
+        "issn": "1111-2222",
+        "issue": "12",
+        "pages": "1-10",
+        "volume": "1",
+        "mesh_terms": ["Delicions", "Limes"],
+        "pmid": "123",
+        "linkout": "https://example_dim.com",
+        "abstract": "This is a sample Dimensions abstract.",
+    }
+
+
+def test_dimensions_fields(test_session, dim_json_fields):
+    # Add a publication with fields sourced from Dimensions
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.000/000003",
+            title="My Dimensions Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=dim_json_fields,
+            openalex_json=None,
+            wos_json=None,
+            sulpub_json=None,
+            pubmed_json=None,
+            crossref_json=None,
+            types=["article", "preprint"],
+        )
+    session.add(pub)
+
+    with test_session.begin() as select_session:
+        result = select_session.execute(
+            select(Publication).where(Publication.doi == "10.000/000003")
+        )
+        for row in result:
+            assert publication._abstract(row) == "This is a sample Dimensions abstract."
+            assert publication._journal_issn(row) == "1111-2222"
+
+
+def test_openalex_fields(test_session, openalex_json):
+    # primary_location.issn_l is tested via dataset. Set up json to test other JsonRule for OpenAlex ISSNs
+    openalex_json["primary_location"]["issn_l"] = None
+
+    # Add a publication with fields only sourced from OpenAlex
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.000/000003",
+            title="My OpenAlex Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=dim_json_fields,
+            openalex_json=openalex_json,
+            wos_json=None,
+            sulpub_json=None,
+            pubmed_json=None,
+            crossref_json=None,
+            types=["article", "preprint"],
+        )
+    session.add(pub)
+
+    with test_session.begin() as select_session:
+        result = select_session.execute(
+            select(Publication).where(Publication.doi == "10.000/000003")
+        )
+        for row in result:
+            assert (
+                publication._abstract(row) == "This is an abstract which is inverted."
+            )
+            assert publication._journal_issn(row) == "0009-4978|1523-8253|1943-5975"

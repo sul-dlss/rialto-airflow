@@ -200,7 +200,36 @@ def openalex_json():
             }
         },
         "locations": [
-            {"pdf_url": "https://example_openalex_pdf.com"},
+            {
+                "is_oa": True,
+                "landing_page_url": "https://doi.org/10.1073/pnas.17.6.401",
+                "pdf_url": "https://example_openalex_pdf.com",
+                "source": {
+                    "id": "https://openalex.org/S125754415",
+                    "display_name": "Proceedings of the National Academy of Sciences of the United States of America",
+                    "issn_l": "0027-8424",
+                    "issn": ["1091-6490", "0027-8424"],
+                    "host_organization": "https://openalex.org/P4310320052",
+                    "type": "journal",
+                },
+                "license": True,
+                "version": "publishedVersion",
+            },
+            {
+                "is_oa": True,
+                "landing_page_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1076072",
+                "pdf_url": None,
+                "source": {
+                    "id": "https://openalex.org/S2764455111",
+                    "display_name": "PubMed Central",
+                    "issn_l": None,
+                    "issn": None,
+                    "host_organization": "https://openalex.org/I1299303238",
+                    "type": "repository",
+                },
+                "license": None,
+                "version": "publishedVersion",
+            },
         ],
         "mesh": [
             {"descriptor_name": "Ok"},
@@ -325,6 +354,7 @@ def pubmed_json():
                         },
                     ]
                 },
+                "Title": "Example Journal",
             }
         },
         "PubmedData": {

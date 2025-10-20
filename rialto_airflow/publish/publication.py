@@ -245,7 +245,9 @@ def export_publications_by_author(snapshot) -> int:
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
                     "journal_issn": _journal_issn(row),
+                    "journal_name": _journal_name(row),
                     "open_access": row.open_access,
+                    "pages": _pages(row),
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
                     "role": row.primary_role,
@@ -360,3 +362,37 @@ def _journal_issn(row) -> str:
     unique_issns = sorted(list(set(flat_issns)))
 
     return piped(unique_issns)
+
+
+def _journal_name(row) -> str:
+    # get journal name field from OpenAlex sources
+    return first(
+        row,
+        rules=[
+            JsonPathRule(
+                "openalex_json",
+                "locations[?@.source.type == 'journal'].source.display_name",
+            ),
+        ],
+    )
+
+
+def _pages(row) -> str:
+    return first(
+        row,
+        rules=[
+            FuncRule("openalex_json", _openalex_pages),
+            JsonPathRule("dim_json", "pages"),
+            JsonPathRule("sulpub_json", "journal.pages"),
+        ],
+    )
+
+
+def _openalex_pages(openalex_json: dict) -> str:
+    start_page = first(openalex_json, JsonPathRule("biblio.first_page"))
+    end_page = first(openalex_json, JsonPathRule("biblio.last_page"))
+    if start_page and end_page:
+        return f"{start_page}-{end_page}"
+    elif start_page:
+        return start_page
+    return None

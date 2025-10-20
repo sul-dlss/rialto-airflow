@@ -4,7 +4,7 @@ from functools import cache
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-import jsonpath_ng
+from jsonpath_ng.ext import parse
 from sqlalchemy.engine.row import Row  # type: ignore
 
 
@@ -191,4 +191,4 @@ def _func_match(rule: FuncRule, data: dict) -> Optional[str | int]:
 
 @cache
 def json_path(path):
-    return jsonpath_ng.parse(path)
+    return parse(path)

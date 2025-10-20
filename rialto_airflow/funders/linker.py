@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from typing import Optional
 
 import requests
@@ -22,6 +21,7 @@ config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
 config.retry_http_codes = [429, 500, 503]
+config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
 
 
 def link_publications(snapshot) -> int:
@@ -161,8 +161,6 @@ def _lookup_openalex_funder(openalex_id: str) -> Optional[dict]:
     and looking up whether it appears to be a federal funder.
     """
     try:
-        # TODO: get a key so we don't need to do this
-        time.sleep(1)
         funder = Funders()[openalex_id]
         logging.info(f"found funder data in openalex for {openalex_id}")
     except requests.exceptions.HTTPError:

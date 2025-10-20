@@ -254,6 +254,7 @@ def export_publications_by_author(snapshot) -> int:
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
                     "journal_issn": _journal_issn(row),
+                    "journal_name": _journal_name(row),
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
@@ -369,3 +370,19 @@ def _journal_issn(row) -> str:
     unique_issns = sorted(list(set(flat_issns)))
 
     return piped(unique_issns)
+
+
+def _journal_name(row) -> str:
+    # get first journal name field available
+    return first(
+        row,
+        rules=[
+            JsonPathRule(
+                "openalex_json",
+                "locations[?@.source.type == 'journal'].source.display_name",
+            ),
+            JsonPathRule("dim_json", "journal.title"),
+            JsonPathRule("pubmed_json", "MedlineCitation.Article.Journal.Title"),
+            JsonPathRule("sulpub_json", "journal.name"),
+        ],
+    )

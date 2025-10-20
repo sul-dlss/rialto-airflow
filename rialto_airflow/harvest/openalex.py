@@ -20,7 +20,7 @@ from rialto_airflow.utils import normalize_doi
 config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
-config.retry_http_codes = [429, 500, 503]
+config.retry_http_codes = [429, 500, 503, 520]
 config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
 
 

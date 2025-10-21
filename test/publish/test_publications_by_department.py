@@ -31,7 +31,7 @@ def test_write_publications_by_department(
         assert row.types == "article|preprint"
 
         row = rows[1][0]
-        assert bool(row.academic_council_authored) is False
+        assert bool(row.academic_council_authored) is True
         assert row.apc == 123
         assert row.doi == "10.000/000001"
         assert bool(row.faculty_authored) is True

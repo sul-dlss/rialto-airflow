@@ -52,6 +52,7 @@ class Publication(HarvestSchemaBase):  # type: ignore
     types = Column(ARRAY(String))
     publisher = Column(String)
     academic_council_authored = Column(Boolean, default=False)
+    faculty_authored = Column(Boolean, default=False)
     authors: RelationshipProperty = relationship(
         "Author",
         secondary=pub_author_association,

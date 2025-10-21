@@ -767,7 +767,7 @@ def test_publisher(test_session, snapshot):
     assert _pub(session).publisher == "Association of College and Research Libraries"
 
 
-def test_academic_council(test_session, snapshot):
+def test_author_based_fields(test_session, snapshot):
     """
     academic_council_authored should be true if any authors are academic council
     """
@@ -796,7 +796,7 @@ def test_academic_council(test_session, snapshot):
                 "School of Humanities and Sciences",
             ],
             departments=["Inter-Departmental Programs", "Social Sciences"],
-            academic_council=False,
+            academic_council=True,
         )
         author2 = Author(
             first_name="Leland",
@@ -811,11 +811,11 @@ def test_academic_council(test_session, snapshot):
                 "School of Humanities and Sciences",
             ],
             departments=["Social Sciences"],
-            academic_council=True,
+            academic_council=False,
         )
         pub.authors.append(author1)
         pub.authors.append(author2)
-        pub2.authors.append(author1)
+        pub2.authors.append(author2)
         session.add(pub)
         session.add(pub2)
 
@@ -827,7 +827,10 @@ def test_academic_council(test_session, snapshot):
         .first()
     )
     assert academic_pub.academic_council_authored
+    assert academic_pub.faculty_authored
+
     non_academic_pub = (
         session.query(Publication).where(Publication.doi == "10.1515/0003").first()
     )
     assert non_academic_pub.academic_council_authored is False
+    assert non_academic_pub.faculty_authored is False

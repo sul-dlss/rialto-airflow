@@ -47,7 +47,7 @@ def export_publications(snapshot) -> int:
                 Publication.types,
                 Publication.academic_council_authored,
                 Publication.publisher,  # type: ignore
-                func.jsonb_agg_strict(Author.primary_role).label("primary_role"),
+                Publication.faculty_authored,  # type: ignore
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
             .join(Author, Publication.authors)  # type: ignore
@@ -72,7 +72,7 @@ def export_publications(snapshot) -> int:
                     "publisher": row.publisher,
                     "federally_funded": any(row.federal),
                     "academic_council_authored": row.academic_council_authored,
-                    "faculty_authored": "faculty" in row.primary_role,
+                    "faculty_authored": row.faculty_authored,
                 }
 
                 insert_session.execute(
@@ -100,10 +100,9 @@ def export_publications_by_school(snapshot) -> int:
                 Publication.pub_year,  # type: ignore
                 Publication.types,
                 Publication.academic_council_authored,  # type: ignore
+                Publication.faculty_authored,  # type: ignore
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
-                # for faculty_authored
-                func.jsonb_agg_strict(Author.primary_role).label("roles"),
             )
             .join(Author, Publication.authors)  # type: ignore
             .join(Funder, Publication.funders, isouter=True)  # type: ignore
@@ -122,7 +121,7 @@ def export_publications_by_school(snapshot) -> int:
                     "academic_council_authored": row.academic_council_authored,
                     "apc": row.apc,
                     "doi": row.doi,
-                    "faculty_authored": "faculty" in row.roles,
+                    "faculty_authored": row.faculty_authored,
                     "federally_funded": any(row.federal),
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,
@@ -158,10 +157,9 @@ def export_publications_by_department(snapshot) -> int:
                 Publication.pub_year,  # type: ignore
                 Publication.types,  # type: ignore
                 Publication.academic_council_authored,  # type: ignore
+                Publication.faculty_authored,  # type: ignore
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
-                # for faculty_authored
-                func.jsonb_agg_strict(Author.primary_role).label("roles"),
             )
             .join(Author, Publication.authors)  # type: ignore
             .join(Funder, Publication.funders, isouter=True)  # type: ignore
@@ -180,7 +178,7 @@ def export_publications_by_department(snapshot) -> int:
                     "academic_council_authored": row.academic_council_authored,
                     "apc": row.apc,
                     "doi": row.doi,
-                    "faculty_authored": "faculty" in row.roles,
+                    "faculty_authored": row.faculty_authored,
                     "federally_funded": any(row.federal),
                     "open_access": row.open_access,
                     "primary_school": row.primary_school,

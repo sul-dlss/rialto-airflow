@@ -193,6 +193,7 @@ def openalex_json():
             "source": {
                 "type": "journal",
                 "display_name": "Ok Limes Journal of Science",
+                "host_organization_name": "Science Publisher Inc.",
             }
         },
         "locations": [
@@ -344,6 +345,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
             types=["article", "preprint"],
+            publisher="Science Publisher Inc.",
         )
 
         pub2 = Publication(

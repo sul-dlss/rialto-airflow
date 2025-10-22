@@ -131,6 +131,7 @@ def test_create_schema(
                 "created_at",
                 "updated_at",
                 "types",
+                "publisher",
             }
 
             author_result = conn.execute(

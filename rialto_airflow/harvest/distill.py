@@ -35,6 +35,7 @@ def distill(snapshot: Snapshot) -> int:
                 "types": _types(pub),
                 "publisher": _publisher(pub),
                 "academic_council_authored": _academic_council(pub),
+                "faculty_authored": _faculty_authored(pub),
             }
 
             # pub_year and open_access in cols is needed to determine the apc
@@ -247,14 +248,18 @@ def _publisher(pub):
     )
 
 
-def _academic_council(row) -> Optional[bool]:
+def _academic_council(pub) -> Optional[bool]:
     """
     Get the academic_council value for all authors and return True if any are academic_council
     """
-    authors = row.authors
+    authors = pub.authors
 
     for author in authors:
         if author.academic_council:
             return True
 
     return False
+
+
+def _faculty_authored(pub) -> Optional[bool]:
+    return any(author.primary_role == "faculty" for author in pub.authors)

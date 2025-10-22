@@ -1,6 +1,6 @@
 import pytest
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.harvest import Publication, Author
 from rialto_airflow.harvest.distill import distill
 
 # Set up JSON data that mirrors (in part) what we get from the respective APIs
@@ -765,3 +765,69 @@ def test_publisher(test_session, snapshot):
     distill(snapshot)
 
     assert _pub(session).publisher == "Association of College and Research Libraries"
+
+
+def test_academic_council(test_session, snapshot):
+    """
+    academic_council_authored should be true if any authors are academic council
+    """
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.1515/9781503624153",
+            openalex_json=openalex_json,
+            dim_json=dim_json,
+        )
+        pub2 = Publication(
+            doi="10.1515/0003",
+            openalex_json=openalex_json,
+            dim_json=dim_json,
+        )
+        author1 = Author(
+            first_name="Jane",
+            last_name="Stanford",
+            sunet="janes",
+            cap_profile_id="1234",
+            orcid="0298098343",
+            primary_school="School of Humanities and Sciences",
+            primary_dept="Social Sciences",
+            primary_role="faculty",
+            schools=[
+                "Vice Provost for Undergraduate Education",
+                "School of Humanities and Sciences",
+            ],
+            departments=["Inter-Departmental Programs", "Social Sciences"],
+            academic_council=False,
+        )
+        author2 = Author(
+            first_name="Leland",
+            last_name="Stanford",
+            sunet="lelands",
+            cap_profile_id="12345",
+            orcid="02980983434",
+            primary_school="School of Humanities and Sciences",
+            primary_dept="Social Sciences",
+            primary_role="staff",
+            schools=[
+                "School of Humanities and Sciences",
+            ],
+            departments=["Social Sciences"],
+            academic_council=True,
+        )
+        pub.authors.append(author1)
+        pub.authors.append(author2)
+        pub2.authors.append(author1)
+        session.add(pub)
+        session.add(pub2)
+
+    distill(snapshot)
+
+    academic_pub = (
+        session.query(Publication)
+        .where(Publication.doi == "10.1515/9781503624153")
+        .first()
+    )
+    assert academic_pub.academic_council_authored
+    non_academic_pub = (
+        session.query(Publication).where(Publication.doi == "10.1515/0003").first()
+    )
+    assert non_academic_pub.academic_council_authored is False

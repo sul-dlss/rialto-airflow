@@ -33,6 +33,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         assert db_rows[0].types == "article|preprint"
         assert db_rows[0].open_access == "gold"
         assert db_rows[0].publisher == "Science Publisher Inc."
+        assert bool(db_rows[0].academic_council_authored) is True
 
     with test_reports_session.begin() as session:
         q = session.query(Publications).where(Publications.doi == "10.000/000002")
@@ -41,6 +42,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         assert db_rows[0].apc == 500
         assert db_rows[0].types == "article|preprint"
         assert db_rows[0].open_access == "green"
+        assert bool(db_rows[0].academic_council_authored) is True
 
     assert "started writing publications table" in caplog.text
     assert "finished writing publications table" in caplog.text

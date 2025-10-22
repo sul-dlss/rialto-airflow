@@ -45,10 +45,8 @@ def export_publications(snapshot) -> int:
                 Publication.apc,  # type: ignore
                 Publication.open_access,
                 Publication.types,
-                Publication.publisher,
-                func.jsonb_agg_strict(Author.academic_council).label(
-                    "academic_council"
-                ),
+                Publication.academic_council_authored,
+                Publication.publisher,  # type: ignore
                 func.jsonb_agg_strict(Author.primary_role).label("primary_role"),
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
@@ -73,7 +71,7 @@ def export_publications(snapshot) -> int:
                     "types": piped(row.types),
                     "publisher": row.publisher,
                     "federally_funded": any(row.federal),
-                    "academic_council_authored": any(row.academic_council),
+                    "academic_council_authored": row.academic_council_authored,
                     "faculty_authored": "faculty" in row.primary_role,
                 }
 
@@ -101,10 +99,7 @@ def export_publications_by_school(snapshot) -> int:
                 Author.primary_school,
                 Publication.pub_year,  # type: ignore
                 Publication.types,
-                # for academic_council
-                func.jsonb_agg_strict(Author.academic_council).label(
-                    "academic_council"
-                ),
+                Publication.academic_council_authored,  # type: ignore
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
                 # for faculty_authored
@@ -124,7 +119,7 @@ def export_publications_by_school(snapshot) -> int:
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
-                    "academic_council_authored": any(row.academic_council),
+                    "academic_council_authored": row.academic_council_authored,
                     "apc": row.apc,
                     "doi": row.doi,
                     "faculty_authored": "faculty" in row.roles,
@@ -162,10 +157,7 @@ def export_publications_by_department(snapshot) -> int:
                 Author.primary_dept,
                 Publication.pub_year,  # type: ignore
                 Publication.types,  # type: ignore
-                # for academic_council
-                func.jsonb_agg_strict(Author.academic_council).label(
-                    "academic_council"
-                ),
+                Publication.academic_council_authored,  # type: ignore
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
                 # for faculty_authored
@@ -185,7 +177,7 @@ def export_publications_by_department(snapshot) -> int:
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
-                    "academic_council_authored": any(row.academic_council),
+                    "academic_council_authored": row.academic_council_authored,
                     "apc": row.apc,
                     "doi": row.doi,
                     "faculty_authored": "faculty" in row.roles,

@@ -346,6 +346,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             pubmed_json=pubmed_json,
             types=["article", "preprint"],
             publisher="Science Publisher Inc.",
+            academic_council_authored=True,
         )
 
         pub2 = Publication(
@@ -360,6 +361,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
             types=["article", "preprint"],
+            academic_council_authored=True,
         )
 
         author1 = Author(

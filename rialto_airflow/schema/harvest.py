@@ -50,6 +50,7 @@ class Publication(HarvestSchemaBase):  # type: ignore
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     types = Column(ARRAY(String))
+    publisher = Column(String)
     authors: RelationshipProperty = relationship(
         "Author",
         secondary=pub_author_association,

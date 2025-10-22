@@ -45,6 +45,7 @@ def export_publications(snapshot) -> int:
                 Publication.apc,  # type: ignore
                 Publication.open_access,
                 Publication.types,
+                Publication.publisher,
                 func.jsonb_agg_strict(Author.academic_council).label(
                     "academic_council"
                 ),
@@ -70,6 +71,7 @@ def export_publications(snapshot) -> int:
                     "apc": row.apc,
                     "open_access": row.open_access,
                     "types": piped(row.types),
+                    "publisher": row.publisher,
                     "federally_funded": any(row.federal),
                     "academic_council_authored": any(row.academic_council),
                     "faculty_authored": "faculty" in row.primary_role,

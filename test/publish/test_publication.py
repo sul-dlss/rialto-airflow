@@ -32,6 +32,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         assert db_rows[0].apc == 123
         assert db_rows[0].types == "article|preprint"
         assert db_rows[0].open_access == "gold"
+        assert db_rows[0].publisher == "Science Publisher Inc."
 
     with test_reports_session.begin() as session:
         q = session.query(Publications).where(Publications.doi == "10.000/000002")

@@ -25,6 +25,25 @@ openalex_json = {
     "publication_year": 2022,
     "open_access": {"oa_status": "gold"},
     "type": "preprint",
+    "primary_location": {
+        "source": {
+            "id": "https://openalex.org/S2764375719",
+            "display_name": "Choice Reviews Online",
+            "issn_l": "0009-4978",
+            "issn": ["0009-4978", "1523-8253", "1943-5975"],
+            "host_organization": "https://openalex.org/P4310316146",
+            "host_organization_name": "Association of College and Research Libraries",
+            "host_organization_lineage": [
+                "https://openalex.org/P4310315903",
+                "https://openalex.org/P4310316146",
+            ],
+            "host_organization_lineage_names": [
+                "American Library Association",
+                "Association of College and Research Libraries",
+            ],
+            "type": "journal",
+        }
+    },
 }
 
 wos_json = {
@@ -727,3 +746,22 @@ def test_types(test_session, snapshot, caplog):
 
 def _pub(session, doi="10.1515/9781503624153"):
     return session.query(Publication).where(Publication.doi == doi).first()
+
+
+def test_publisher(test_session, snapshot):
+    """
+    Test that publisher is correctly distilled from available JSON data.
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json=sulpub_json,
+                dim_json=dim_json,
+                openalex_json=openalex_json,
+            )
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).publisher == "Association of College and Research Libraries"

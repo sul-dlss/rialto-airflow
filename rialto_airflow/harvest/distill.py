@@ -33,6 +33,7 @@ def distill(snapshot: Snapshot) -> int:
                 "pub_year": _pub_year(pub),
                 "open_access": _open_access(pub),
                 "types": _types(pub),
+                "publisher": _publisher(pub),
             }
 
             # pub_year and open_access in cols is needed to determine the apc
@@ -229,3 +230,17 @@ def _pubmed_type(pubmed_json: dict) -> list[str]:
         types.append(pub_type.value.get("#text"))
 
     return types
+
+
+def _publisher(pub):
+    """
+    Get the publisher from OpenAlex
+    """
+    return first(
+        pub,
+        rules=[
+            JsonPathRule(
+                "openalex_json", "primary_location.source.host_organization_name"
+            ),
+        ],
+    )

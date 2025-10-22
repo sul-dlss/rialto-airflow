@@ -24,6 +24,7 @@ class Publications(ReportsSchemaBase):  # type: ignore
     apc = Column(Integer)
     open_access = Column(String)
     types = Column(String)
+    publisher = Column(String)
     federally_funded = Column(Boolean)
     academic_council_authored = Column(Boolean)
     faculty_authored = Column(Boolean)

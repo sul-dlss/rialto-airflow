@@ -218,8 +218,7 @@ def _types(pub) -> list[str]:
             f"types distill rules generated unexpected result: {type(types)}"
         )
 
-    # make lowercase and ordered
-    return sorted([str(s).lower() for s in types])
+    return sorted([_normalize_type(s) for s in types if s is not None])
 
 
 def _pubmed_type(pubmed_json: dict) -> list[str]:
@@ -263,3 +262,85 @@ def _academic_council(pub) -> Optional[bool]:
 
 def _faculty_authored(pub) -> Optional[bool]:
     return any(author.primary_role == "faculty" for author in pub.authors)
+
+
+def _normalize_type(s: str) -> str:
+    return type_mapping.get(s.lower(), s.capitalize())
+
+
+type_mapping = {
+    "book": "Book",
+    "book-chapter": "Chapter",
+    "book-part": "Chapter",
+    "book-section": "Chapter",
+    "book-series": "Other",
+    "book-set": "Other",
+    "component": "Other",
+    "database": "Other",
+    "dataset": "Dataset",
+    "dissertation": "Dissertation",
+    "edited-book": "Book",
+    "journal": "Other",
+    "journal article": "Article",
+    "journal-issue": "Other",
+    "monograph": "Book",
+    "other": "Other",
+    "posted-content": "Other",
+    "proceedings": "Other",
+    "proceedings-article": "Article",
+    "reference-book": "Other",
+    "reference-entry": "Other",
+    "report": "Other",
+    "report-component": "Other",
+    "report-series": "Other",
+    "standard": "Other",
+    "abstract": "Other",
+    "address": "Other",
+    "art and literature": "Other",
+    "article": "Article",
+    "bibliography": "Other",
+    "biography": "Book",
+    "case reports": "Other",
+    "casestudy": "Other",
+    "chapter": "Chapter",
+    "congress": "Other",
+    "correction": "Correction/Retraction",
+    "data paper": "Article",
+    "data set": "Dataset",
+    "data study": "Other",
+    "dictionary": "Other",
+    "early access": "Article",
+    "editorial": "Editorial Material ",
+    "editorial material": "Editorial Material ",
+    "erratum": "Correction/Retraction",
+    "expression of concern": "Correction/Retraction",
+    "festschrift": "Book",
+    "inbook": "Chapter",
+    "inproceedings": "Article",
+    "interview": "Other",
+    "introductory journal article": "Other",
+    "item withdrawal": "Correction/Retraction",
+    "lecture": "Other",
+    "letter": "Other",
+    "libguides": "Other",
+    "meeting": "Other",
+    "news": "Other",
+    "otherpaper": "Other",
+    "paratext": "Other",
+    "patient education handout": "Other",
+    "peer-review": "Other",
+    "personal narrative": "Other",
+    "preprint": "Preprint",
+    "proceeding": "Article",
+    "publication with expression of concern": "Correction/Retraction",
+    "published erratum": "Correction/Retraction",
+    "retracted publication": "Correction/Retraction",
+    "retraction": "Correction/Retraction",
+    "retraction notice": "Correction/Retraction",
+    "review": "Article",
+    "seminar": "Other",
+    "supplementary-materials": "Other",
+    "technicalreport": "Other",
+    "withdrawn publication": "Correction/Retraction",
+    "workingpaper": "Other",
+}

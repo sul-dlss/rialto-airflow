@@ -50,7 +50,6 @@ def export_publications(snapshot) -> int:
                 Publication.faculty_authored,  # type: ignore
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
-            .join(Author, Publication.authors)  # type: ignore
             .join(Funder, Publication.funders, isouter=True)  # type: ignore
             .group_by(Publication.id)
             .execution_options(yield_per=10_000)

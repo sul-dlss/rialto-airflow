@@ -1,7 +1,7 @@
 import pytest
 
 from rialto_airflow.schema.harvest import Publication, Author
-from rialto_airflow.harvest.distill import distill
+from rialto_airflow.harvest.distill import distill, _normalize_type
 
 # Set up JSON data that mirrors (in part) what we get from the respective APIs
 
@@ -636,14 +636,14 @@ def test_types(test_session, snapshot, caplog):
     with test_session.begin() as session:
         pub = Publication(
             doi="10.1515/9781503624153",
-            dim_json={"type": "dim-article"},
-            openalex_json={"type": "openalex-article"},
-            sulpub_json={"type": "sulpub-article"},
-            crossref_json={"type": "crossref-article"},
+            dim_json={"type": "Book"},
+            openalex_json={"type": "Chapter"},
+            sulpub_json={"type": "Dissertation"},
+            crossref_json={"type": "Dataset"},
             wos_json={
                 "static_data": {
                     "fullrecord_metadata": {
-                        "normalized_doctypes": {"doctype": "wos-article"}
+                        "normalized_doctypes": {"doctype": "Article"}
                     }
                 }
             },
@@ -652,8 +652,8 @@ def test_types(test_session, snapshot, caplog):
                     "Article": {
                         "PublicationTypeList": {
                             "PublicationType": [
-                                {"#text": "pubmed-article"},
-                                {"#text": "pubmed-preprint"},
+                                {"#text": "Article"},
+                                {"#text": "Preprint"},
                             ]
                         }
                     }
@@ -664,7 +664,7 @@ def test_types(test_session, snapshot, caplog):
 
     # dimensions takes priority
     distill(snapshot)
-    assert _pub(session).types == ["dim-article"]
+    assert _pub(session).types == ["Book"]
 
     # openalex next
     with test_session.begin() as session:
@@ -673,7 +673,7 @@ def test_types(test_session, snapshot, caplog):
         session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == ["openalex-article"]
+    assert _pub(session).types == ["Chapter"]
 
     # pubmed next
     with test_session.begin() as session:
@@ -682,7 +682,7 @@ def test_types(test_session, snapshot, caplog):
         session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == ["pubmed-article", "pubmed-preprint"]
+    assert _pub(session).types == ["Article", "Preprint"]
 
     # wos next
     with test_session.begin() as session:
@@ -691,7 +691,7 @@ def test_types(test_session, snapshot, caplog):
         session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == ["wos-article"]
+    assert _pub(session).types == ["Article"]
 
     # crossref next
     with test_session.begin() as session:
@@ -700,7 +700,7 @@ def test_types(test_session, snapshot, caplog):
         session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == ["crossref-article"]
+    assert _pub(session).types == ["Dataset"]
 
     # sulpub next
     with test_session.begin() as session:
@@ -709,7 +709,7 @@ def test_types(test_session, snapshot, caplog):
         session.add(pub)
 
     distill(snapshot)
-    assert _pub(session).types == ["sulpub-article"]
+    assert _pub(session).types == ["Dissertation"]
 
     # unepected json shouldn't cause a problem
     with test_session.begin() as session:
@@ -742,6 +742,89 @@ def test_types(test_session, snapshot, caplog):
         str(e.value)
         == "types distill rules generated unexpected result: <class 'dict'>"
     )
+
+
+def test_normalize_type():
+    assert _normalize_type("book") == "Book"
+    assert _normalize_type("book-chapter") == "Chapter"
+    assert _normalize_type("book-part") == "Chapter"
+    assert _normalize_type("book-section") == "Chapter"
+    assert _normalize_type("book-series") == "Other"
+    assert _normalize_type("book-set") == "Other"
+    assert _normalize_type("component") == "Other"
+    assert _normalize_type("database") == "Other"
+    assert _normalize_type("dataset") == "Dataset"
+    assert _normalize_type("dissertation") == "Dissertation"
+    assert _normalize_type("edited-book") == "Book"
+    assert _normalize_type("journal") == "Other"
+    assert _normalize_type("journal article") == "Article"
+    assert _normalize_type("journal-issue") == "Other"
+    assert _normalize_type("monograph") == "Book"
+    assert _normalize_type("other") == "Other"
+    assert _normalize_type("posted-content") == "Other"
+    assert _normalize_type("proceedings") == "Other"
+    assert _normalize_type("proceedings-article") == "Article"
+    assert _normalize_type("reference-book") == "Other"
+    assert _normalize_type("reference-entry") == "Other"
+    assert _normalize_type("report") == "Other"
+    assert _normalize_type("report-component") == "Other"
+    assert _normalize_type("report-series") == "Other"
+    assert _normalize_type("standard") == "Other"
+    assert _normalize_type("abstract") == "Other"
+    assert _normalize_type("address") == "Other"
+    assert _normalize_type("art and literature") == "Other"
+    assert _normalize_type("article") == "Article"
+    assert _normalize_type("bibliography") == "Other"
+    assert _normalize_type("biography") == "Book"
+    assert _normalize_type("case reports") == "Other"
+    assert _normalize_type("caseStudy") == "Other"
+    assert _normalize_type("chapter") == "Chapter"
+    assert _normalize_type("congress") == "Other"
+    assert _normalize_type("correction") == "Correction/Retraction"
+    assert _normalize_type("data paper") == "Article"
+    assert _normalize_type("data set") == "Dataset"
+    assert _normalize_type("data study") == "Other"
+    assert _normalize_type("dictionary") == "Other"
+    assert _normalize_type("early access") == "Article"
+    assert _normalize_type("editorial") == "Editorial Material "
+    assert _normalize_type("editorial material") == "Editorial Material "
+    assert _normalize_type("erratum") == "Correction/Retraction"
+    assert _normalize_type("expression of concern") == "Correction/Retraction"
+    assert _normalize_type("festschrift") == "Book"
+    assert _normalize_type("inbook") == "Chapter"
+    assert _normalize_type("inproceedings") == "Article"
+    assert _normalize_type("interview") == "Other"
+    assert _normalize_type("introductory journal article") == "Other"
+    assert _normalize_type("item withdrawal") == "Correction/Retraction"
+    assert _normalize_type("lecture") == "Other"
+    assert _normalize_type("letter") == "Other"
+    assert _normalize_type("libguides") == "Other"
+    assert _normalize_type("meeting") == "Other"
+    assert _normalize_type("news") == "Other"
+    assert _normalize_type("otherPaper") == "Other"
+    assert _normalize_type("paratext") == "Other"
+    assert _normalize_type("patient education handout") == "Other"
+    assert _normalize_type("peer-review") == "Other"
+    assert _normalize_type("personal narrative") == "Other"
+    assert _normalize_type("preprint") == "Preprint"
+    assert _normalize_type("proceeding") == "Article"
+    assert (
+        _normalize_type("publication with expression of concern")
+        == "Correction/Retraction"
+    )
+    assert _normalize_type("published erratum") == "Correction/Retraction"
+    assert _normalize_type("retracted publication") == "Correction/Retraction"
+    assert _normalize_type("retraction") == "Correction/Retraction"
+    assert _normalize_type("retraction notice") == "Correction/Retraction"
+    assert _normalize_type("review") == "Article"
+    assert _normalize_type("seminar") == "Other"
+    assert _normalize_type("supplementary-materials") == "Other"
+    assert _normalize_type("technicalReport") == "Other"
+    assert _normalize_type("withdrawn publication") == "Correction/Retraction"
+    assert _normalize_type("workingPaper") == "Other"
+
+    # edge cases
+    assert _normalize_type("awesome") == "Awesome", "no mapping"
 
 
 def _pub(session, doi="10.1515/9781503624153"):

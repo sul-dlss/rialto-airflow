@@ -59,6 +59,7 @@ def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
     # the API only allows looking up 49 DOIs at a time in a batch
     for doi_batch in batched(dois, 40):
         prefixed_dois = []
+        ignored_dois = []
         for doi in doi_batch:
             doi = doi.replace(",", "")  # commas are used to join DOIs in the filter
 
@@ -73,17 +74,20 @@ def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
                 if len(m.group(1)) >= 4:
                     prefixed_dois.append(doi)
                 else:
-                    logging.warning(
-                        f"Ignoring {doi} with invalid prefix code {m.group(1)}"
-                    )
+                    ignored_dois.append(doi)
             else:
-                logging.warning(f"Ignoring invalid DOI format {doi}")
+                ignored_dois.append(doi)
+
+        if len(ignored_dois) > 0:
+            logging.debug(
+                f"ignored DOIs for invalid prefix code or invalid format: {ignored_dois}"
+            )
 
         if len(prefixed_dois) == 0:
             logging.warning(f"No valid DOIs to look up in {dois}")
             return
 
-        logging.info(f"Looking up DOIS {prefixed_dois}")
+        logging.debug(f"Looking up DOIS {prefixed_dois}")
 
         params: Dict[str, str | int | None] = {
             "filter": ",".join(prefixed_dois),
@@ -105,7 +109,7 @@ def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
         # the API seems to occasionally throw 500 errors, which then work when retried?
         if resp.status_code == 500:
             if tries > 1:
-                logging.warning("caught 500 error, retrying")
+                logging.debug("caught 500 error, retrying")
                 yield from get_dois(doi_batch, tries - 1)
             else:
                 logging.error(

@@ -7,7 +7,7 @@ import pyalex
 from rialto_airflow.harvest import openalex
 from rialto_airflow.schema.harvest import Publication
 
-from test.utils import num_jsonl_objects
+from test.utils import num_jsonl_objects, num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -290,7 +290,7 @@ def test_colon():
         pyalex.Works().filter(doi=dois).get()
 
 
-def test_clean_dois_for_query():
+def test_clean_dois_for_query(caplog):
     assert openalex._clean_dois_for_query(
         [
             "doi:123",
@@ -301,3 +301,9 @@ def test_clean_dois_for_query():
             "10.1093/noajnl/vdad070.013pmcid:pmc10402389",
         ]
     ) == ["aaa/111", "abc/123"]
+
+    assert num_log_record_matches(
+        caplog.records,
+        logging.WARNING,
+        "dropped 4 DOIs from openalex lookup: ['doi:123', 'abc/123,45', '123/abc pmcid:123', '10.1093/noajnl/vdad070.013pmcid:pmc10402389']",
+    )

@@ -73,7 +73,7 @@ def fetch_orcid_users(
     access_token = get_token(mais_client_id, mais_client_secret, mais_token_url)
 
     while True:  # paging
-        logging.info(f"Fetching {url}")
+        logging.debug(f"Fetching {url}")
         tries = 0
         while True:  # retry loop for token expiration
             try:

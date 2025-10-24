@@ -45,8 +45,8 @@ def link_dim_publications(snapshot) -> int:
 
         for row in session.execute(stmt):
             count += 1
-            if count % 100 == 0:
-                logging.info(f"processed {count} publications from Dimensions")
+            if count % 50000 == 0:
+                logging.debug(f"processing publication number {count} from Dimensions")
 
             pub = row[0]
 
@@ -62,7 +62,7 @@ def link_dim_publications(snapshot) -> int:
                             .values(publication_id=pub.id, funder_id=funder_id)
                             .on_conflict_do_nothing()
                         )
-    logging.info(f"processed {count} publications from Dimensions")
+    logging.debug(f"processed {count} publications from Dimensions")
     return count
 
 
@@ -80,8 +80,8 @@ def link_openalex_publications(snapshot) -> int:
 
     for row in session.execute(stmt):
         count += 1
-        if count % 100 == 0:
-            logging.info(f"processed {count} publications from OpenAlex")
+        if count % 50000 == 0:
+            logging.debug(f"processed {count} publications from OpenAlex")
 
         pub = row[0]
 
@@ -100,7 +100,7 @@ def link_openalex_publications(snapshot) -> int:
                         .values(publication_id=pub.id, funder_id=funder_id)
                         .on_conflict_do_nothing()
                     )
-    logging.info(f"processed {count} publications from OpenAlex")
+    logging.debug(f"processed {count} publications from OpenAlex")
     return count
 
 
@@ -109,7 +109,7 @@ def _find_or_create_dim_funder(session: Session, funder: dict) -> Optional[int]:
     name = funder.get("name")
 
     if grid_id is None or name is None:
-        logging.info(f"missing GRID ID in {funder}")
+        logging.warning(f"missing GRID ID in {funder}")
         return None
 
     federal = is_federal_grid_id(grid_id) or is_federal(name)
@@ -162,7 +162,7 @@ def _lookup_openalex_funder(openalex_id: str) -> Optional[dict]:
     """
     try:
         funder = Funders()[openalex_id]
-        logging.info(f"found funder data in openalex for {openalex_id}")
+        logging.debug(f"found funder data in openalex for {openalex_id}")
     except requests.exceptions.HTTPError:
         logging.warning(f"OpenAlex API returned error for {openalex_id}")
         return None

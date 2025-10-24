@@ -86,7 +86,7 @@ def publications(host, key, per_page=1000, limit=None):
         page += 1
         params["page"] = page
 
-        logging.info(f"fetching sul_pub results {url} {params}")
+        logging.debug(f"fetching sul_pub results {url} {params}")
         resp = http.get(url, params=params, headers=http_headers)
         resp.raise_for_status()
 
@@ -97,7 +97,7 @@ def publications(host, key, per_page=1000, limit=None):
         for record in records:
             record_count += 1
             if limit is not None and record_count > limit:
-                logging.info(f"stopping with limit={limit}")
+                logging.warning(f"stopping with limit={limit}")
                 more = False
                 break
 
@@ -110,7 +110,7 @@ def extract_doi(pub):
 
     for id in pub.get("identifier"):
         if id.get("type") == "doi" and "id" in id:
-            logging.info(
+            logging.debug(
                 f"doi was not available in top level for sulpub id {pub.get('sulpubid')} but found in identifier block"
             )
             return normalize_doi(id["id"])

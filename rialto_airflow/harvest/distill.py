@@ -22,8 +22,8 @@ def distill(snapshot: Snapshot) -> int:
 
         for row in select_session.execute(stmt):
             count += 1
-            if count % 100 == 0:
-                logging.info(f"processed {count} publications")
+            if count % 50000 == 0:
+                logging.debug(f"processed {count} publications")
 
             pub = row[0]
 

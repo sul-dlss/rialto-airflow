@@ -12,7 +12,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     Remove duplicate publications from the database.
     Returns the number of duplicates found (not the number of rows deleted).
     """
-    logging.info("Removing duplicate publications from each source.")
+    logging.debug("Removing duplicate publications from each source.")
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
     total_deleted = wos_dupes + openalex_dupes
@@ -23,7 +23,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
 
 
 def remove_wos_duplicates(snapshot: Snapshot) -> int:
-    logging.info("Removing any duplicate WOS publications.")
+    logging.debug("Removing any duplicate WOS publications.")
     with get_session(snapshot.database_name).begin() as session:
         # Find all duplicate WOS publications in the snapshot
         duplicates = session.execute(
@@ -34,7 +34,7 @@ def remove_wos_duplicates(snapshot: Snapshot) -> int:
             .having(func.count() > 1)
         ).all()
         num_dupes = len(duplicates)
-        logging.info(f"Found {num_dupes} publications with duplicates.")
+        logging.info(f"Found {num_dupes} WOS publications with duplicates.")
         count_deleted = 0
         wos_uids = [row[1] for row in duplicates]
         for wos_uid in wos_uids:
@@ -54,7 +54,7 @@ def remove_wos_duplicates(snapshot: Snapshot) -> int:
 
 
 def remove_openalex_duplicates(snapshot: Snapshot) -> int:
-    logging.info("Removing any duplicate OpenAlex publications.")
+    logging.debug("Removing any duplicate OpenAlex publications.")
     with get_session(snapshot.database_name).begin() as session:
         # Find all duplicate OpenAlex publications in the snapshot
         duplicates = session.execute(
@@ -65,7 +65,7 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
             .having(func.count() > 1)
         ).all()
         num_dupes = len(duplicates)
-        logging.info(f"Found {num_dupes} publications with duplicates.")
+        logging.info(f"Found {num_dupes} OpenAlex publications with duplicates.")
         count_deleted = 0
         openalex_ids = [row[1] for row in duplicates]
         for openalex_id in openalex_ids:

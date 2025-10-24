@@ -30,12 +30,12 @@ def cleanup_author_files(cleanup_interval_days: int, data_dir: str):
 def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
     current_time = datetime.now()
 
-    logging.info(f"Current time: {current_time}")
+    logging.debug(f"Current time: {current_time}")
     # first the data folders
     base_snapshot_folder = Path(data_dir) / "snapshots"
     for folder_path in base_snapshot_folder.iterdir():
         if folder_path.is_dir():
-            logging.info(f"Considering snapshot folder {folder_path}")
+            logging.debug(f"Considering snapshot folder {folder_path}")
             folder_time = datetime.strptime(folder_path.name, "%Y%m%d%H%M%S")
             age = current_time - folder_time
             if age.days > cleanup_interval_days:
@@ -50,7 +50,7 @@ def cleanup_snapshots(cleanup_interval_days: int, data_dir: str):
                     )
     # next consider all of the databases (note: the `database_names` method already excludes postgres and airflow)
     for database_name in database_names():
-        logging.info(f"Considering database {database_name}")
+        logging.debug(f"Considering database {database_name}")
         # Check if database name matches the expected format "rialto_%Y%m%d%H%M%S"
         if re.match(r"^rialto_\d{14}$", database_name):
             database_name_date_part = database_name.removeprefix("rialto_")

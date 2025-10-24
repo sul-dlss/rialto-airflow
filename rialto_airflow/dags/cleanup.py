@@ -26,7 +26,7 @@ def cleanup():
         """
         Remove author files older than the specified number of days from the data directory.
         """
-        logging.info(
+        logging.debug(
             f"Cleanup any author files older than {cleanup_interval_days} days from {data_dir}"
         )
         cleanup_author_files(cleanup_interval_days, data_dir)
@@ -37,7 +37,7 @@ def cleanup():
         """
         Remove snapshot folders and databases older than the specified number of days from the data directory.
         """
-        logging.info(
+        logging.debug(
             f"Cleanup any snapshot folders and databases older than {cleanup_interval_days} days from {data_dir}"
         )
         cleanup_snapshots(cleanup_interval_days, data_dir)

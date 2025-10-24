@@ -43,7 +43,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
             ):
                 if stop is True:
-                    logging.info(f"Reached limit of {limit} publications stopping")
+                    logging.warning(f"Reached limit of {limit} publications stopping")
                     break
 
                 for wos_pub in orcid_publications(author.orcid):
@@ -99,7 +99,7 @@ def fill_in(snapshot: Snapshot):
                 # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
                 dois = [row.doi for row in rows]
 
-                logging.info(f"looking up DOIs {dois}")
+                logging.debug(f"looking up DOIs {dois}")
                 for wos_pub in publications_from_dois(dois):
                     doi = normalize_doi(wos_pub.get("doi"))
                     if doi is None:
@@ -182,7 +182,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
     # get the initial set of results, which also gives us a Query ID to fetch
     # subsequent pages of results if there are any
-    logging.info(f"fetching {base_url} with {params}")
+    logging.debug(f"fetching {base_url} with {params}")
     resp: requests.Response = http.get(base_url, params=params, headers=headers)
     if not check_status(resp):
         return
@@ -192,7 +192,7 @@ def _wos_api(query) -> Generator[dict, None, None]:
         return
 
     if results["QueryResult"]["RecordsFound"] == 0:
-        logging.info(f"No results found for {query}")
+        logging.debug(f"No results found for {query}")
         return
 
     yield from results["Data"]["Records"]["records"]["REC"]
@@ -205,11 +205,11 @@ def _wos_api(query) -> Generator[dict, None, None]:
 
     # if there aren't any more results to fetch this loop will never be entered
 
-    logging.info(f"{records_found} records found")
+    logging.debug(f"{records_found} records found")
     while first_record < records_found:
         sleep(0.5)
         page_params: Params = {"firstRecord": first_record, "count": count}
-        logging.info(f"fetching {base_url}/query/{query_id} with {page_params}")
+        logging.debug(f"fetching {base_url}/query/{query_id} with {page_params}")
 
         # retry any 429 errors and stay within rate limits
         http = requests.Session()

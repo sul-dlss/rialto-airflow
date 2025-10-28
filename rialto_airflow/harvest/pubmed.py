@@ -48,12 +48,12 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
             ):
                 if stop is True:
-                    logging.info(f"Reached limit of {limit} publications stopping")
+                    logging.warning(f"Reached limit of {limit} publications stopping")
                     break
 
                 pmids = pmids_from_orcid(author.orcid)
                 if not pmids:
-                    logging.info(f"No publications found for {author.orcid}")
+                    logging.debug(f"No publications found for {author.orcid}")
                     continue
 
                 for pubmed_pub in publications_from_pmids(pmids):
@@ -109,7 +109,7 @@ def fill_in(snapshot: Snapshot):
                 # use a batch size of 50 DOIs at a time
                 dois = [normalize_doi(row.doi) for row in rows]
 
-                logging.info(f"looking up DOIs {dois}")
+                logging.debug(f"looking up DOIs {dois}")
 
                 # find PMIDs for the DOIs, and then get full records
                 # note that there are likey not as many PMIDs returned as DOIs that were queried
@@ -123,7 +123,9 @@ def fill_in(snapshot: Snapshot):
                 for pubmed_pub in pubmed_pubs:
                     doi = normalize_doi(get_doi(pubmed_pub))
                     if doi is None:
-                        logging.warning("unable to determine what DOI to update")
+                        logging.warning(
+                            f"unable to determine what DOI to update for {pubmed_pub}"
+                        )
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:
@@ -181,7 +183,7 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
     query = "id=" + "&id=".join(pmids)
 
     full_url = f"{BASE_URL}{FETCH_PATH}&api_key={pubmed_key()}"
-    logging.info(f"fetching full records from pubmed with {query}")
+    logging.debug(f"fetching full records from pubmed with {query}")
     try:
         response = requests.post(full_url, params=query, headers=HEADERS)
         response.raise_for_status()
@@ -196,7 +198,7 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
         else:
             return pubs
     except requests.exceptions.RequestException as e:  # Catch all requests exceptions
-        logging.warning(f"Error fetching full pubmed records {query}: {e}")
+        logging.error(f"Error fetching full pubmed records {query}: {e}")
         return []
 
 
@@ -208,7 +210,7 @@ def _pubmed_search_api(query) -> list:
     params: Params = {"term": query}
 
     full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
-    logging.info(f"searching pubmed with {params}")
+    logging.debug(f"searching pubmed with {params}")
     try:
         response = requests.get(full_url, params=params, headers=HEADERS)
         response.raise_for_status()
@@ -216,21 +218,21 @@ def _pubmed_search_api(query) -> list:
         results = response.json()
 
         if "error" in results:
-            logging.warning(f"Error in results found for {query}: {results['error']}")
+            logging.error(f"Error in results found for {query}: {results['error']}")
             return []
 
         if results.get("esearchresult", {}).get("count") is None:
-            logging.warning(f"No esearchresult or count found for {query}")
+            logging.debug(f"No esearchresult or count found for {query}")
             return []
 
         if int(results["esearchresult"]["count"]) == 0:
-            logging.info(f"No results found for {query}")
+            logging.debug(f"No results found for {query}")
             return []
 
         return results["esearchresult"]["idlist"]  # return a list of pmids
 
     except requests.exceptions.RequestException as e:  # Catch all requests exceptions
-        logging.warning(f"Error searching pubmed query {params}: {e}")
+        logging.error(f"Error searching pubmed query {params}: {e}")
         return []
 
 

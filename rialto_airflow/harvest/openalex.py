@@ -42,7 +42,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
             ):
                 if stop is True:
-                    logging.info(f"Reached limit of {limit} publications stopping")
+                    logging.warning(f"Reached limit of {limit} publications stopping")
                     break
 
                 for openalex_pub in orcid_publications(author.orcid):
@@ -87,7 +87,7 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
     """
     # TODO: I think we can maybe have this function take a list of orcids and
     # batch process them since we can filter by multiple orcids in one request?
-    logging.info(f"looking up publications for orcid {orcid}")
+    logging.debug(f"looking up publications for orcid {orcid}")
 
     # get the first (and hopefully only) openalex id for the orcid
     authors = Authors().filter(orcid=orcid).get()
@@ -125,11 +125,13 @@ def fill_in(snapshot) -> Path:
                 # looking up multiple DOIs is supported by pipe separating them
                 dois_joined = "|".join(dois_filtered)
 
-                logging.info(f"looking up DOIs {dois_joined}")
+                logging.debug(f"looking up DOIs {dois_joined}")
                 for openalex_pub in Works().filter(doi=dois_joined).get():
                     doi = normalize_doi(openalex_pub.get("doi"))
                     if doi is None:
-                        logging.warning("unable to determine what DOI to update")
+                        logging.warning(
+                            f"unable to determine what DOI to update for {openalex_pub}"
+                        )
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:
@@ -165,23 +167,32 @@ def _clean_dois_for_query(dois: list[str]) -> list[str]:
     doi: 10.1093/noajnl/vdad070.013 pmcid: pmc10402389
     """
 
-    new_dois = []
+    clean_dois: list[str] = []
+    unqueryable_dois: list[str] = []
 
     for doi in dois:
         if "," in doi:
+            unqueryable_dois.append(doi)
             _doi_log_message(doi)
             continue
         elif doi.startswith("doi:"):
+            unqueryable_dois.append(doi)
             _doi_log_message(doi)
             continue
         elif "pmcid:" in doi:
+            unqueryable_dois.append(doi)
             _doi_log_message(doi)
             continue
         else:
-            new_dois.append(doi)
+            clean_dois.append(doi)
 
-    return new_dois
+    if len(unqueryable_dois) > 0:
+        logging.warning(
+            f"dropped {len(unqueryable_dois)} DOIs from openalex lookup: {unqueryable_dois}"
+        )
+
+    return clean_dois
 
 
 def _doi_log_message(doi: str):
-    logging.warning(f"dropping {doi} from openalex lookup")
+    logging.debug(f"dropping {doi} from openalex lookup")

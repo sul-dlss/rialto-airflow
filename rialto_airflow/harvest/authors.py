@@ -19,7 +19,7 @@ def load_authors_table(snapshot) -> None:
     authors_file = rialto_authors_file(snapshot.path)
     check_headers(authors_file)
 
-    logging.info(
+    logging.debug(
         f"Loading authors from {authors_file} into database {snapshot.database_name}"
     )
     with open(authors_file, "r") as file:
@@ -46,7 +46,9 @@ def load_authors_table(snapshot) -> None:
                     session.add(author)
             except IntegrityError as e:
                 message = f"Skipping author: {row['sunetid'], row['orcidid']}: {e}"
-                logging.warning(message)
+                logging.debug(
+                    message
+                )  # this is debug level so we can watch as it goes if need be, but errors are logged in aggregate at warning level at end
                 errors.append(message)
                 continue
             finally:
@@ -80,7 +82,7 @@ def check_headers(authors_file: str) -> None:
             raise ValueError(
                 f"Headers in {authors_file} are {headers}, expected to include {required_headers}"
             )
-        logging.info(f"Headers in {authors_file}: {headers}")
+        logging.debug(f"Headers in {authors_file}: {headers}")
 
 
 def to_boolean(value: str) -> bool:

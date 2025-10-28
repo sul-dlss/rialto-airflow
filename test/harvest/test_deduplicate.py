@@ -95,7 +95,7 @@ def test_wos_deduplicate(test_session, dataset, snapshot, caplog):
         # the second author remains and is linked to one publication
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1
-        assert "Found 1 publications with duplicates." in caplog.text
+        assert "Found 1 WOS publications with duplicates." in caplog.text
         assert "Deleted 1 publication rows from WOS." in caplog.text
 
 
@@ -120,7 +120,7 @@ def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
         )
-        assert "Found 1 publications with duplicates." in caplog.text
+        assert "Found 1 OpenAlex publications with duplicates." in caplog.text
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 

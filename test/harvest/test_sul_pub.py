@@ -7,7 +7,7 @@ from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import sul_pub
 from rialto_airflow.snapshot import Snapshot
 
-from test.utils import num_jsonl_objects
+from test.utils import num_jsonl_objects, num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -53,7 +53,7 @@ response = {
 
 
 def test_harvest(tmp_path, test_session, mock_authors, caplog, requests_mock):
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
 
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
@@ -83,8 +83,51 @@ def test_harvest(tmp_path, test_session, mock_authors, caplog, requests_mock):
         assert len(pub2.authors) == 1, "publication has one author"
         assert pub2.authors[0].cap_profile_id == "12345"
         assert (
-            "doi was not available in top level for sulpub id 456012 but found in identifier block"
-            in caplog.text
+            num_log_record_matches(
+                caplog.records,
+                logging.DEBUG,
+                "doi was not available in top level for sulpub id 456012 but found in identifier block",
+            )
+            == 1
+        )
+
+
+def test_harvest_limit(tmp_path, test_session, mock_authors, caplog, requests_mock):
+    """
+    Confirm that the harvest limit we use in test envs is observed, and that a warning is
+    logged when the limit is hit.
+    """
+    caplog.set_level(logging.DEBUG)
+
+    requests_mock.get("/publications.json", json=response)
+    requests_mock.get("/publications.json?page=2", json={"records": []})
+
+    # harvest from sulpub with a limit of one publication
+    snapshot = Snapshot.create(tmp_path, "rialto_test")
+    sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=1)
+
+    # make sure the jsonl file looks good
+    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
+
+    # make sure a publication is in the database and linked to the authors
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "one publications loaded"
+
+        pubs = session.query(Publication).all()
+        assert pubs[0].doi == "10.1515/9781503624153", "doi was added"
+
+        assert len(pubs[0].authors) == 2, (
+            "publication has two authors because limit is only placed on publication processing"
+        )
+        assert pubs[0].authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+
+        assert (
+            num_log_record_matches(
+                caplog.records,
+                logging.WARNING,
+                "stopping with limit=1",
+            )
+            == 1
         )
 
 

@@ -1,7 +1,9 @@
 import csv
+import logging
 import pytest
 from rialto_airflow.schema.harvest import Author
 from rialto_airflow.harvest.authors import load_authors_table
+from test.utils import num_log_record_matches
 
 
 @pytest.fixture
@@ -102,6 +104,7 @@ def test_load_authors_table(test_session, tmp_path, caplog, authors_csv, snapsho
 
 
 def test_load_dupe_orcid(test_session, tmp_path, caplog, authors_csv, snapshot):
+    caplog.set_level(logging.DEBUG)
     # add a row with a duplicate ORCID to the CSV
     with open(authors_csv, "a", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -135,11 +138,15 @@ def test_load_dupe_orcid(test_session, tmp_path, caplog, authors_csv, snapshot):
         assert session.query(Author).where(Author.sunet == "lelands").count() == 0
 
     assert (
-        len([record for record in caplog.records if record.levelname == "WARNING"]) == 2
+        len([record for record in caplog.records if record.levelname == "WARNING"]) == 1
     )
-    for record in caplog.records:
-        assert "Skipping author: ('lelands'" in caplog.text
-        assert "Errors with 1 author" in caplog.text
+    assert (
+        "Skipping author: ('lelands', 'https://orcid.org/0000-0000-0000-0001')"
+        in caplog.text
+    )
+    assert num_log_record_matches(
+        caplog.records, logging.WARNING, "Errors with 1 authors: "
+    )
 
 
 def test_load_null_cap_id(test_session, tmp_path, caplog, authors_csv, snapshot):

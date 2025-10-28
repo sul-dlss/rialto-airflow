@@ -36,7 +36,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
             ):
                 if stop is True:
-                    logging.info(f"Reached limit of {limit} publications stopping")
+                    logging.warning(f"Reached limit of {limit} publications stopping")
                     break
 
                 for dimensions_pub_json in publications_from_orcid(author.orcid):
@@ -78,7 +78,7 @@ def publications_from_dois(dois: list, batch_size=200):
     fields = " + ".join(publication_fields())
     for doi_batch in batched(dois, batch_size):
         doi_list = ",".join(['"{}"'.format(doi) for doi in doi_batch])
-        logging.info(f"looking up: {doi_list}")
+        logging.debug(f"looking up: {doi_list}")
 
         q = f"""
             search publications where doi in [{doi_list}]
@@ -94,7 +94,7 @@ def publications_from_orcid(orcid: str, batch_size=200):
     """
     Get the publications metadata for a given ORCID.
     """
-    logging.info(f"looking up publications for orcid {orcid}")
+    logging.debug(f"looking up publications for orcid {orcid}")
     orcid = normalize_orcid(orcid)
     fields = " + ".join(publication_fields())
 
@@ -169,7 +169,7 @@ def query_with_retry(q, retry=5):
                 )
                 raise e
             else:
-                logging.warning(
+                logging.debug(
                     "Dimensions query error retry %s of %s: %s", try_count, retry, e
                 )
                 time.sleep(try_count * 10)
@@ -196,7 +196,9 @@ def fill_in(snapshot: Snapshot):
                 for dimensions_pub in publications_from_dois(dois, batch_size=100):
                     doi = dimensions_pub.get("doi")
                     if doi is None:
-                        logging.warning("unable to determine what DOI to update")
+                        logging.warning(
+                            f"unable to determine what DOI to update from {dimensions_pub}"
+                        )
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:

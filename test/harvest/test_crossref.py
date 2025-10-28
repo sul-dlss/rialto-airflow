@@ -6,7 +6,7 @@ import pandas
 
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import crossref
-from test.utils import num_jsonl_objects
+from test.utils import num_jsonl_objects, num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -42,45 +42,97 @@ def test_invalid_doi_prefix(caplog):
     Test lookup with invalid DOI format. According to the API docs a DOI must
     match doi:10.prefix/suffix where prefix is of length 4 or more.
     """
+    caplog.set_level(logging.DEBUG)
+
     results = crossref.get_dois(["10.123/abcdef"])
     assert len(list(results)) == 0, ".123 prefix is too short"
-    assert "Ignoring doi:10.123/abcdef with invalid prefix code 123" in caplog.text
-    assert "No valid DOIs to look up" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "ignored DOIs for invalid prefix code or invalid format: ['doi:10.123/abcdef']",
+        )
+        == 1
+    )
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.WARNING,
+            "No valid DOIs to look up in ['10.123/abcdef']",
+        )
+        == 1
+    )
 
 
 def test_non_numeric_prefix(caplog):
     """
     The DOI prefix must be a number.
     """
+    caplog.set_level(logging.DEBUG)
+
     results = crossref.get_dois(["10.123a/abcdef"])
     assert len(list(results)) == 0, "ignore dois with non-numeric prefix"
-    assert "Ignoring invalid DOI format doi:10.123a/abcdef" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "ignored DOIs for invalid prefix code or invalid format: ['doi:10.123a/abcdef']",
+        )
+        == 1
+    )
 
 
 def test_doi_missing_10(caplog):
     """
     DOI must start with "10."
     """
+    caplog.set_level(logging.DEBUG)
+
     assert len(list(crossref.get_dois(["1234/abcdef"]))) == 0, "missing 10."
-    assert "Ignoring invalid DOI format doi:1234/abcdef" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "ignored DOIs for invalid prefix code or invalid format: ['doi:1234/abcdef']",
+        )
+        == 1
+    )
 
 
 def test_doi_missing_suffix(caplog):
     """
     DOIs must have a "/" followed by a string.
     """
+    caplog.set_level(logging.DEBUG)
+
     assert len(list(crossref.get_dois(["10.2345"]))) == 0, "missing /suffix"
-    assert "Ignoring invalid DOI format doi:10.2345" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "ignored DOIs for invalid prefix code or invalid format: ['doi:10.2345']",
+        )
+        == 1
+    )
 
 
 def test_doi_with_space(caplog):
     """
     The API requires that DOIs not include spaces.
     """
+    caplog.set_level(logging.DEBUG)
+
     assert len(list(crossref.get_dois(["10.1234/ abcdef"]))) == 0, (
         "doi can't include space"
     )
-    assert "Ignoring invalid DOI format doi:10.1234/ abcdef" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "ignored DOIs for invalid prefix code or invalid format: ['doi:10.1234/ abcdef']",
+        )
+        == 1
+    )
 
 
 def test_http_500(caplog, requests_mock):
@@ -88,11 +140,23 @@ def test_http_500(caplog, requests_mock):
     Crossref API sometimes throws random 500 errors, which work when retried. We
     try five times and then give up.
     """
+    caplog.set_level(logging.DEBUG)
+
     requests_mock.get(re.compile(r"https://api.crossref.org/works.*"), status_code=500)
     assert len(list(crossref.get_dois(["10.2345/abcdef"]))) == 0, "catches 500 errors"
-    assert "caught 500 error, retrying" in caplog.text
     assert (
-        "caught 500 error, giving up since there are no more tries left!" in caplog.text
+        num_log_record_matches(
+            caplog.records, logging.DEBUG, "caught 500 error, retrying"
+        )
+        == 4
+    )
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.ERROR,
+            "caught 500 error, giving up since there are no more tries left!",
+        )
+        == 1
     )
 
 

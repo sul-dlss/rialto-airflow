@@ -38,11 +38,11 @@ except ValueError:
     pass
 
 if harvest_limit:
-    logging.info(
+    logging.warning(
         f"⚠️ harvest_limit is set to {harvest_limit}, running harvest will stop at the limit number of publications per source"
     )
 else:
-    logging.info(
+    logging.debug(
         "‼️ no harvest_limit is set, running harvest will attempt to retrieve all results"
     )
 

@@ -1,3 +1,4 @@
+import logging
 import pytest
 
 from rialto_airflow.schema.harvest import Publication, Author
@@ -608,6 +609,8 @@ def test_non_int_year_fallback(test_session, snapshot, caplog):
     """
     Test that higher priority non-integer year doesn't prevent a year coming from another source.
     """
+    caplog.set_level(logging.DEBUG)
+
     with test_session.begin() as session:
         session.bulk_save_objects(
             [
@@ -621,7 +624,10 @@ def test_non_int_year_fallback(test_session, snapshot, caplog):
 
     distill(snapshot)
     assert _pub(session).pub_year == 2022
-    assert 'got "nope" instead of int' in caplog.text
+    assert (
+        "could not cast 'nope' to a non-future year; jpath=year; data={'year': 'nope'}"
+        in caplog.text
+    )
 
 
 def test_types(test_session, snapshot, caplog):

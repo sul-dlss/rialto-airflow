@@ -139,8 +139,17 @@ def _jsonpath_match(rule: JsonPathRule, data) -> Optional[str | int]:
         result = results[0].value
         if rule.only_positive_number:
             result = _ensure_positive_number(result)
+            if result is None:
+                logging.debug(
+                    f"could not cast '{results[0].value}' to a positive number; jpath={jpath}; data={data}"
+                )
         elif rule.is_valid_year:
             result = _ensure_valid_year(result)
+            if result is None:
+                logging.debug(
+                    f"could not cast '{results[0].value}' to a non-future year; jpath={jpath}; data={data}"
+                )
+
     else:
         result = None
 
@@ -152,10 +161,9 @@ def _ensure_positive_number(value: str | int) -> Optional[int]:
     try:
         result = int(value)
         if result < 0:
-            logging.warning(f"got a non-positive number {value}")
             result = None
     except (ValueError, TypeError):
-        logging.warning(f'got "{value}" instead of a positive number')
+        pass
 
     return result
 
@@ -165,10 +173,9 @@ def _ensure_valid_year(value: str | int) -> Optional[int]:
     try:
         result = int(value)
         if result > datetime.datetime.now().year:
-            logging.warning(f"got a year {value} that is in the future")
             result = None
     except (ValueError, TypeError):
-        logging.warning(f'got "{value}" instead of int')
+        pass
 
     return result
 

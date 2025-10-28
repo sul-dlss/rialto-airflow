@@ -1,7 +1,9 @@
+import logging
 import requests
 
 from rialto_airflow.schema.harvest import Publication, Funder
 from rialto_airflow.funders import linker
+from test.utils import num_log_record_matches
 
 
 def test_link_publications(test_session, snapshot):
@@ -94,6 +96,7 @@ def test_funders_is_none(test_session, snapshot):
 
 
 def test_openalex_funders_linking(test_session, snapshot, caplog):
+    caplog.set_level(logging.DEBUG)
     with test_session.begin() as session:
         session.add(
             Publication(
@@ -136,11 +139,20 @@ def test_openalex_funders_linking(test_session, snapshot, caplog):
     assert pub.funders[1].openalex_id == "https://openalex.org/F4320306146"
     assert pub.funders[1].federal is False
 
-    assert "processed 1 publications from OpenAlex" in caplog.text
     assert (
-        "found funder data in openalex for https://openalex.org/F4320306076"
-        in caplog.text
-    ), "funder logged"
+        num_log_record_matches(
+            caplog.records, logging.DEBUG, "processed 1 publications from OpenAlex"
+        )
+        == 1
+    )
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "found funder data in openalex for https://openalex.org/F4320306076",
+        )
+        == 1
+    )
 
 
 def test_openalex_funders_is_none(test_session, snapshot):

@@ -6,7 +6,7 @@ import dotenv
 
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import pubmed
-from test.utils import num_jsonl_objects, load_jsonl_file
+from test.utils import num_jsonl_objects, load_jsonl_file, num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -31,6 +31,18 @@ def mock_pubmed_search(monkeypatch):
 
     def f(*args, **kwargs):
         return ["36857419", "36108252"]
+
+    monkeypatch.setattr(pubmed, "pmids_from_orcid", f)
+
+
+@pytest.fixture
+def mock_pubmed_search_no_results(monkeypatch):
+    """
+    Mock our function for searching for PMIDs given an ORCID
+    """
+
+    def f(*args, **kwargs):
+        return []
 
     monkeypatch.setattr(pubmed, "pmids_from_orcid", f)
 
@@ -204,7 +216,7 @@ def test_pubmed_search_unexpected_response(requests_mock, caplog):
     """
     This is a test of the Pubmed Search API to ensure we are parsing the mocked response correctly when there is an unexpected response.
     """
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
 
     requests_mock.get(
         re.compile(".*"),
@@ -214,7 +226,14 @@ def test_pubmed_search_unexpected_response(requests_mock, caplog):
     )
 
     assert pubmed.pmids_from_orcid("nope") == []
-    assert "No esearchresult or count found for nope" in caplog.text
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "No esearchresult or count found for nope[auid]",
+        )
+        == 1
+    )
 
 
 def test_pubmed_search_handles_500(requests_mock, caplog):
@@ -372,6 +391,79 @@ def test_harvest(
         assert len(pubs[0].authors) == 2, "publication has two authors"
         assert pubs[0].authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
         assert pubs[0].authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+
+
+def test_harvest_limit(
+    snapshot, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search, caplog
+):
+    """
+    With some authors loaded and a mocked Pubmed API and an artificially low
+    harvest limit, confirm that processing stops as expected and logs appropriately.
+    """
+    # harvest from Pubmed with a limit of one publication
+    pubmed.harvest(snapshot, 1)
+
+    # the mocked Pubmed api returns the same two publications for both authors, but we
+    # only process the first
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 1
+
+    # make sure a publication is in the database and linked to the author
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, "only one publication loaded"
+
+        pubs = session.query(Publication).all()
+        assert pubs[0].doi == "10.1182/bloodadvances.2022008893", "doi was added"
+
+        assert len(pubs[0].authors) == 1, (
+            "publication has one author because limit is reached before second is processed"
+        )
+        assert pubs[0].authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+
+        assert (
+            num_log_record_matches(
+                caplog.records,
+                logging.WARNING,
+                "Reached limit of 1 publications stopping",
+            )
+            == 1
+        )
+
+
+def test_harvest_no_pubmed_results(
+    snapshot,
+    test_session,
+    mock_authors,
+    mock_pubmed_fetch,
+    mock_pubmed_search_no_results,
+    caplog,
+):
+    """
+    With some authors loaded and a Pubmed API mocked to never find anything, confirm that we
+    log the unsuccessful searches appropriately.
+    """
+    caplog.set_level(logging.DEBUG)
+    pubmed.harvest(snapshot)
+    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 0
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 0, (
+            "no publications loaded because none found"
+        )
+        assert (
+            num_log_record_matches(
+                caplog.records,
+                logging.DEBUG,
+                "No publications found for https://orcid.org/0000-0000-0000-0001",
+            )
+            == 1
+        )
+        assert (
+            num_log_record_matches(
+                caplog.records,
+                logging.DEBUG,
+                "No publications found for https://orcid.org/0000-0000-0000-0002",
+            )
+            == 1
+        )
 
 
 def test_harvest_when_doi_exists(

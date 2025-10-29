@@ -660,6 +660,7 @@ def test_types(test_session, snapshot, caplog):
                             "PublicationType": [
                                 {"#text": "Article"},
                                 {"#text": "Preprint"},
+                                {"#text": "Article"},
                             ]
                         }
                     }
@@ -764,6 +765,7 @@ def test_normalize_type():
     assert _normalize_type("edited-book") == "Book"
     assert _normalize_type("journal") == "Other"
     assert _normalize_type("journal article") == "Article"
+    assert _normalize_type("journal-article") == "Article"
     assert _normalize_type("journal-issue") == "Other"
     assert _normalize_type("monograph") == "Book"
     assert _normalize_type("other") == "Other"

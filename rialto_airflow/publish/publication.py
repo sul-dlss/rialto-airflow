@@ -389,10 +389,24 @@ def _pages(row) -> str:
 
 
 def _openalex_pages(openalex_json: dict) -> str:
-    start_page = first(openalex_json, JsonPathRule("biblio.first_page"))
-    end_page = first(openalex_json, JsonPathRule("biblio.last_page"))
+    start_page = _openalex_start_page(openalex_json)
+    end_page = _openalex_end_page(openalex_json)
     if start_page and end_page:
         return f"{start_page}-{end_page}"
     elif start_page:
         return start_page
+    return end_page
+
+
+def _openalex_start_page(openalex_json: dict) -> str:
+    start_jsonp = json_path("biblio.first_page")
+    for start_page in start_jsonp.find(openalex_json):
+        return start_page.value
+    return None
+
+
+def _openalex_end_page(openalex_json: dict) -> str:
+    end_jsonp = json_path("biblio.last_page")
+    for end_page in end_jsonp.find(openalex_json):
+        return end_page.value
     return None

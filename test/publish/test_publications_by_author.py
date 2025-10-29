@@ -24,12 +24,13 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.apc == 123
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
-        assert row.journal_issn == "0009-4978|1234-5678|1523-8253|1943-5975"
+        assert row.journal_issn == "0009-4978|1234-0000|1234-5678|1523-8253|1943-5975"
         assert (
             row.journal_name
             == "Proceedings of the National Academy of Sciences of the United States of America"
         )
         assert row.open_access == "gold"
+        assert row.pages == "1-9"
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Mechanical Engineering"
         assert row.role == "faculty"
@@ -89,6 +90,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.role == "faculty"
+        assert row.pages == "1-10"
         assert row.pub_year == 2024
         assert row.types == "article|preprint"
         assert row.sunet == "janes"
@@ -203,7 +205,7 @@ def test_dimensions_fields(test_session, dim_json_fields):
             sulpub_json=None,
             pubmed_json=None,
             crossref_json=None,
-            types=["article", "preprint"],
+            types=["Article", "Preprint"],
         )
     session.add(pub)
 
@@ -214,6 +216,7 @@ def test_dimensions_fields(test_session, dim_json_fields):
         for row in result:
             assert publication._abstract(row) == "This is a sample Dimensions abstract."
             assert publication._journal_issn(row) == "1111-2222"
+            assert publication._pages(row) == "1-10"
 
 
 def test_openalex_fields(test_session, openalex_json):
@@ -234,7 +237,7 @@ def test_openalex_fields(test_session, openalex_json):
             sulpub_json=None,
             pubmed_json=None,
             crossref_json=None,
-            types=["article", "preprint"],
+            types=["Article", "Preprint"],
         )
     session.add(pub)
 
@@ -247,3 +250,47 @@ def test_openalex_fields(test_session, openalex_json):
                 publication._abstract(row) == "This is an abstract which is inverted."
             )
             assert publication._journal_issn(row) == "0009-4978|1523-8253|1943-5975"
+            assert publication._pages(row) == "123-130"
+
+
+def test_openalex_pages_start_only():
+    openalex_json = {
+        "biblio": {"issue": "11", "first_page": "1", "volume": "2"},
+    }
+    pages = publication._openalex_pages(openalex_json)
+    assert pages == "1"
+
+
+def test_openalex_pages_end_only():
+    openalex_json = {
+        "biblio": {"issue": "11", "last_page": "9", "volume": "2"},
+    }
+    pages = publication._openalex_pages(openalex_json)
+    assert pages == "9"
+
+
+def test_sulpub_fields(test_session, sulpub_json):
+    # Add a publication with fields sourced from sulpub
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.000/000003",
+            title="My Dimensions Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=None,
+            wos_json=None,
+            sulpub_json=sulpub_json,
+            pubmed_json=None,
+            crossref_json=None,
+            types=["Article", "Preprint"],
+        )
+    session.add(pub)
+
+    with test_session.begin() as select_session:
+        result = select_session.execute(
+            select(Publication).where(Publication.doi == "10.000/000003")
+        )
+        for row in result:
+            assert publication._journal_issn(row) == "1111-2222"
+            assert publication._pages(row) == "1-7"

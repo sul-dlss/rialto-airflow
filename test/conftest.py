@@ -330,6 +330,7 @@ def sulpub_json():
             "pages": "1-7",
             "volume": "4",
         },
+        "issn": ["1234-0000"],
         "pmid": "123456",
     }
 

@@ -218,7 +218,8 @@ def _types(pub) -> list[str]:
             f"types distill rules generated unexpected result: {type(types)}"
         )
 
-    return sorted([_normalize_type(s) for s in types if s is not None])
+    # types are normalized and made unique
+    return sorted(set([_normalize_type(s) for s in types if s is not None]))
 
 
 def _pubmed_type(pubmed_json: dict) -> list[str]:
@@ -282,6 +283,7 @@ type_mapping = {
     "edited-book": "Book",
     "journal": "Other",
     "journal article": "Article",
+    "journal-article": "Article",
     "journal-issue": "Other",
     "monograph": "Book",
     "other": "Other",

@@ -1,9 +1,10 @@
+from functools import cache
 import json
 import logging
 import os
 from pathlib import Path
 
-from pyalex import Authors, Works, config
+from pyalex import Authors, Sources, Works, config
 from typing import Generator
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -195,4 +196,17 @@ def _clean_dois_for_query(dois: list[str]) -> list[str]:
 
 
 def _doi_log_message(doi: str):
-    logging.debug(f"dropping {doi} from openalex lookup")
+    logging.warning(f"dropping {doi} from openalex lookup")
+
+
+@cache
+def source_by_issn(issn: str) -> dict | None:
+    """
+    Given an ISSN, return the first OpenAlex Source entity
+    """
+    sources = Sources().filter(issn=issn).get()
+    if not sources:
+        logging.info(f"No OpenAlex Source found for issn: {issn}")
+        return None
+
+    return sources[0]

@@ -4,7 +4,7 @@ from functools import cache
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from jsonpath_ng.ext import parse
+from jsonpath_ng.ext import parse  # type: ignore
 from sqlalchemy.engine.row import Row  # type: ignore
 
 

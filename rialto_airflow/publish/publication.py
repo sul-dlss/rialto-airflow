@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
 from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.harvest.openalex import source_by_issn
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -213,12 +214,13 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.title,  # type: ignore
                 Author.primary_school,
                 Author.primary_dept,
-                Author.primary_role,
+                Author.primary_role,  # type: ignore
                 Author.sunet,  # type: ignore
                 Author.academic_council,  # type: ignore
                 Publication.pub_year,  # type: ignore
+                Publication.publisher,  # type: ignore
                 Publication.types,  # type: ignore
-                Publication.openalex_json,
+                Publication.openalex_json,  # type: ignore
                 Publication.dim_json,
                 Publication.pubmed_json,
                 Publication.sulpub_json,
@@ -250,6 +252,7 @@ def export_publications_by_author(snapshot) -> int:
                     "pages": _pages(row),
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
+                    "publisher": _publisher(row),
                     "role": row.primary_role,
                     "sunet": row.sunet,
                     "pub_year": row.pub_year,
@@ -285,7 +288,7 @@ def _abstract(row):
     )
 
 
-def _pubmed_abstract(pubmed_json: dict) -> str:
+def _pubmed_abstract(pubmed_json: dict) -> str | None:
     """
     Get the abstract from PubMed JSON.
     """
@@ -295,19 +298,19 @@ def _pubmed_abstract(pubmed_json: dict) -> str:
     full_abstract = []
     jsonp = json_path("MedlineCitation.Article.Abstract.AbstractText[*]")
     abstract_text = jsonp.find(pubmed_json)
-    for abstract in abstract_text:
-        if abstract.value is None:
-            continue
-        # sometimes the abstract is a string and not a dict of text segments
-        if isinstance(abstract.value, str):
-            full_abstract.append(abstract.value)
-        else:
-            full_abstract.append(abstract.value.get("#text", None))
+    if abstract_text:
+        for abstract in abstract_text:
+            # sometimes the abstract is a string and not a dict of text segments
+            if isinstance(abstract.value, str):
+                full_abstract.append(abstract.value)
+            else:
+                full_abstract.append(abstract.value.get("#text", None))
 
-    return " ".join(full_abstract)
+        return " ".join(full_abstract)
+    return None
 
 
-def _rebuild_abstract(openalex_json: dict) -> str:
+def _rebuild_abstract(openalex_json: dict) -> str | None:
     """
     Rebuilds an abstract from a positional inverted index.
     """
@@ -340,33 +343,54 @@ def _rebuild_abstract(openalex_json: dict) -> str:
     return " ".join(abstract_words)
 
 
-def _journal_issn(row) -> str:
-    # get all ISSNs available and return unique values as pipe delimited string
+def _journal_issn(row) -> str | None:
+    """
+    Get all ISSNs available and return unique values as pipe delimited string
+    """
     rules = [
         JsonPathRule("openalex_json", "primary_location.source.issn_l"),
         JsonPathRule("openalex_json", "primary_location.source.issn"),  # list
         JsonPathRule("sulpub_json", "issn"),
         JsonPathRule("dim_json", "issn"),
         JsonPathRule("crossref_json", "ISSN"),  # list
+        FuncRule("pubmed_json", _pubmed_issn),
     ]
-
-    all_issns = all(row, rules=rules)
+    all_issns = all(row, rules=rules)  # type: ignore
 
     flat_issns = []
     for issn in all_issns:
         if isinstance(issn, list):
             flat_issns.extend(issn)
-        elif issn is not None:
+        elif isinstance(issn, str) and issn.strip() == "":
+            # skip empty strings
+            continue
+        elif isinstance(issn, int):
+            # not sure if ints may be present in the data, but handling just in case
+            flat_issns.append(str(issn))
+        else:
             flat_issns.append(issn)
-
     unique_issns = sorted(list(set(flat_issns)))
+    if unique_issns:
+        return piped(unique_issns)
+    return None
 
-    return piped(unique_issns)
+
+def _pubmed_issn(pubmed_json: dict) -> str | None:
+    if pubmed_json is None:
+        return None
+
+    jsonp = json_path("MedlineCitation.Article.Journal.ISSN")
+    issn = jsonp.find(pubmed_json)
+
+    if issn:
+        return issn[0].value.get("#text", None)
+
+    return None
 
 
-def _journal_name(row) -> str:
-    # get journal name field from OpenAlex sources
-    return first(
+def _journal_name(row) -> str | None:
+    # try to get journal name from openalex_json before querying
+    openalex_journal_name = first(
         row,
         rules=[
             JsonPathRule(
@@ -375,9 +399,19 @@ def _journal_name(row) -> str:
             ),
         ],
     )
+    if openalex_journal_name:
+        # we can assume OpenAlex journal names are strings but mypy cannot
+        return str(openalex_journal_name)
+
+    # get ISSN and look up journal name in OpenAlex
+    issn = _journal_issn(row)
+    if issn:
+        source = source_by_issn(issn)
+        return source.get("display_name") if source else None
+    return None
 
 
-def _pages(row) -> str:
+def _pages(row) -> str | int | list | None:
     return first(
         row,
         rules=[
@@ -388,7 +422,7 @@ def _pages(row) -> str:
     )
 
 
-def _openalex_pages(openalex_json: dict) -> str:
+def _openalex_pages(openalex_json: dict) -> str | None:
     start_page = _openalex_start_page(openalex_json)
     end_page = _openalex_end_page(openalex_json)
     if start_page and end_page:
@@ -398,15 +432,28 @@ def _openalex_pages(openalex_json: dict) -> str:
     return end_page
 
 
-def _openalex_start_page(openalex_json: dict) -> str:
+def _openalex_start_page(openalex_json: dict) -> str | None:
     start_jsonp = json_path("biblio.first_page")
     for start_page in start_jsonp.find(openalex_json):
         return start_page.value
     return None
 
 
-def _openalex_end_page(openalex_json: dict) -> str:
+def _openalex_end_page(openalex_json: dict) -> str | None:
     end_jsonp = json_path("biblio.last_page")
     for end_page in end_jsonp.find(openalex_json):
         return end_page.value
     return None
+
+
+def _publisher(row) -> str | None:
+    """
+    Get the publisher from OpenAlex if not already distilled
+    """
+    if row.publisher:
+        return row.publisher
+
+    # look up publisher in OpenAlex by ISSN
+    issn = _journal_issn(row)
+    source = source_by_issn(issn)
+    return source.get("host_organization_name") if source else None

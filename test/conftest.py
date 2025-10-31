@@ -175,6 +175,7 @@ def dim_json():
         "mesh_terms": ["Delicions", "Limes"],
         "pmid": "123",
         "linkout": "https://example_dim.com",
+        "abstract": "This is a sample Dimensions abstract.",
     }
 
 
@@ -194,10 +195,41 @@ def openalex_json():
                 "type": "journal",
                 "display_name": "Ok Limes Journal of Science",
                 "host_organization_name": "Science Publisher Inc.",
+                "issn_l": "0009-4978",
+                "issn": ["0009-4978", "1523-8253", "1943-5975"],
             }
         },
         "locations": [
-            {"pdf_url": "https://example_openalex_pdf.com"},
+            {
+                "is_oa": True,
+                "landing_page_url": "https://doi.org/10.1073/pnas.17.6.401",
+                "pdf_url": "https://example_openalex_pdf.com",
+                "source": {
+                    "id": "https://openalex.org/S125754415",
+                    "display_name": "Proceedings of the National Academy of Sciences of the United States of America",
+                    "issn_l": "0027-8424",
+                    "issn": ["1091-6490", "0027-8424"],
+                    "host_organization": "https://openalex.org/P4310320052",
+                    "type": "journal",
+                },
+                "license": True,
+                "version": "publishedVersion",
+            },
+            {
+                "is_oa": True,
+                "landing_page_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1076072",
+                "pdf_url": None,
+                "source": {
+                    "id": "https://openalex.org/S2764455111",
+                    "display_name": "PubMed Central",
+                    "issn_l": None,
+                    "issn": None,
+                    "host_organization": "https://openalex.org/I1299303238",
+                    "type": "repository",
+                },
+                "license": None,
+                "version": "publishedVersion",
+            },
         ],
         "mesh": [
             {"descriptor_name": "Ok"},
@@ -206,6 +238,16 @@ def openalex_json():
         "ids": {
             "doi": "10.000/000001",
             "pmid": "1234",
+        },
+        "abstract_inverted_index": {
+            "This": [0],
+            "is": [1, 5],
+            "an": [2],
+            "abstract": [3],
+            "which": [
+                4,
+            ],
+            "inverted.": [6],
         },
     }
 
@@ -288,6 +330,7 @@ def sulpub_json():
             "pages": "1-7",
             "volume": "4",
         },
+        "issn": ["1234-0000"],
         "pmid": "123456",
     }
 
@@ -301,7 +344,19 @@ def pubmed_json():
                 "PublicationTypeList": {
                     "PublicationType": {"@UI": "D016428", "#text": "Journal Article"}
                 },
-            },
+                "Abstract": {
+                    "AbstractText": [
+                        {
+                            "#text": "Comorbid insomnia with obstructive sleep apnea (COMISA) is associated with worse daytime function and more medical/psychiatric comorbidities vs either condition alone.",
+                            "@Label": "OBJECTIVE/BACKGROUND",
+                        },
+                        {
+                            "#text": "E2006-G000-304 was a phase 3, one-month polysomnography trial in adults aged ≥55 years with insomnia.",
+                        },
+                    ]
+                },
+                "Title": "Example Journal",
+            }
         },
         "PubmedData": {
             "ArticleIdList": {
@@ -315,7 +370,38 @@ def pubmed_json():
 
 
 @pytest.fixture
-def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
+def crossref_json():
+    return {
+        "title": ["My Life"],
+        "author": [
+            {
+                "given": "Jane",
+                "family": "Stanford",
+                "affiliation": [{"name": "Stanford University"}],
+            },
+            {
+                "given": "Leland",
+                "family": "Stanford",
+                "affiliation": [{"name": "Stanford University"}],
+            },
+        ],
+        "container-title": ["Bad Limes Journal of Science"],
+        "issued": {"date-parts": [[2023]]},
+        "DOI": "10.000/000001",
+        "ISSN": ["1234-5678"],
+    }
+
+
+@pytest.fixture
+def dataset(
+    test_session,
+    dim_json,
+    openalex_json,
+    wos_json,
+    sulpub_json,
+    pubmed_json,
+    crossref_json,
+):
     """
     This fixture will create two publications, four authors, and two funders.
     It is designed to test the various types of reports we want to output, where
@@ -344,6 +430,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            crossref_json=crossref_json,
             types=["article", "preprint"],
             publisher="Science Publisher Inc.",
             academic_council_authored=True,
@@ -357,7 +444,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             open_access="green",
             pub_year=2024,
             dim_json=dim_json,
-            openalex_json=openalex_json,
+            openalex_json=None,
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,

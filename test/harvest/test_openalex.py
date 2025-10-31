@@ -307,3 +307,37 @@ def test_clean_dois_for_query(caplog):
         logging.WARNING,
         "dropped 4 DOIs from openalex lookup: ['doi:123', 'abc/123,45', '123/abc pmcid:123', '10.1093/noajnl/vdad070.013pmcid:pmc10402389']",
     )
+
+
+class MockSources:
+    def __init__(self, records):
+        # create a
+        self.records = records
+
+    def filter(self, *args, **kwargs):
+        # filter is a no-op when called
+        return self
+
+    def get(self):
+        return self.records
+
+
+def test_source_by_issn(monkeypatch):
+    records = [
+        {
+            "id": "https://openalex.org/S137773608",
+            "issn_l": "0028-0836",
+            "issn": ["0028-0836", "1476-4687"],
+            "display_name": "Nature",
+            "host_organization": "https://openalex.org/P4310319908",
+            "host_organization_name": "Nature Portfolio",
+            "works_count": 431710,
+            "cited_by_count": 25659865,
+        }
+    ]
+    monkeypatch.setattr(openalex, "Sources", lambda: MockSources(records))
+
+    source = openalex.source_by_issn("0028-0836")
+    assert source is not None
+    assert source.get("display_name") == "Nature"
+    assert source.get("host_organization_name") == "Nature Portfolio"

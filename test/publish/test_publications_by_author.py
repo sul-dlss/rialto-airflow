@@ -22,6 +22,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.academic_council) is False
         assert row.abstract == "This is an abstract which is inverted."
         assert row.apc == 123
+        assert row.citation_count == 100
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
         assert row.journal_issn == "0009-4978|1234-0000|1234-5678|1523-8253|1943-5975"
@@ -43,6 +44,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         row = rows[1][0]
         assert bool(row.academic_council) is True
         assert row.apc == 123
+        assert row.citation_count == 100
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
         assert row.open_access == "gold"
@@ -392,6 +394,7 @@ def test_sulpub_fields(test_session, sulpub_json):
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
         assert publication._journal_issn(pub_row) == "1234-0000"
         assert publication._pages(pub_row) == "1-7"
+        assert publication._citation_count(pub_row) is None
 
 
 def test_no_issn(test_session):

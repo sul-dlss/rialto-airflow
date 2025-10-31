@@ -353,6 +353,8 @@ def pubmed_json():
                         {
                             "#text": "E2006-G000-304 was a phase 3, one-month polysomnography trial in adults aged ≥55 years with insomnia.",
                         },
+                        {"#text": None},
+                        {"@Label": "METHODS"},
                     ]
                 },
                 "Title": "Example Journal",

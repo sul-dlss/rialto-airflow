@@ -305,7 +305,12 @@ def _pubmed_abstract(pubmed_json: dict) -> str | None:
                 full_abstract.append(abstract.value)
             else:
                 full_abstract.append(abstract.value.get("#text", None))
-
+        # remove any None or empty-string segments before joining
+        full_abstract = [
+            text
+            for text in full_abstract
+            if text is not None and str(text).strip() != ""
+        ]
         return " ".join(full_abstract)
     return None
 

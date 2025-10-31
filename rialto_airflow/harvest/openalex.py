@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from pyalex import Authors, Sources, Works, config
+import requests
 from typing import Generator
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -204,7 +205,12 @@ def source_by_issn(issn: str) -> dict | None:
     """
     Given an ISSN, return the first OpenAlex Source entity
     """
-    sources = Sources().filter(issn=issn).get()
+    try:
+        sources = Sources().filter(issn=issn).get()
+    except requests.exceptions.JSONDecodeError as e:
+        logging.error(f"Error decoding JSON for ISSN {issn}: {e}")
+        sources = None
+
     if not sources:
         logging.info(f"No OpenAlex Source found for issn: {issn}")
         return None

@@ -4,6 +4,7 @@ import logging
 import pytest
 
 import pyalex
+import requests
 from rialto_airflow.harvest import openalex
 from rialto_airflow.schema.harvest import Publication
 
@@ -311,7 +312,6 @@ def test_clean_dois_for_query(caplog):
 
 class MockSources:
     def __init__(self, records):
-        # create a
         self.records = records
 
     def filter(self, *args, **kwargs):
@@ -341,3 +341,24 @@ def test_source_by_issn(monkeypatch):
     assert source is not None
     assert source.get("display_name") == "Nature"
     assert source.get("host_organization_name") == "Nature Portfolio"
+
+
+class MockSourcesError:
+    def __init__(self, records):
+        self.records = records
+
+    def filter(self, *args, **kwargs):
+        # filter is a no-op when called
+        return self
+
+    def get(self):
+        raise requests.exceptions.JSONDecodeError("Expecting value", "", 0)
+
+
+def test_source_by_issn_jsonerror(monkeypatch, caplog):
+    records = "Not JSON"
+    monkeypatch.setattr(openalex, "Sources", lambda: MockSourcesError(records))
+
+    source = openalex.source_by_issn("XXXX-0836")
+    assert source is None
+    assert "Error decoding JSON for ISSN XXXX-0836" in caplog.text

@@ -61,14 +61,15 @@ class JsonPathRule:
     matcher: a JsonPath string
     is_valid_year: the value isn't greater than the current year (optional)
     only_positive_number: the value is a positive number (optional)
+    return_list: ensures that a list of values is returned (optional and not usable with
+    is_valid_year and only_positive_number)
     """
 
     col: str
     matcher: str
     is_valid_year: bool = False
     only_positive_number: bool = False
-
-    # TODO: Could matcher be JSON Path type? That would ensure it parses?
+    return_list: bool = False
 
 
 @dataclass
@@ -90,8 +91,10 @@ class FuncRule:
 
 Rule = JsonPathRule | FuncRule
 
+RuleMatch = Optional[str | int | list]
 
-def first(pub: Row, rules: list[Rule]) -> Optional[str | int | list]:
+
+def first(pub: Row, rules: list[Rule]) -> Optional[str | list]:
     """
     Examines a Publication row using a list of rules and returns the result of
     the first rule that matches. A rule could potentially return a list of
@@ -101,7 +104,7 @@ def first(pub: Row, rules: list[Rule]) -> Optional[str | int | list]:
     return results[0] if len(results) > 0 else None
 
 
-def all(pub: Row, rules: list[Rule]) -> list[str | int]:
+def all(pub: Row, rules: list[Rule]) -> list:
     """
     Examines a Publication row using a list of rules and returns the result of
     all rule matches.
@@ -130,9 +133,28 @@ def all(pub: Row, rules: list[Rule]) -> list[str | int]:
     return results
 
 
-def _jsonpath_match(rule: JsonPathRule, data) -> Optional[str | int]:
+def _jsonpath_match(rule: JsonPathRule, data) -> Optional[list | str | int]:
     jpath = json_path(rule.matcher)
-    results = jpath.find(data)
+
+    # Sometimes a JSON Path can cause a KeyError if it attempts to access a
+    # dictionary using an integer list index. For example using the JSON Path:
+    #
+    #   foo[0]
+    #
+    # on JSON that looks like:
+    #
+    #   {"foo": {"bar": "baz"}}
+    #
+    # In these cases we want to simply return no results instead of throwing an
+    # exception.
+
+    try:
+        results = jpath.find(data)
+    except KeyError:
+        results = []
+
+    if rule.return_list:
+        return [result.value for result in results]
 
     if len(results) > 0:
         # note: we currently only examine the first JSON Path match

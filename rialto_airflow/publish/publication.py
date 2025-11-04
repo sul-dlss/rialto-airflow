@@ -224,6 +224,7 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.dim_json,
                 Publication.pubmed_json,
                 Publication.sulpub_json,
+                Publication.wos_json,
                 Publication.crossref_json,
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
@@ -244,6 +245,7 @@ def export_publications_by_author(snapshot) -> int:
                     "abstract": _abstract(row),
                     "academic_council": row.academic_council,
                     "apc": row.apc,
+                    "citation_count": _citation_count(row),
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
                     "journal_issn": _journal_issn(row),
@@ -462,3 +464,23 @@ def _publisher(row) -> str | None:
     issn = _journal_issn(row)
     source = source_by_issn(issn)
     return source.get("host_organization_name") if source else None
+
+
+def _citation_count(row) -> str | int | None:
+    """
+    Get the citation count from OpenAlex, Dimensions, then WOS.
+    """
+    counts = all(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "cited_by_count"),
+            JsonPathRule("dim_json", "recent_citations"),
+            JsonPathRule(
+                "wos_json",
+                "dynamic_data.citation_related.tc_list.silo_tc[?@.coll_id == 'WOS'].local_count",
+            ),
+        ],
+    )
+    # drop any string or None values
+    counts = [count for count in counts if isinstance(count, int)]
+    return max(counts) if counts else None

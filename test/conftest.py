@@ -176,6 +176,7 @@ def dim_json():
         "pmid": "123",
         "linkout": "https://example_dim.com",
         "abstract": "This is a sample Dimensions abstract.",
+        "recent_citations": 50,
     }
 
 
@@ -249,6 +250,7 @@ def openalex_json():
             ],
             "inverted.": [6],
         },
+        "cited_by_count": 25,
     }
 
 
@@ -303,7 +305,10 @@ def wos_json():
                         }
                     ],
                 },
-            }
+            },
+            "citation_related": {
+                "tc_list": {"silo_tc": [{"coll_id": "WOS", "local_count": 100}]},
+            },
         },
     }
 

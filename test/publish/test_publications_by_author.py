@@ -43,7 +43,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.publisher == "Science Publisher Inc."
         assert row.role == "faculty"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
         assert row.sunet == "folms"
         assert row.title == "My Life"
 
@@ -64,7 +64,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.primary_department == "Electrical Engineering"
         assert row.role == "faculty"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
         assert row.sunet == "fterm"
         assert row.title == "My Life"
 
@@ -84,7 +84,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.primary_department == "Social Sciences"
         assert row.role == "faculty"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
         assert row.sunet == "janes"
         assert row.title == "My Life"
 
@@ -104,7 +104,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.primary_department == "Social Sciences"
         assert row.role == "staff"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
         assert row.sunet == "lelands"
         assert row.title == "My Life"
 
@@ -119,7 +119,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.role == "faculty"
         assert row.pages == "1-10"
         assert row.pub_year == 2024
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
         assert row.sunet == "janes"
         assert row.title == "My Life Part 2"
 
@@ -169,31 +169,9 @@ def pubmed_json_text():
     }
 
 
-def test_pubmed_fields(pubmed_json_text, test_session):
-    with test_session.begin() as session:
-        pub = Publication(
-            doi="10.000/000003",
-            title="My PubMed Life",
-            apc=123,
-            open_access="gold",
-            pub_year=2023,
-            dim_json=None,
-            openalex_json=None,
-            wos_json=None,
-            sulpub_json=None,
-            pubmed_json=pubmed_json_text,
-            crossref_json=None,
-            types=["article", "preprint"],
-        )
-        session.add(pub)
-
-        pub_row = session.query(Publication).filter_by(doi="10.000/000003").first()
-        abstract = publication._pubmed_abstract(pubmed_json_text)
-        assert abstract == "This is the abstract. It provides a summary of the article."
-        issn = publication._journal_issn(pub_row)
-        assert issn == "1873-2054"
-        journal_name = publication._journal_name(pub_row)
-        assert journal_name == "Health & Place"
+def test_pubmed_fields(pubmed_json_text):
+    abstract = publication._pubmed_abstract(pubmed_json_text)
+    assert abstract == "This is the abstract. It provides a summary of the article."
 
 
 def test_pubmed_fields_no_abstract():
@@ -221,8 +199,6 @@ def dim_json_fields():
     return {
         "type": "article",
         "doi": "10.000/000003",
-        "journal": {"title": "Delicious Limes Journal of Science"},
-        "issn": "1111-2222",
         "issue": "12",
         "pages": "1-10",
         "volume": "1",
@@ -249,6 +225,8 @@ def test_dimensions_fields(test_session, dim_json_fields):
             pubmed_json=None,
             crossref_json=None,
             types=["Article", "Preprint"],
+            publisher="Dimensions Publisher",
+            journal_name="Delicious Limes Journal of Science",
         )
     session.add(pub)
 
@@ -258,9 +236,7 @@ def test_dimensions_fields(test_session, dim_json_fields):
         )
         for row in result:
             assert publication._abstract(row) == "This is a sample Dimensions abstract."
-            assert publication._journal_issn(row) == "1111-2222"
             assert publication._pages(row) == "1-10"
-            assert publication._publisher == "Science Publisher Inc."
 
 
 def test_openalex_fields(test_session, openalex_json):
@@ -285,7 +261,6 @@ def test_openalex_fields(test_session, openalex_json):
         assert (
             publication._abstract(pub_row) == "This is an abstract which is inverted."
         )
-        assert publication._journal_issn(pub_row) == "0009-4978|1523-8253|1943-5975"
         assert publication._pages(pub_row) == "1-9"
 
 
@@ -315,93 +290,12 @@ def test_openalex_pages_end_only():
     assert pages == "9"
 
 
-@pytest.fixture
-def openalex_json_no_issns():
-    return {
-        "id": "https://openalex.org/W123456789",
-        "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
-        "primary_location": {
-            "source": {
-                "type": "journal",
-                "display_name": "Ok Limes Journal of Science",
-                "host_organization_name": "Science Publisher Inc.",
-                "issn_l": None,
-                "issn": None,
-            }
-        },
-    }
-
-
-def test_null_openalex_issn(test_session, openalex_json_no_issns):
-    # Add a publication with fields only sourced from OpenAlex
-    with test_session.begin() as session:
-        pub = Publication(
-            doi="10.000/some_doi",
-            title="My OpenAlex Life",
-            apc=123,
-            open_access="gold",
-            pub_year=2023,
-            dim_json=None,
-            openalex_json=openalex_json_no_issns,
-            wos_json=None,
-            sulpub_json=None,
-            pubmed_json=None,
-            crossref_json=None,
-            types=["Article", "Preprint"],
-        )
-        session.add(pub)
-
-        selected_pub = (
-            session.query(Publication).filter_by(doi="10.000/some_doi").first()
-        )
-        assert publication._journal_issn(selected_pub) is None
-
-
-def test_empty_issns(test_session, openalex_json_no_issns):
-    # Avoid any empty strings for ISSNs, although unclear which source is providing these
-    openalex_json_empty_issn = {
-        "id": "https://openalex.org/W123456789",
-        "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
-        "primary_location": {
-            "source": {
-                "type": "journal",
-                "display_name": "Ok Limes Journal of Science",
-                "host_organization_name": "Science Publisher Inc.",
-                "issn_l": " ",
-                "issn": "",
-            }
-        },
-    }
-    # Add a publication with fields only sourced from OpenAlex
-    with test_session.begin() as session:
-        pub = Publication(
-            doi="10.000/some_doi",
-            title="My OpenAlex Life",
-            apc=123,
-            open_access="gold",
-            pub_year=2023,
-            dim_json=None,
-            openalex_json=openalex_json_empty_issn,
-            wos_json=None,
-            sulpub_json=None,
-            pubmed_json=None,
-            crossref_json=None,
-            types=["Article", "Preprint"],
-        )
-        session.add(pub)
-
-        selected_pub = (
-            session.query(Publication).filter_by(doi="10.000/some_doi").first()
-        )
-        assert publication._journal_issn(selected_pub) is None
-
-
 def test_sulpub_fields(test_session, sulpub_json):
     # Add a publication with fields sourced from sulpub
     with test_session.begin() as session:
         pub = Publication(
             doi="10.000/sulpub",
-            title="My Dimensions Life",
+            title="My Sulpub Life",
             apc=123,
             open_access="gold",
             pub_year=2023,
@@ -416,7 +310,6 @@ def test_sulpub_fields(test_session, sulpub_json):
         session.add(pub)
 
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
-        assert publication._journal_issn(pub_row) == "1234-0000"
         assert publication._pages(pub_row) == "1-7"
         assert publication._citation_count(pub_row) is None
 

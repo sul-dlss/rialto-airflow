@@ -132,6 +132,7 @@ def test_create_schema(
                 "updated_at",
                 "types",
                 "publisher",
+                "journal_name",
                 "academic_council_authored",
                 "faculty_authored",
             }

@@ -30,9 +30,13 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 123
-        assert db_rows[0].types == "article|preprint"
+        assert db_rows[0].types == "Article|Preprint"
         assert db_rows[0].open_access == "gold"
         assert db_rows[0].publisher == "Science Publisher Inc."
+        assert (
+            db_rows[0].journal_name
+            == "Proceedings of the National Academy of Sciences of the United States of America"
+        )
         assert bool(db_rows[0].academic_council_authored) is True
         assert bool(db_rows[0].faculty_authored) is True
 
@@ -41,7 +45,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 500
-        assert db_rows[0].types == "article|preprint"
+        assert db_rows[0].types == "Article|Preprint"
         assert db_rows[0].open_access == "green"
         assert bool(db_rows[0].academic_council_authored) is True
         assert bool(db_rows[0].faculty_authored) is True

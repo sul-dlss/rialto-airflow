@@ -51,6 +51,7 @@ class Publication(HarvestSchemaBase):  # type: ignore
     updated_at = Column(DateTime, onupdate=utcnow())
     types = Column(ARRAY(String))
     publisher = Column(String)
+    journal_name = Column(String)
     academic_council_authored = Column(Boolean, default=False)
     faculty_authored = Column(Boolean, default=False)
     authors: RelationshipProperty = relationship(

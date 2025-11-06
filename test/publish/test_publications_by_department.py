@@ -28,7 +28,7 @@ def test_write_publications_by_department(
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Electrical Engineering"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         row = rows[1][0]
         assert bool(row.academic_council_authored) is True
@@ -40,7 +40,7 @@ def test_write_publications_by_department(
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Mechanical Engineering"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         row = rows[2][0]
         assert bool(row.academic_council_authored) is True
@@ -52,7 +52,7 @@ def test_write_publications_by_department(
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         row = rows[3][0]
         assert bool(row.academic_council_authored) is True
@@ -64,7 +64,7 @@ def test_write_publications_by_department(
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.pub_year == 2024
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         assert "started writing publications_by_department table" in caplog.text
         assert "finished writing publications_by_department table" in caplog.text

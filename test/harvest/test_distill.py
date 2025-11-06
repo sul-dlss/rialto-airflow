@@ -2,11 +2,15 @@ import logging
 import pytest
 
 from rialto_airflow.schema.harvest import Publication, Author
-from rialto_airflow.harvest.distill import distill, _normalize_type
+from rialto_airflow.harvest.distill import distill, _normalize_type, _journal_issn
 
 # Set up JSON data that mirrors (in part) what we get from the respective APIs
 
-sulpub_json = {"title": "On the dangers of stochastic parrots (sulpub)", "year": "2020"}
+sulpub_json = {
+    "title": "On the dangers of stochastic parrots (sulpub)",
+    "year": "2020",
+    "issn": "3333-3333",
+}
 
 dim_json_future_year = {
     "title": "On the dangers of stochastic parrots (dim future)",
@@ -19,6 +23,7 @@ dim_json = {
     "year": 2021,
     "open_access": ["oa_all", "green"],
     "type": "article",
+    "issn": "1111-1111",
 }
 
 openalex_json = {
@@ -885,9 +890,9 @@ def _pub(session, doi="10.1515/9781503624153"):
     return session.query(Publication).where(Publication.doi == doi).first()
 
 
-def test_publisher(test_session, snapshot):
+def test_openalex_publisher_journal(test_session, snapshot):
     """
-    Test that publisher is correctly distilled from available JSON data.
+    Test that publisher is distilled from OpenAlex JSON.
     """
     with test_session.begin() as session:
         session.add(
@@ -902,6 +907,77 @@ def test_publisher(test_session, snapshot):
     distill(snapshot)
 
     assert _pub(session).publisher == "Association of College and Research Libraries"
+    assert _pub(session).journal_name == "Choice Reviews Online"
+
+
+@pytest.fixture
+def pubmed_json():
+    return {
+        "MedlineCitation": {
+            "Article": {
+                "ArticleTitle": "Example Article Title",
+                "PublicationTypeList": {
+                    "PublicationType": {"@UI": "D016428", "#text": "Journal Article"}
+                },
+                "Journal": {
+                    "Title": "The Medical Journal",
+                    "ISSN": {"#text": "1873-2054", "@IssnType": "Electronic"},
+                },
+            }
+        },
+        "PubmedData": {
+            "ArticleIdList": {
+                "ArticleId": [
+                    {"@IdType": "pubmed", "#text": "36857419"},
+                    {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
+                ]
+            },
+        },
+    }
+
+
+def test_pubmed_publisher_journal(test_session, snapshot, pubmed_json):
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                pubmed_json=pubmed_json,
+                dim_json=None,
+                openalex_json=None,
+            )
+        )
+
+    distill(snapshot)
+    pub = _pub(session)
+    assert _journal_issn(pub) == "1873-2054"
+    # will do live lookup in OpenAlex Sources API
+    assert _pub(session).journal_name == "Health & Place"
+    assert _pub(session).publisher == "Elsevier"
+
+
+def test_dimensions_publisher_journal(test_session, snapshot):
+    """
+    Test that publisher is distilled from Dimensions JSON.
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                openalex_json=None,
+                dim_json={
+                    "type": "article",
+                    "issn": "1476-4687",  # Nature
+                },
+            )
+        )
+
+    distill(snapshot)
+
+    pub = _pub(session)
+    assert _journal_issn(pub) == "1476-4687"
+    # will do live lookup in OpenAlex Sources API
+    assert pub.publisher == "Springer Nature"
+    assert pub.journal_name == "Nature"
 
 
 def test_author_based_fields(test_session, snapshot):
@@ -971,3 +1047,84 @@ def test_author_based_fields(test_session, snapshot):
     )
     assert non_academic_pub.academic_council_authored is False
     assert non_academic_pub.faculty_authored is False
+
+
+def test_journal_issn(test_session, snapshot):
+    """
+    Test that journal ISSN is extracted from multiple sources
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json=sulpub_json,  # 3333-3333
+                dim_json=dim_json,  # 1111-1111
+                openalex_json=openalex_json,  # 0009-4978, 1523-8253, 1943-5975
+                crossref_json={
+                    "ISSN": ["0000-0000"],
+                },
+                pubmed_json={
+                    "MedlineCitation": {
+                        "Article": {
+                            "Journal": {
+                                "Title": "The Medical Journal",
+                                "ISSN": {
+                                    "#text": "4444-4444",
+                                    "@IssnType": "Electronic",
+                                },
+                            },
+                        }
+                    },
+                },
+            )
+        )
+
+    distill(snapshot)
+
+    # ISSNs extracted from multiple sources
+    assert (
+        _journal_issn(_pub(session))
+        == "0000-0000|0009-4978|1111-1111|1523-8253|1943-5975|3333-3333|4444-4444"
+    )
+
+
+@pytest.fixture
+def openalex_json_no_issns():
+    return {
+        "id": "https://openalex.org/W123456789",
+        "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
+        "primary_location": {
+            "source": {
+                "type": "journal",
+                "display_name": "Ok Limes Journal of Science",
+                "host_organization_name": "Science Publisher Inc.",
+                "issn_l": None,
+                "issn": None,
+            }
+        },
+    }
+
+
+def test_null_openalex_issn(test_session, openalex_json_no_issns):
+    # Add a publication with fields only sourced from OpenAlex
+    with test_session.begin() as session:
+        pub = Publication(
+            doi="10.000/some_doi",
+            title="My OpenAlex Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=None,
+            openalex_json=openalex_json_no_issns,
+            wos_json=None,
+            sulpub_json=None,
+            pubmed_json=None,
+            crossref_json=None,
+            types=["Article", "Preprint"],
+        )
+        session.add(pub)
+
+        selected_pub = (
+            session.query(Publication).filter_by(doi="10.000/some_doi").first()
+        )
+        assert _journal_issn(selected_pub) is None

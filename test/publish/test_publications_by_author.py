@@ -21,15 +21,21 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         row = rows[0][0]
         assert bool(row.academic_council) is False
         assert row.abstract == "This is an abstract which is inverted."
+        assert row.author_list_names == "Jane Stanford|Leland Stanford"
+        assert row.author_list_orcids == "0000-0003-1111-2222|0000-0004-3333-4444"
         assert row.apc == 123
         assert row.citation_count == 100
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
+        assert row.first_author_name == "Jane Stanford"
+        assert row.first_author_orcid == "0000-0003-1111-2222"
         assert row.journal_issn == "0009-4978|1234-0000|1234-5678|1523-8253|1943-5975"
         assert (
             row.journal_name
             == "Proceedings of the National Academy of Sciences of the United States of America"
         )
+        assert row.last_author_name == "Leland Stanford"
+        assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
         assert row.pages == "1-9"
         assert row.primary_school == "School of Engineering"
@@ -44,9 +50,15 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         row = rows[1][0]
         assert bool(row.academic_council) is True
         assert row.apc == 123
+        assert row.author_list_names == "Jane Stanford|Leland Stanford"
+        assert row.author_list_orcids == "0000-0003-1111-2222|0000-0004-3333-4444"
         assert row.citation_count == 100
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
+        assert row.first_author_name == "Jane Stanford"
+        assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.last_author_name == "Leland Stanford"
+        assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Electrical Engineering"
@@ -59,8 +71,14 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         row = rows[2][0]
         assert bool(row.academic_council) is True
         assert row.apc == 123
+        assert row.author_list_names == "Jane Stanford|Leland Stanford"
+        assert row.author_list_orcids == "0000-0003-1111-2222|0000-0004-3333-4444"
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
+        assert row.first_author_name == "Jane Stanford"
+        assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.last_author_name == "Leland Stanford"
+        assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
@@ -73,8 +91,14 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         row = rows[3][0]
         assert bool(row.academic_council) is False
         assert row.apc == 123
+        assert row.author_list_names == "Jane Stanford|Leland Stanford"
+        assert row.author_list_orcids == "0000-0003-1111-2222|0000-0004-3333-4444"
         assert row.doi == "10.000/000001"
         assert bool(row.federally_funded) is True
+        assert row.first_author_name == "Jane Stanford"
+        assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.last_author_name == "Leland Stanford"
+        assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
@@ -420,3 +444,411 @@ def test_no_issn(test_session):
         assert publication._journal_issn(pub_row) is None
         assert publication._journal_name(pub_row) is None
         assert publication._publisher(pub_row) is None
+
+
+def test_authors(test_session):
+    """
+    This test sets up some publication metadata and then calls various author
+    metadata extraction functions with it to ensure the rules are working
+    correctly.
+    """
+    pub = Publication(
+        doi="10.000/example",
+        title="I'm a Book",
+        apc=None,
+        open_access="gold",
+        pub_year=2023,
+        openalex_json={
+            "authorships": [
+                {
+                    "author": {
+                        "display_name": "Jane Open Alex",
+                        "orcid": "jane-open-alex",
+                    }
+                },
+                {
+                    "author": {
+                        "display_name": "Mike Open Alex",
+                        "orcid": "mike-open-alex",
+                    }
+                },
+                {
+                    "author": {
+                        "display_name": "Leland Open Alex",
+                        "orcid": "leland-open-alex",
+                    }
+                },
+            ]
+        },
+        dim_json={
+            "authors": [
+                {
+                    "first_name": "Jane",
+                    "last_name": "Dimensions",
+                    "orcid": ["jane-dimensions"],
+                },
+                {
+                    "first_name": "Mike",
+                    "last_name": "Dimensions",
+                    "orcid": ["mike-dimensions"],
+                },
+                {
+                    "first_name": "Leland",
+                    "last_name": "Dimensions",
+                    "orcid": ["leland-dimensions"],
+                },
+            ]
+        },
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {
+                    "AuthorList": {
+                        "Author": [
+                            {
+                                "ForeName": "Jane",
+                                "LastName": "Pubmed",
+                                "Identifier": {
+                                    "@Source": "ORCID",
+                                    "#text": "jane-pubmed",
+                                },
+                            },
+                            {
+                                "ForeName": "Mike",
+                                "LastName": "Pubmed",
+                                "Identifier": {
+                                    "@Source": "ORCID",
+                                    "#text": "mike-pubmed",
+                                },
+                            },
+                            {
+                                "ForeName": "Leland",
+                                "LastName": "Pubmed",
+                                "Identifier": {
+                                    "@Source": "ORCID",
+                                    "#text": "leland-pubmed",
+                                },
+                            },
+                        ]
+                    }
+                }
+            }
+        },
+        wos_json={
+            "static_data": {
+                "summary": {
+                    "names": {
+                        "name": [
+                            {"display_name": "Jane Wos", "orcid_id": "jane-wos"},
+                            {"display_name": "Mike Wos", "orcid_id": "mike-wos"},
+                            {"display_name": "Leland Wos", "orcid_id": "leland-wos"},
+                        ]
+                    }
+                }
+            }
+        },
+        crossref_json={
+            "author": [
+                {
+                    "given": "Jane",
+                    "family": "Crossref",
+                    "ORCID": "https://orcid.org/jane-crossref",
+                },
+                {
+                    "given": "Mike",
+                    "family": "Crossref",
+                    "ORCID": "https://orcid.org/mike-crossref",
+                },
+                {
+                    "given": "Leland",
+                    "family": "Crossref",
+                    "ORCID": "https://orcid.org/leland-crossref",
+                },
+            ]
+        },
+        sulpub_json={
+            "author": [
+                {"name": "Sulpub, Jane Elizabeth Lathrop"},
+                {"name": "Sulpub, Mike"},
+                {"name": "Sulpub, Leland DeWitt"},
+            ]
+        },
+    )
+
+    # slowly peel away the platform metadata that's available to confirm that we are
+    # matching in the right order, and looking for values correctly
+
+    assert publication._author_list_names(pub) == [
+        "Jane Open Alex",
+        "Mike Open Alex",
+        "Leland Open Alex",
+    ]
+    assert publication._first_author_name(pub) == "Jane Open Alex"
+    assert publication._last_author_name(pub) == "Leland Open Alex"
+    assert publication._first_author_orcid(pub) == "jane-open-alex"
+    assert publication._last_author_orcid(pub) == "leland-open-alex"
+    assert publication._author_list_orcids(pub) == [
+        "jane-crossref",
+        "jane-dimensions",
+        "jane-open-alex",
+        "jane-pubmed",
+        "jane-wos",
+        "leland-crossref",
+        "leland-dimensions",
+        "leland-open-alex",
+        "leland-pubmed",
+        "leland-wos",
+        "mike-crossref",
+        "mike-dimensions",
+        "mike-open-alex",
+        "mike-pubmed",
+        "mike-wos",
+    ]
+
+    pub.openalex_json = {}
+
+    # dimensions
+    assert publication._author_list_names(pub) == [
+        "Jane Dimensions",
+        "Mike Dimensions",
+        "Leland Dimensions",
+    ]
+    assert publication._first_author_name(pub) == "Jane Dimensions"
+    assert publication._last_author_name(pub) == "Leland Dimensions"
+    assert publication._first_author_orcid(pub) == "jane-dimensions"
+    assert publication._last_author_orcid(pub) == "leland-dimensions"
+    assert publication._author_list_orcids(pub) == [
+        "jane-crossref",
+        "jane-dimensions",
+        "jane-pubmed",
+        "jane-wos",
+        "leland-crossref",
+        "leland-dimensions",
+        "leland-pubmed",
+        "leland-wos",
+        "mike-crossref",
+        "mike-dimensions",
+        "mike-pubmed",
+        "mike-wos",
+    ]
+
+    pub.dim_json = {}
+
+    # pubmed
+    assert publication._author_list_names(pub) == [
+        "Jane Pubmed",
+        "Mike Pubmed",
+        "Leland Pubmed",
+    ]
+    assert publication._first_author_name(pub) == "Jane Pubmed"
+    assert publication._last_author_name(pub) == "Leland Pubmed"
+    assert publication._first_author_orcid(pub) == "jane-pubmed"
+    assert publication._last_author_orcid(pub) == "leland-pubmed"
+    assert publication._author_list_orcids(pub) == [
+        "jane-crossref",
+        "jane-pubmed",
+        "jane-wos",
+        "leland-crossref",
+        "leland-pubmed",
+        "leland-wos",
+        "mike-crossref",
+        "mike-pubmed",
+        "mike-wos",
+    ]
+
+    pub.pubmed_json = {}
+
+    # web-of-science
+    assert publication._author_list_names(pub) == ["Jane Wos", "Mike Wos", "Leland Wos"]
+    assert publication._first_author_name(pub) == "Jane Wos"
+    assert publication._last_author_name(pub) == "Leland Wos"
+    assert publication._first_author_orcid(pub) == "jane-wos"
+    assert publication._last_author_orcid(pub) == "leland-wos"
+    assert publication._author_list_orcids(pub) == [
+        "jane-crossref",
+        "jane-wos",
+        "leland-crossref",
+        "leland-wos",
+        "mike-crossref",
+        "mike-wos",
+    ]
+
+    pub.wos_json = {}
+
+    # crossref
+    assert publication._author_list_names(pub) == [
+        "Jane Crossref",
+        "Mike Crossref",
+        "Leland Crossref",
+    ]
+    assert publication._first_author_name(pub) == "Jane Crossref"
+    assert publication._last_author_name(pub) == "Leland Crossref"
+    assert publication._first_author_orcid(pub) == "jane-crossref"
+    assert publication._last_author_orcid(pub) == "leland-crossref"
+    assert publication._author_list_orcids(pub) == [
+        "jane-crossref",
+        "leland-crossref",
+        "mike-crossref",
+    ]
+
+    pub.crossref_json = {}
+
+    # sulpub (we don't extract orcids from sulpub)
+    assert publication._author_list_names(pub) == [
+        "Jane Elizabeth Lathrop Sulpub",
+        "Mike Sulpub",
+        "Leland DeWitt Sulpub",
+    ]
+    assert publication._first_author_name(pub) == "Jane Elizabeth Lathrop Sulpub"
+    assert publication._last_author_name(pub) == "Leland DeWitt Sulpub"
+    assert publication._first_author_orcid(pub) is None
+    assert publication._last_author_orcid(pub) is None
+    assert publication._author_list_orcids(pub) == []
+
+
+def test_authors_no_metadata():
+    pub = Publication(
+        doi="10.000/example",
+        title="Help, I don't have any metadata!",
+    )
+    assert publication._author_list_names(pub) == []
+    assert publication._first_author_name(pub) is None
+    assert publication._last_author_name(pub) is None
+    assert publication._first_author_orcid(pub) is None
+    assert publication._last_author_orcid(pub) is None
+    assert publication._author_list_orcids(pub) == []
+
+
+def test_pubmed_non_orcid():
+    pub = Publication(
+        doi="10.000/example",
+        title="Help, I don't have any metadata!",
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {
+                    "AuthorList": {
+                        "Author": {
+                            "ForeName": "Jane",
+                            "LastName": "Pubmed",
+                            "Identifier": {
+                                "@Source": "SOCIAL",
+                                "#text": "jane-pubmed",
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    assert publication._first_author_orcid(pub) is None
+    assert publication._last_author_orcid(pub) is None
+    assert publication._author_list_orcids(pub) == []
+
+
+def test_one_author():
+    """
+    Some platforms make make authors available as a list of objects, and as a
+    single object (when there is only one author). These tests ensure that these
+    are handled correctly.
+    """
+    pub = Publication(
+        doi="10.000/example",
+        title="I'm a Book",
+        apc=None,
+        open_access="gold",
+        pub_year=2023,
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {
+                    "AuthorList": {
+                        "Author": {
+                            "ForeName": "Jane",
+                            "LastName": "Pubmed",
+                            "Identifier": {
+                                "@Source": "ORCID",
+                                "#text": "jane-pubmed",
+                            },
+                        }
+                    }
+                }
+            }
+        },
+        wos_json={
+            "static_data": {
+                "summary": {
+                    "names": {
+                        "name": {"display_name": "Jane Wos", "orcid_id": "jane-wos"}
+                    }
+                }
+            }
+        },
+    )
+
+    assert publication._author_list_names(pub) == ["Jane Pubmed"]
+    assert publication._first_author_name(pub) == "Jane Pubmed"
+    assert publication._last_author_name(pub) == "Jane Pubmed"
+    assert publication._first_author_orcid(pub) == "jane-pubmed"
+
+    # remove pubmed so that wos data is examined
+    pub.pubmed_json = {}
+
+    assert publication._author_list_names(pub) == ["Jane Wos"]
+    assert publication._first_author_name(pub) == "Jane Wos"
+    assert publication._last_author_name(pub) == "Jane Wos"
+    assert publication._first_author_orcid(pub) == "jane-wos"
+
+
+def test_crossref_missing_given_name():
+    pub = Publication(
+        doi="10.000/example",
+        title="Help, I don't have any metadata!",
+        crossref_json={
+            "author": [
+                {
+                    "family": "Crossref",
+                    "ORCID": "https://orcid.org/jane-crossref",
+                },
+                {
+                    "given": "Mike",
+                    "family": "Crossref",
+                    "ORCID": "https://orcid.org/mike-crossref",
+                },
+            ]
+        },
+    )
+
+    assert publication._author_list_names(pub) == ["Crossref", "Mike Crossref"]
+
+
+def test_pubmed_missing_given_name():
+    pub = Publication(
+        doi="10.000/example",
+        title="Help, I don't have any metadata!",
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {
+                    "AuthorList": {
+                        "Author": [
+                            {
+                                "LastName": "Pubmed",
+                                "Identifier": {
+                                    "@Source": "ORCID",
+                                    "#text": "jane-pubmed",
+                                },
+                            },
+                            {
+                                "ForeName": "Mike",
+                                "LastName": "Pubmed",
+                                "Identifier": {
+                                    "@Source": "ORCID",
+                                    "#text": "mike-pubmed",
+                                },
+                            },
+                        ]
+                    }
+                }
+            }
+        },
+    )
+
+    assert publication._author_list_names(pub) == ["Pubmed", "Mike Pubmed"]

@@ -177,6 +177,18 @@ def dim_json():
         "linkout": "https://example_dim.com",
         "abstract": "This is a sample Dimensions abstract.",
         "recent_citations": 50,
+        "authors": [
+            {
+                "first_name": "Jane",
+                "last_name": "Stanford",
+                "orcid": ["https://orcid.org/0000-0003-1111-2222"],
+            },
+            {
+                "first_name": "Leland",
+                "last_name": "Stanford",
+                "orcid": ["https://orcid.org/0000-0004-3333-4444"],
+            },
+        ],
     }
 
 
@@ -385,11 +397,13 @@ def crossref_json():
                 "given": "Jane",
                 "family": "Stanford",
                 "affiliation": [{"name": "Stanford University"}],
+                "orcid": "https://orcid.org/0000-0003-1111-2222",
             },
             {
                 "given": "Leland",
                 "family": "Stanford",
                 "affiliation": [{"name": "Stanford University"}],
+                "orcid": "https://orcid.org/0000-0004-3333-4444",
             },
         ],
         "container-title": ["Bad Limes Journal of Science"],

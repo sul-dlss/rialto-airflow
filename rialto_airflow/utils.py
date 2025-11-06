@@ -58,10 +58,26 @@ def normalize_orcid(orcid):
     return orcid
 
 
-def piped(lst: list[str]) -> Optional[str]:
+def piped(lst: list[str] | None) -> Optional[str]:
     """
     Return a list as pipe delimited or None if None is passed in.
     """
     if lst is None:
         return None
+
     return "|".join(lst)
+
+
+def join_keys(d: dict, *keys):
+    """
+    Join the values in a dictionary, removing any missing values. It is assumed
+    that the dictionary values are all strings.
+    """
+    values = []
+
+    for key in keys:
+        value = d.get(key)
+        if value is not None and type(value) is str:
+            values.append(value)
+
+    return " ".join(values)

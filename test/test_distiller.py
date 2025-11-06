@@ -26,6 +26,16 @@ def test_jsonpath_rule():
     assert result == "Leland"
 
 
+def test_json_path_rule_return_list():
+    pub = Publication(sulpub_json={"authors": [{"name": "Leland"}, {"name": "Jane"}]})
+
+    result = first(
+        pub, rules=[JsonPathRule("sulpub_json", "authors[*].name", return_list=True)]
+    )
+
+    assert result == ["Leland", "Jane"]
+
+
 def test_func_rule():
     pub = Publication(sulpub_json={"a": 1})
 

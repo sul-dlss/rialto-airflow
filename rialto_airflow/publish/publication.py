@@ -618,12 +618,8 @@ def _author_list_orcids(row) -> list[str]:
         ],
     )
 
-    logging.info(orcids)
-
     # restructure a list of lists into a flat list of strings
     orcids = list(itertools.chain(*orcids))
-
-    logging.info(orcids)
 
     orcids = [normalize_orcid(orcid) for orcid in orcids if orcid is not None]
 
@@ -638,8 +634,16 @@ def _pubmed_orcids(row):
     for result in json_path(
         "MedlineCitation.Article.AuthorList.Author[*].Identifier"
     ).find(row):
-        if result.value.get("@Source") == "ORCID":
-            orcids.append(result.value["#text"])
+        ids = result.value
+
+        # Identifier can be a single dict, or a list of dicts.
+        # Ensure that it is a list of dicts.
+        if type(ids) is dict:
+            ids = [ids]
+
+        for id_ in ids:
+            if id_.get("@Source") == "ORCID":
+                orcids.append(id_["#text"])
 
     return orcids
 
@@ -703,7 +707,14 @@ def _pubmed_author_orcid(pub, pos: int) -> str | None:
         ).find(pub)
 
     for result in results:
-        if result.value.get("@Source") == "ORCID":
-            return result.value.get("#text")
+        ids = result.value
+
+        # Identifier can be a single dict or a list of dicts
+        if type(ids) is dict:
+            ids = [ids]
+
+        for id_ in ids:
+            if id_.get("@Source") == "ORCID":
+                return id_.get("#text")
 
     return None

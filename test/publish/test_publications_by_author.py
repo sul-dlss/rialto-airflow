@@ -798,6 +798,41 @@ def test_one_author():
     assert publication._first_author_orcid(pub) == "jane-wos"
 
 
+def test_pubmed_identifier_list():
+    """
+    PubMed authors sometimes have a list of identifiers instead of just having one.
+    """
+    pub = Publication(
+        doi="10.000/example",
+        title="I'm a Book",
+        apc=None,
+        open_access="gold",
+        pub_year=2023,
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {
+                    "AuthorList": {
+                        "Author": {
+                            "ForeName": "Jane",
+                            "LastName": "Pubmed",
+                            "Identifier": [
+                                {
+                                    "@Source": "ORCID",
+                                    "#text": "jane-pubmed",
+                                }
+                            ],
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    assert publication._author_list_orcids(pub) == ["jane-pubmed"]
+    assert publication._first_author_orcid(pub) == "jane-pubmed"
+    assert publication._last_author_orcid(pub) == "jane-pubmed"
+
+
 def test_crossref_missing_given_name():
     pub = Publication(
         doi="10.000/example",

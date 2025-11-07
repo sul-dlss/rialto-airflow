@@ -322,19 +322,32 @@ def _journal_issn(pub) -> str | None:
     flat_issns = []
     for issn in all_issns:
         if isinstance(issn, list):
-            flat_issns.extend(issn)
-        elif isinstance(issn, str) and issn.strip() == "":
-            # skip empty strings
-            continue
-        elif isinstance(issn, int):
-            # not sure if ints may be present in the data, but handling just in case
-            flat_issns.append(str(issn))
-        else:
+            issns = [element for element in issn if validate_issn(element)]
+            flat_issns.extend(issns)
+        elif validate_issn(issn):
             flat_issns.append(issn)
     unique_issns = sorted(list(set(flat_issns)))
     if unique_issns:
         return piped(unique_issns)
     return None
+
+
+def validate_issn(issn) -> bool:
+    """
+    Validate ISSN format (basic check)
+    """
+    if isinstance(issn, str) is False:
+        return False
+    if len(issn) != 9:
+        return False
+    prefix = issn[:4]
+    suffix = issn[5:]
+    if not (
+        prefix.isdigit()
+        and (suffix[:-1].isdigit() and (suffix[-1].isdigit() or suffix[-1] == "X"))
+    ):
+        return False
+    return True
 
 
 def _pubmed_issn(pubmed_json: dict) -> str | None:

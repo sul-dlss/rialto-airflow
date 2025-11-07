@@ -892,7 +892,7 @@ def _pub(session, doi="10.1515/9781503624153"):
 
 def test_openalex_publisher_journal(test_session, snapshot):
     """
-    Test that publisher is distilled from OpenAlex JSON.
+    Test that publisher is distilled from OpenAlex JSON first if available.
     """
     with test_session.begin() as session:
         session.add(
@@ -900,14 +900,47 @@ def test_openalex_publisher_journal(test_session, snapshot):
                 doi="10.1515/9781503624153",
                 sulpub_json=sulpub_json,
                 dim_json=dim_json,
-                openalex_json=openalex_json,
+                openalex_json={
+                    "title": "On the dangers of stochastic parrots (openalex)",
+                    "primary_location": {
+                        "source": {
+                            "id": "https://openalex.org/S2764375719",
+                            "display_name": "Not the journal name to use",
+                            "issn_l": "0009-4978",
+                            "issn": ["0009-4978", "1523-8253", "1943-5975"],
+                            "host_organization": "https://openalex.org/P4310316146",
+                            "host_organization_name": "Some Publisher",
+                            "type": "journal",
+                        }
+                    },
+                    "locations": [
+                        {
+                            "id": "doi:10.5860/choice.51-7042",
+                            "source": {
+                                "id": "https://openalex.org/S2764375719",
+                                "display_name": "Real Journal Name",
+                                "issn_l": "9999-9999",
+                                "type": "journal",
+                            },
+                        },
+                        {
+                            "id": "pmh:oai:archive.org:I",
+                            "source": {
+                                "id": "https://openalex.org/S4377196541",
+                                "display_name": "Internet Archive (Internet Archive)",
+                                "issn_l": "8888-8888",
+                                "type": "repository",
+                            },
+                        },
+                    ],
+                },
             )
         )
 
     distill(snapshot)
 
-    assert _pub(session).publisher == "Association of College and Research Libraries"
-    assert _pub(session).journal_name == "Choice Reviews Online"
+    assert _pub(session).publisher == "Some Publisher"
+    assert _pub(session).journal_name == "Real Journal Name"
 
 
 @pytest.fixture
@@ -1061,7 +1094,7 @@ def test_journal_issn(test_session, snapshot):
                 dim_json=dim_json,  # 1111-1111
                 openalex_json=openalex_json,  # 0009-4978, 1523-8253, 1943-5975
                 crossref_json={
-                    "ISSN": ["0000-0000"],
+                    "ISSN": ["0000-0000", "1111-1111"],
                 },
                 pubmed_json={
                     "MedlineCitation": {
@@ -1088,24 +1121,7 @@ def test_journal_issn(test_session, snapshot):
     )
 
 
-@pytest.fixture
-def openalex_json_no_issns():
-    return {
-        "id": "https://openalex.org/W123456789",
-        "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
-        "primary_location": {
-            "source": {
-                "type": "journal",
-                "display_name": "Ok Limes Journal of Science",
-                "host_organization_name": "Science Publisher Inc.",
-                "issn_l": None,
-                "issn": None,
-            }
-        },
-    }
-
-
-def test_null_openalex_issn(test_session, openalex_json_no_issns):
+def test_null_issn(test_session):
     # Add a publication with fields only sourced from OpenAlex
     with test_session.begin() as session:
         pub = Publication(
@@ -1115,7 +1131,24 @@ def test_null_openalex_issn(test_session, openalex_json_no_issns):
             open_access="gold",
             pub_year=2023,
             dim_json=None,
-            openalex_json=openalex_json_no_issns,
+            openalex_json={
+                "id": "https://openalex.org/W123456789",
+                "biblio": {
+                    "issue": "11",
+                    "first_page": "1",
+                    "last_page": "9",
+                    "volume": "2",
+                },
+                "primary_location": {
+                    "source": {
+                        "type": "journal",
+                        "display_name": "Ok Limes Journal of Science",
+                        "host_organization_name": "Science Publisher Inc.",
+                        "issn_l": None,
+                        "issn": None,
+                    }
+                },
+            },
             wos_json=None,
             sulpub_json=None,
             pubmed_json=None,
@@ -1128,3 +1161,29 @@ def test_null_openalex_issn(test_session, openalex_json_no_issns):
             session.query(Publication).filter_by(doi="10.000/some_doi").first()
         )
         assert _journal_issn(selected_pub) is None
+
+
+def test_invalid_issn(test_session, snapshot):
+    """
+    Test that invalid ISSNs are ignored.
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json={
+                    "journal_issn": "",
+                },
+                dim_json={
+                    "issn": 1,
+                },
+                crossref_json={
+                    "ISSN": ["", "abcd-efgh", "12345678", "1234-0000"],
+                },
+            )
+        )
+
+    distill(snapshot)
+
+    # no valid ISSNs
+    assert _journal_issn(_pub(session)) == "1234-0000"

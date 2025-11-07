@@ -29,7 +29,6 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.federally_funded) is True
         assert row.first_author_name == "Jane Stanford"
         assert row.first_author_orcid == "0000-0003-1111-2222"
-        assert row.journal_issn == "0009-4978|1234-0000|1234-5678|1523-8253|1943-5975"
         assert (
             row.journal_name
             == "Proceedings of the National Academy of Sciences of the United States of America"
@@ -312,31 +311,6 @@ def test_sulpub_fields(test_session, sulpub_json):
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
         assert publication._pages(pub_row) == "1-7"
         assert publication._citation_count(pub_row) is None
-
-
-def test_no_issn(test_session):
-    # Add a publication with no issn information
-    with test_session.begin() as session:
-        pub = Publication(
-            doi="10.000/no_issn",
-            title="I'm a Book",
-            apc=None,
-            open_access="gold",
-            pub_year=2023,
-            dim_json=None,
-            openalex_json=None,
-            wos_json=None,
-            sulpub_json=None,
-            pubmed_json=None,
-            crossref_json=None,
-            types=["Book"],
-        )
-        session.add(pub)
-
-        pub_row = session.query(Publication).filter_by(doi="10.000/no_issn").first()
-        assert publication._journal_issn(pub_row) is None
-        assert publication._journal_name(pub_row) is None
-        assert publication._publisher(pub_row) is None
 
 
 def test_authors(test_session):

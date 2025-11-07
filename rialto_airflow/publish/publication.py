@@ -399,19 +399,6 @@ def _openalex_end_page(openalex_json: dict) -> str | None:
     return None
 
 
-# def _publisher(row) -> str | None:
-#     """
-#     Get the publisher from OpenAlex if not already distilled
-#     """
-#     if row.publisher:
-#         return row.publisher
-
-#     # look up publisher in OpenAlex by ISSN
-#     issn = _journal_issn(row)
-#     source = source_by_issn(issn)
-#     return source.get("host_organization_name") if source else None
-
-
 def _citation_count(row) -> str | int | None:
     """
     Get the citation count from OpenAlex, Dimensions, then WOS.

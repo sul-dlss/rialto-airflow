@@ -452,10 +452,11 @@ def dataset(
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
             crossref_json=crossref_json,
-            types=["article", "preprint"],
+            types=["Article", "Preprint"],
             publisher="Science Publisher Inc.",
             academic_council_authored=True,
             faculty_authored=True,
+            journal_name="Proceedings of the National Academy of Sciences of the United States of America",
         )
 
         pub2 = Publication(
@@ -469,7 +470,7 @@ def dataset(
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
-            types=["article", "preprint"],
+            types=["Article", "Preprint"],
             academic_council_authored=True,
             faculty_authored=True,
         )

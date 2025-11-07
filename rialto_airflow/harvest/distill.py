@@ -5,9 +5,11 @@ from sqlalchemy import select, update
 
 from rialto_airflow.apc import get_apc
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import FuncRule, JsonPathRule, first, json_path
+from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.harvest.openalex import source_by_issn
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
+from rialto_airflow.utils import piped
 
 
 def distill(snapshot: Snapshot) -> int:
@@ -34,6 +36,7 @@ def distill(snapshot: Snapshot) -> int:
                 "open_access": _open_access(pub),
                 "types": _types(pub),
                 "publisher": _publisher(pub),
+                "journal_name": _journal_name(pub),
                 "academic_council_authored": _academic_council(pub),
                 "faculty_authored": _faculty_authored(pub),
             }
@@ -235,9 +238,9 @@ def _pubmed_type(pubmed_json: dict) -> list[str]:
 
 def _publisher(pub):
     """
-    Get the publisher from OpenAlex
+    Get the publisher from OpenAlex json if it exists
     """
-    return first(
+    publisher = first(
         pub,
         rules=[
             JsonPathRule(
@@ -245,6 +248,20 @@ def _publisher(pub):
             ),
         ],
     )
+
+    if publisher:
+        return publisher
+    else:
+        return _publisher_by_issn(pub)
+
+
+def _publisher_by_issn(row) -> Optional[str]:
+    """
+    # look up publisher in OpenAlex by ISSN
+    """
+    issn = _journal_issn(row)
+    source = source_by_issn(issn)
+    return source.get("host_organization_name") if source else None
 
 
 def _academic_council(pub) -> Optional[bool]:
@@ -262,6 +279,88 @@ def _academic_council(pub) -> Optional[bool]:
 
 def _faculty_authored(pub) -> Optional[bool]:
     return any(author.primary_role == "faculty" for author in pub.authors)
+
+
+def _journal_name(pub) -> str | None:
+    # try to get journal name from openalex_json before querying
+    openalex_journal_name = first(
+        pub,
+        rules=[
+            JsonPathRule(
+                "openalex_json",
+                "locations[?@.source.type == 'journal'].source.display_name",
+            ),
+        ],
+    )
+    if openalex_journal_name:
+        # we can assume OpenAlex journal names are strings but mypy cannot
+        return str(openalex_journal_name)
+
+    # get ISSN and look up journal name in OpenAlex
+    issn = _journal_issn(pub)
+    if issn:
+        source = source_by_issn(issn)
+        return source.get("display_name") if source else None
+    return None
+
+
+def _journal_issn(pub) -> str | None:
+    """
+    Get all ISSNs available and return unique values as pipe delimited string
+    Used for publisher and journal_name lookups in OpenAlex
+    """
+    rules = [
+        JsonPathRule("openalex_json", "primary_location.source.issn_l"),
+        JsonPathRule("openalex_json", "primary_location.source.issn"),  # list
+        JsonPathRule("sulpub_json", "issn"),
+        JsonPathRule("dim_json", "issn"),
+        JsonPathRule("crossref_json", "ISSN"),  # list
+        FuncRule("pubmed_json", _pubmed_issn),
+    ]
+    all_issns = all(pub, rules=rules)  # type: ignore
+
+    flat_issns = []
+    for issn in all_issns:
+        if isinstance(issn, list):
+            issns = [element for element in issn if validate_issn(element)]
+            flat_issns.extend(issns)
+        elif validate_issn(issn):
+            flat_issns.append(issn)
+    unique_issns = sorted(list(set(flat_issns)))
+    if unique_issns:
+        return piped(unique_issns)
+    return None
+
+
+def validate_issn(issn) -> bool:
+    """
+    Validate ISSN format (basic check)
+    """
+    if isinstance(issn, str) is False:
+        return False
+    if len(issn) != 9:
+        return False
+    prefix = issn[:4]
+    suffix = issn[5:]
+    if not (
+        prefix.isdigit()
+        and (suffix[:-1].isdigit() and (suffix[-1].isdigit() or suffix[-1] == "X"))
+    ):
+        return False
+    return True
+
+
+def _pubmed_issn(pubmed_json: dict) -> str | None:
+    if pubmed_json is None:
+        return None
+
+    jsonp = json_path("MedlineCitation.Article.Journal.ISSN")
+    issn = jsonp.find(pubmed_json)
+
+    if issn:
+        return issn[0].value.get("#text", None)
+
+    return None
 
 
 def _normalize_type(s: str) -> str:

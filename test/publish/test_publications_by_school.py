@@ -24,7 +24,7 @@ def test_write_publications_by_school(test_reports_session, snapshot, dataset, c
         assert row.open_access == "gold"
         assert row.primary_school == "School of Engineering"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         row = rows[1][0]
         assert bool(row.academic_council_authored) is True
@@ -35,7 +35,7 @@ def test_write_publications_by_school(test_reports_session, snapshot, dataset, c
         assert row.open_access == "gold"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.pub_year == 2023
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         row = rows[2][0]
         assert bool(row.academic_council_authored) is True
@@ -46,7 +46,7 @@ def test_write_publications_by_school(test_reports_session, snapshot, dataset, c
         assert row.open_access == "green"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.pub_year == 2024
-        assert row.types == "article|preprint"
+        assert row.types == "Article|Preprint"
 
         assert "started writing publications_by_school table" in caplog.text
         assert "finished writing publications_by_school table" in caplog.text

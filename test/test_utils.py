@@ -46,6 +46,30 @@ def test_normalize_doi():
     assert utils.normalize_doi(" doi: 10.1234/5678 ") == "10.1234/5678"
     assert utils.normalize_doi("doi:10.1234/5678") == "10.1234/5678"
     assert utils.normalize_doi("doi:10.1234/ 56 78") == "10.1234/5678"
+    assert (
+        utils.normalize_doi(
+            "junkstuff7-710.1016.12.31/nature.<S0735>-1097(98)2000/12/31/34:7-7"
+        )
+        == "10.1016.12.31/nature.<s0735>-1097(98)2000/12/31/34:7-7"
+    )
+    assert (
+        utils.normalize_doi("10.1016.12.31/nature.S0735-1097(98)2000/12/31/34:7-7")
+        == "10.1016.12.31/nature.s0735-1097(98)2000/12/31/34:7-7"
+    )  # this is a real DOI
+    assert (
+        utils.normalize_doi("07390710.1103/physrevlett.96.073907")
+        == "10.1103/physrevlett.96.073907"
+    )  # the left side is a purported DOI we got back, which has a real DOI buried in it
+    assert (
+        utils.normalize_doi("fooooooo10.1016/j.juro.2018.10.006")
+        == "10.1016/j.juro.2018.10.006"
+    )  # confirm that our normalization regex doesn't just extract the last 10.006
+    assert utils.normalize_doi("11.0000/this.doi.goes.to.11") is None
+    assert utils.normalize_doi("arXiv:2202.01037") == "10.48550/arxiv.2202.01037"
+    assert (
+        utils.normalize_doi("https://doi.org/10.48550/arXiv.2202.01037")
+        == "10.48550/arxiv.2202.01037"
+    )
     assert utils.normalize_doi(None) is None
 
 

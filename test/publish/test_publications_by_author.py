@@ -29,6 +29,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.federally_funded) is True
         assert row.first_author_name == "Jane Stanford"
         assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.issue == "11"
         assert (
             row.journal_name
             == "Proceedings of the National Academy of Sciences of the United States of America"
@@ -45,6 +46,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.types == "Article|Preprint"
         assert row.sunet == "folms"
         assert row.title == "My Life"
+        assert row.volume == "2"
 
         row = rows[1][0]
         assert bool(row.academic_council) is True
@@ -56,6 +58,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.federally_funded) is True
         assert row.first_author_name == "Jane Stanford"
         assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.issue == "11"
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
@@ -66,6 +69,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.types == "Article|Preprint"
         assert row.sunet == "fterm"
         assert row.title == "My Life"
+        assert row.volume == "2"
 
         row = rows[2][0]
         assert bool(row.academic_council) is True
@@ -76,6 +80,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.federally_funded) is True
         assert row.first_author_name == "Jane Stanford"
         assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.issue == "11"
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
@@ -86,6 +91,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.types == "Article|Preprint"
         assert row.sunet == "janes"
         assert row.title == "My Life"
+        assert row.volume == "2"
 
         row = rows[3][0]
         assert bool(row.academic_council) is False
@@ -96,6 +102,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert bool(row.federally_funded) is True
         assert row.first_author_name == "Jane Stanford"
         assert row.first_author_orcid == "0000-0003-1111-2222"
+        assert row.issue == "11"
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
@@ -106,6 +113,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.types == "Article|Preprint"
         assert row.sunet == "lelands"
         assert row.title == "My Life"
+        assert row.volume == "2"
 
         row = rows[4][0]
         assert bool(row.academic_council) is True
@@ -311,6 +319,57 @@ def test_sulpub_fields(test_session, sulpub_json):
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
         assert publication._pages(pub_row) == "1-7"
         assert publication._citation_count(pub_row) is None
+
+
+def test_volume_issue():
+    """
+    Test both volume and issue distill rules.
+    """
+    pub = Publication(
+        doi="10.000/example",
+        title="I'm a Book",
+        openalex_json={"biblio": {"volume": "1", "issue": "2"}},
+        dim_json={"volume": "3", "issue": "4"},
+        pubmed_json={
+            "MedlineCitation": {
+                "Article": {"Journal": {"JournalIssue": {"Volume": "5", "Issue": "6"}}}
+            }
+        },
+        sulpub_json={"journal": {"volume": "7", "issue": "8"}},
+    )
+
+    # slowly peel away the platform metadata that's available to confirm that we are
+    # matching in the right order, and looking for values correctly
+
+    assert publication._volume(pub) == "1"
+    assert publication._issue(pub) == "2"
+
+    pub.openalex_json = {}
+    assert publication._volume(pub) == "3"
+    assert publication._issue(pub) == "4"
+
+    pub.dim_json = {}
+    assert publication._volume(pub) == "5"
+    assert publication._issue(pub) == "6"
+
+    pub.pubmed_json = {}
+    assert publication._volume(pub) == "7"
+    assert publication._issue(pub) == "8"
+
+    pub.sulpub_json = {}
+    assert publication._volume(pub) is None
+    assert publication._issue(pub) is None
+
+
+def test_volume_issue_list():
+    pub = Publication(
+        doi="10.000/example",
+        title="I'm a Book",
+        openalex_json={"biblio": {"volume": ["24"], "issue": ["615"]}},
+    )
+
+    assert publication._volume(pub) == "24"
+    assert publication._issue(pub) == "615"
 
 
 def test_authors(test_session):

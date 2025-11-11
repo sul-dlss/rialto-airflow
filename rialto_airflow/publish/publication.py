@@ -261,6 +261,7 @@ def export_publications_by_author(snapshot) -> int:
                     "federally_funded": any(row.federal),
                     "first_author_name": _first_author_name(row),
                     "first_author_orcid": _first_author_orcid(row),
+                    "issue": _issue(row),
                     "last_author_name": _last_author_name(row),
                     "last_author_orcid": _last_author_orcid(row),
                     "journal_name": row.journal_name,
@@ -274,6 +275,7 @@ def export_publications_by_author(snapshot) -> int:
                     "pub_year": row.pub_year,
                     "title": row.title,
                     "types": piped(row.types),
+                    "volume": _volume(row),
                 }
 
                 insert_session.execute(
@@ -397,6 +399,50 @@ def _openalex_end_page(openalex_json: dict) -> str | None:
     for end_page in end_jsonp.find(openalex_json):
         return end_page.value
     return None
+
+
+def _volume(row) -> str | None:
+    vol = first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "biblio.volume"),
+            JsonPathRule("dim_json", "volume"),
+            JsonPathRule(
+                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Volume"
+            ),
+            JsonPathRule("sulpub_json", "journal.volume"),
+        ],
+    )
+
+    match vol:
+        case list():
+            return vol[0] if len(vol) > 0 else None
+        case str():
+            return vol
+        case _:
+            return None
+
+
+def _issue(row) -> str | None:
+    issue = first(
+        row,
+        rules=[
+            JsonPathRule("openalex_json", "biblio.issue"),
+            JsonPathRule("dim_json", "issue"),
+            JsonPathRule(
+                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Issue"
+            ),
+            JsonPathRule("sulpub_json", "journal.issue"),
+        ],
+    )
+
+    match issue:
+        case list():
+            return issue[0] if len(issue) > 0 else None
+        case str():
+            return issue
+        case _:
+            return None
 
 
 def _citation_count(row) -> str | int | None:

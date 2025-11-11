@@ -317,22 +317,24 @@ def test_get_doi(caplog):
                 "identifiers": {
                     "identifier": [
                         {"type": "issn", "value": "1234-5678"},
-                        {"type": "doi", "value": "abc123"},
+                        {"type": "doi", "value": "abc12310.1234/abc123"},
                     ]
                 }
             }
         }
     }
-    assert wos.get_doi(wos_json_id_list) == "abc123"
+    assert wos.get_doi(wos_json_id_list) == "10.1234/abc123"
 
     wos_json_single_id = {
         "dynamic_data": {
             "cluster_related": {
-                "identifiers": {"identifier": {"type": "doi", "value": "abc123"}}
+                "identifiers": {
+                    "identifier": {"type": "doi", "value": "abc12310.1234/abc123"}
+                }
             }
         }
     }
-    assert wos.get_doi(wos_json_single_id) == "abc123"
+    assert wos.get_doi(wos_json_single_id) == "10.1234/abc123"
 
     wos_json_no_doi = {
         "dynamic_data": {

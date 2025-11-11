@@ -219,8 +219,9 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.doi,
                 Publication.open_access,  # type: ignore
                 Publication.title,  # type: ignore
+                Author.orcid,
                 Author.primary_school,
-                Author.primary_dept,
+                Author.primary_dept,  # type: ignore
                 Author.primary_role,  # type: ignore
                 Author.sunet,  # type: ignore
                 Author.academic_council,  # type: ignore
@@ -266,6 +267,7 @@ def export_publications_by_author(snapshot) -> int:
                     "last_author_orcid": _last_author_orcid(row),
                     "journal_name": row.journal_name,
                     "open_access": row.open_access,
+                    "orcid": row.orcid,
                     "pages": _pages(row),
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,

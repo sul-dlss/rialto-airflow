@@ -37,6 +37,9 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
+        # note: unlike the other first/last_author_orcid (which come from fixture publication JSON)
+        # this orcid value comes from Author database model, which is different
+        assert row.orcid == "02980983422"
         assert row.pages == "1-9"
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Mechanical Engineering"
@@ -62,6 +65,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
+        assert row.orcid == "029809834222"
         assert row.primary_school == "School of Engineering"
         assert row.primary_department == "Electrical Engineering"
         assert row.role == "faculty"
@@ -84,6 +88,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
+        assert row.orcid == "0298098343"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.role == "faculty"
@@ -106,6 +111,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.last_author_name == "Leland Stanford"
         assert row.last_author_orcid == "0000-0004-3333-4444"
         assert row.open_access == "gold"
+        assert row.orcid == "02980983434"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.role == "staff"
@@ -121,6 +127,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
         assert row.doi == "10.000/000002"
         assert bool(row.federally_funded) is True
         assert row.open_access == "green"
+        assert row.orcid == "0298098343"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.role == "faculty"

@@ -21,6 +21,7 @@ response = {
     "records": [
         {
             "title": "An example title with DOI in top level only",
+            "sulpubid": "24601",
             "doi": "https://doi.org/10.1515/9781503624153",
             "authorship": [
                 {"status": "approved", "cap_profile_id": "12345"},
@@ -38,6 +39,17 @@ response = {
                 {"status": "unknown", "cap_profile_id": "123456"},
             ],
         },
+        {
+            "title": "Another title that will be harvested with DOI in identifier field only",
+            "sulpubid": "123789",
+            "identifier": [
+                {"type": "doi", "id": "https://doi.org/10.9999/0161754X-9809305"}
+            ],
+            "authorship": [
+                {"status": "approved", "cap_profile_id": "12345"},
+            ],
+        },
+        # duplicate record should get filtered out
         {
             "title": "Another title that will be harvested with DOI in identifier field only",
             "sulpubid": "123789",

@@ -74,6 +74,7 @@ def publications(host, key, per_page=1000, limit=None):
     page = 0
     record_count = 0
     more = True
+    sulpub_ids = set()
 
     # catch and back off from temporary errors from sulpub
     # https://docs.python-requests.org/en/latest/user/advanced/#example-automatic-retries
@@ -100,6 +101,14 @@ def publications(host, key, per_page=1000, limit=None):
                 logging.warning(f"stopping with limit={limit}")
                 more = False
                 break
+
+            # guard against the same record coming back twice
+            # see: https://github.com/sul-dlss/rialto-airflow/issues/684
+
+            sulpub_id = record["sulpubid"]
+            if sulpub_id in sulpub_ids:
+                continue
+            sulpub_ids.add(sulpub_id)
 
             yield record
 

@@ -96,6 +96,7 @@ def publications(host, key, per_page=1000, limit=None):
 
         for record in records:
             record_count += 1
+            logging.info(f"id={record.get('sulpubid')}")
             if limit is not None and record_count > limit:
                 logging.warning(f"stopping with limit={limit}")
                 more = False

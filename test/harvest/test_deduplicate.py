@@ -124,6 +124,31 @@ def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 
+def test_sulpub_deduplicate(test_session, dataset, snapshot, caplog):
+    """
+    Test that the publication with an sulpub duplicate is found and the duplicates removed.
+    Authors should be moved to the remaining record.
+    """
+    caplog.set_level(logging.INFO)
+    dupes = deduplicate.remove_sulpub_duplicates(snapshot)
+    assert dupes == 1
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, (
+            "only one publication remains in table"
+        )
+        pubs = session.query(Publication).where(
+            Publication.sulpub_json["sulpubid"].astext == "123456"
+        )
+        assert pubs.count() == 1, "remaining publication has the sulpub ID"
+        assert len(pubs.one().authors) == 2, "remaining publication has both authors"
+        author2 = session.query(Author).where(Author.orcid == "02980983434").one()
+        assert len(author2.publications) == 1, (
+            "second author exists and is linked to the remaining publication"
+        )
+        assert "Found 1 sulpub publications with duplicates." in caplog.text
+        assert "Deleted 1 publication rows from sulpub." in caplog.text
+
+
 def test_merge_pubs(test_session, dataset):
     """
     Test that merge_pubs merges authors and deletes duplicates.

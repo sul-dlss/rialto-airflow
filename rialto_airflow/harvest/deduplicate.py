@@ -15,7 +15,8 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing duplicate publications from each source.")
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
-    total_deleted = wos_dupes + openalex_dupes
+    sulpub_dupes = remove_sulpub_duplicates(snapshot)
+    total_deleted = wos_dupes + openalex_dupes + sulpub_dupes
     logging.info(
         f"Deleted a total of {total_deleted} duplicate publication rows from all sources."
     )
@@ -81,6 +82,37 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
         logging.info(f"Deleted {count_deleted} publication rows from OpenAlex.")
+    return num_dupes
+
+
+def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
+    logging.debug("Removing any duplicate sulpub publications.")
+    with get_session(snapshot.database_name).begin() as session:
+        # Find all duplicate sulpub publications in the snapshot
+        duplicates = session.execute(
+            select(func.count(), Publication.sulpub_json["sulpubid"])
+            .where(Publication.doi.is_(None))
+            .where(Publication.sulpub_json["sulpubid"].is_not(None))
+            .group_by(Publication.sulpub_json["sulpubid"])
+            .having(func.count() > 1)
+        ).all()
+        num_dupes = len(duplicates)
+        logging.info(f"Found {num_dupes} sulpub publications with duplicates.")
+        count_deleted = 0
+        sulpub_ids = [row[1] for row in duplicates]
+        for sulpub_id in sulpub_ids:
+            pubs = (
+                session.execute(
+                    select(Publication).where(
+                        Publication.sulpub_json["sulpubid"].astext == sulpub_id
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            deleted = merge_pubs(pubs=pubs, session=session)
+            count_deleted += deleted
+        logging.info(f"Deleted {count_deleted} publication rows from sulpub.")
     return num_dupes
 
 

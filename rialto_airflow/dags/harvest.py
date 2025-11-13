@@ -165,7 +165,9 @@ def harvest():
     @task()
     def remove_duplicates(snapshot):
         """
-        Remove duplicates based on WOS UID.
+        Remove duplicates. This task is run *before* the distill_publications
+        task because we want to fold together any duplicates prior to extracting
+        values from metadata.
         """
         deduplicate.remove_duplicates(snapshot)
 

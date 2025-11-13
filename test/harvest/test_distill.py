@@ -12,6 +12,16 @@ sulpub_json = {
     "issn": "3333-3333",
 }
 
+sulpub_json_journal_year = {
+    "title": "On the dangers of stochastic parrots (sulpub journal year)",
+    "issn": "3333-3333",
+    "journal": {
+        "name": "Journal of Smart Things That People Write",
+        "year": "2013",
+        "issue": "1",
+    },
+}
+
 dim_json_future_year = {
     "title": "On the dangers of stochastic parrots (dim future)",
     "year": "2105",
@@ -183,6 +193,23 @@ def test_pub_year_sulpub(test_session, snapshot):
     distill(snapshot)
 
     assert _pub(session).pub_year == 2020
+
+
+def test_pub_year_from_journal_sulpub(test_session, snapshot):
+    """
+    pub_year should come from sul_pub journal if all others are unavailable and year is not at top level
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json=sulpub_json_journal_year,
+            )
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).pub_year == 2013
 
 
 def test_pub_year_dim_future(test_session, snapshot):

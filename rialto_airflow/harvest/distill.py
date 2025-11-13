@@ -92,6 +92,7 @@ def _pub_year(pub):
                 "wos_json", "static_data.summary.pub_info.pubyear", is_valid_year=True
             ),
             JsonPathRule("sulpub_json", "year", is_valid_year=True),
+            JsonPathRule("sulpub_json", "journal.year", is_valid_year=True),
         ],
     )
 

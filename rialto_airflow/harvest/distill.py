@@ -72,6 +72,7 @@ def _title(pub):
         pub,
         rules=[
             JsonPathRule("sulpub_json", "title"),
+            JsonPathRule("sulpub_json", "booktitle"),
             JsonPathRule("dim_json", "title"),
             JsonPathRule("openalex_json", "title"),
             FuncRule("wos_json", _wos_title),

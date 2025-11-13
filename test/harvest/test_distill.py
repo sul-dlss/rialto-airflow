@@ -148,7 +148,7 @@ def test_title_openalex(test_session, snapshot):
 
 def test_title_wos(test_session, snapshot):
     """
-    title should come from wos if all the others are unavaialable
+    title should come from wos if all the others are unavailable
     """
     with test_session.begin() as session:
         session.add(
@@ -173,6 +173,23 @@ def test_title_none(test_session, snapshot):
     distill(snapshot)
 
     assert _pub(session).title is None
+
+
+def test_title_booktitle(test_session, snapshot):
+    """
+    title should come from sulpub's booktitle if it's not available elsewhere
+    """
+    with test_session.begin() as session:
+        session.add(
+            Publication(
+                doi="10.1515/9781503624153",
+                sulpub_json={"booktitle": "Gravity's Rainbow"},
+            )
+        )
+
+    distill(snapshot)
+
+    assert _pub(session).title == "Gravity's Rainbow"
 
 
 # test the pub_year preferences

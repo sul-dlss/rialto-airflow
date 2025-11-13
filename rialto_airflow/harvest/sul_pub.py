@@ -86,7 +86,7 @@ def publications(host, key, per_page=1000, limit=None):
         page += 1
         params["page"] = page
 
-        logging.debug(f"fetching sul_pub results {url} {params}")
+        logging.info(f"fetching sul_pub results {url} {params}")
         resp = http.get(url, params=params, headers=http_headers)
         resp.raise_for_status()
 

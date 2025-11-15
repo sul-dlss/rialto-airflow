@@ -6,7 +6,18 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.distiller import (
+    FuncRule,
+    JsonPathRule,
+    all,
+    first,
+    json_path,
+    abstract,
+    pages,
+    volume,
+    issue,
+    citation_count,
+)
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -252,23 +263,23 @@ def export_publications_by_author(snapshot) -> int:
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
-                    "abstract": _abstract(row),
+                    "abstract": abstract(row),
                     "author_list_names": piped(_author_list_names(row)),
                     "author_list_orcids": piped(_author_list_orcids(row)),
                     "academic_council": row.academic_council,
                     "apc": row.apc,
-                    "citation_count": _citation_count(row),
+                    "citation_count": citation_count(row),
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
                     "first_author_name": _first_author_name(row),
                     "first_author_orcid": _first_author_orcid(row),
-                    "issue": _issue(row),
+                    "issue": issue(row),
                     "last_author_name": _last_author_name(row),
                     "last_author_orcid": _last_author_orcid(row),
                     "journal_name": row.journal_name,
                     "open_access": row.open_access,
                     "orcid": row.orcid,
-                    "pages": _pages(row),
+                    "pages": pages(row),
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
                     "publisher": row.publisher,
@@ -277,7 +288,7 @@ def export_publications_by_author(snapshot) -> int:
                     "pub_year": row.pub_year,
                     "title": row.title,
                     "types": piped(row.types),
-                    "volume": _volume(row),
+                    "volume": volume(row),
                 }
 
                 insert_session.execute(
@@ -291,180 +302,6 @@ def export_publications_by_author(snapshot) -> int:
         )
 
     return count
-
-
-def _abstract(row):
-    """
-    Get the abstract from openalex, dimensions, pubmed then crossref.
-    """
-    return first(
-        row,
-        rules=[
-            FuncRule("openalex_json", _rebuild_abstract),
-            JsonPathRule("dim_json", "abstract"),
-            FuncRule("pubmed_json", _pubmed_abstract),
-            JsonPathRule("crossref_json", "abstract"),
-        ],
-    )
-
-
-def _pubmed_abstract(pubmed_json: dict) -> str | None:
-    """
-    Get the abstract from PubMed JSON.
-    """
-    if pubmed_json is None:
-        return None
-
-    full_abstract = []
-    jsonp = json_path("MedlineCitation.Article.Abstract.AbstractText[*]")
-    abstract_text = jsonp.find(pubmed_json)
-    if abstract_text:
-        for abstract in abstract_text:
-            # sometimes the abstract is a string and not a dict of text segments
-            if isinstance(abstract.value, str):
-                full_abstract.append(abstract.value)
-            else:
-                full_abstract.append(abstract.value.get("#text", None))
-        # remove any None or empty-string segments before joining
-        full_abstract = [
-            text
-            for text in full_abstract
-            if text is not None and str(text).strip() != ""
-        ]
-        return " ".join(full_abstract)
-    return None
-
-
-def _rebuild_abstract(openalex_json: dict) -> str | None:
-    """
-    Rebuilds an abstract from a positional inverted index.
-    """
-
-    # openalex metadata isn't always defined
-    if openalex_json is None:
-        return None
-
-    # guard against the abstract data being missing
-    inverted_index = openalex_json.get("abstract_inverted_index")
-    if inverted_index is None:
-        return None
-
-    # Create a list to hold the words in their correct positions.
-    # We find the max position to make sure the list is large enough.
-    max_position = 0
-    for positions in inverted_index.values():
-        if positions:
-            max_position = max(max_position, max(positions))
-
-    # The list is zero-indexed, so we need max_position + 1 length.
-    abstract_words = [""] * (max_position + 1)
-
-    # Place each word in its correct position.
-    for word, positions in inverted_index.items():
-        for position in positions:
-            abstract_words[position] = word
-
-    # Join the words to form the final abstract.
-    return " ".join(abstract_words)
-
-
-def _pages(row) -> str | int | list | None:
-    return first(
-        row,
-        rules=[
-            FuncRule("openalex_json", _openalex_pages),
-            JsonPathRule("dim_json", "pages"),
-            JsonPathRule("sulpub_json", "journal.pages"),
-        ],
-    )
-
-
-def _openalex_pages(openalex_json: dict) -> str | None:
-    start_page = _openalex_start_page(openalex_json)
-    end_page = _openalex_end_page(openalex_json)
-    if start_page and end_page:
-        return f"{start_page}-{end_page}"
-    elif start_page:
-        return start_page
-    return end_page
-
-
-def _openalex_start_page(openalex_json: dict) -> str | None:
-    start_jsonp = json_path("biblio.first_page")
-    for start_page in start_jsonp.find(openalex_json):
-        return start_page.value
-    return None
-
-
-def _openalex_end_page(openalex_json: dict) -> str | None:
-    end_jsonp = json_path("biblio.last_page")
-    for end_page in end_jsonp.find(openalex_json):
-        return end_page.value
-    return None
-
-
-def _volume(row) -> str | None:
-    vol = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "biblio.volume"),
-            JsonPathRule("dim_json", "volume"),
-            JsonPathRule(
-                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Volume"
-            ),
-            JsonPathRule("sulpub_json", "journal.volume"),
-        ],
-    )
-
-    match vol:
-        case list():
-            return vol[0] if len(vol) > 0 else None
-        case str():
-            return vol
-        case _:
-            return None
-
-
-def _issue(row) -> str | None:
-    issue = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "biblio.issue"),
-            JsonPathRule("dim_json", "issue"),
-            JsonPathRule(
-                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Issue"
-            ),
-            JsonPathRule("sulpub_json", "journal.issue"),
-        ],
-    )
-
-    match issue:
-        case list():
-            return issue[0] if len(issue) > 0 else None
-        case str():
-            return issue
-        case _:
-            return None
-
-
-def _citation_count(row) -> str | int | None:
-    """
-    Get the citation count from OpenAlex, Dimensions, then WOS.
-    """
-    counts = all(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "cited_by_count"),
-            JsonPathRule("dim_json", "recent_citations"),
-            JsonPathRule(
-                "wos_json",
-                "dynamic_data.citation_related.tc_list.silo_tc[?@.coll_id == 'WOS'].local_count",
-            ),
-        ],
-    )
-    # drop any string or None values
-    counts = [count for count in counts if isinstance(count, int)]
-    return max(counts) if counts else None
 
 
 def _author_list_names(row) -> list[Any]:

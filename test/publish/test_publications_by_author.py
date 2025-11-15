@@ -5,6 +5,16 @@ from rialto_airflow.publish import publication
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.schema.reports import PublicationsByAuthor
 
+from rialto_airflow.distiller.abstract import (
+    abstract,
+    _pubmed_abstract,
+    _rebuild_abstract,
+)
+from rialto_airflow.distiller.pages import pages, _openalex_pages
+from rialto_airflow.distiller.volume import volume
+from rialto_airflow.distiller.issue import issue
+from rialto_airflow.distiller.citation_count import citation_count
+
 
 def test_write_publications_by_author(test_reports_session, snapshot, dataset, caplog):
     result = publication.export_publications_by_author(snapshot)
@@ -144,7 +154,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
 
 
 def test_pubmed_abstract(pubmed_json):
-    abstract = publication._pubmed_abstract(pubmed_json)
+    abstract = _pubmed_abstract(pubmed_json)
     assert (
         abstract
         == "Comorbid insomnia with obstructive sleep apnea (COMISA) is associated with worse daytime function and more medical/psychiatric comorbidities vs either condition alone. E2006-G000-304 was a phase 3, one-month polysomnography trial in adults aged ≥55 years with insomnia."
@@ -184,7 +194,7 @@ def pubmed_json_text():
 
 
 def test_pubmed_fields(pubmed_json_text):
-    abstract = publication._pubmed_abstract(pubmed_json_text)
+    abstract = _pubmed_abstract(pubmed_json_text)
     assert abstract == "This is the abstract. It provides a summary of the article."
 
 
@@ -204,7 +214,7 @@ def test_pubmed_fields_no_abstract():
         },
     }
 
-    abstract = publication._pubmed_abstract(pubmed_no_abstract)
+    abstract = _pubmed_abstract(pubmed_no_abstract)
     assert abstract is None
 
 
@@ -244,13 +254,9 @@ def test_dimensions_fields(test_session, dim_json_fields):
         )
     session.add(pub)
 
-    with test_session.begin() as select_session:
-        result = select_session.execute(
-            select(Publication).where(Publication.doi == "10.000/000003")
-        )
-        for row in result:
-            assert publication._abstract(row) == "This is a sample Dimensions abstract."
-            assert publication._pages(row) == "1-10"
+    row = session.query(Publication).filter_by(doi="10.000/000003").first()
+    assert abstract(row) == "This is a sample Dimensions abstract."
+    assert pages(row) == "1-10"
 
 
 def test_openalex_fields(test_session, openalex_json):
@@ -272,10 +278,8 @@ def test_openalex_fields(test_session, openalex_json):
         )
         session.add(pub)
         pub_row = session.query(Publication).filter_by(doi="10.000/000003").first()
-        assert (
-            publication._abstract(pub_row) == "This is an abstract which is inverted."
-        )
-        assert publication._pages(pub_row) == "1-9"
+        assert abstract(pub_row) == "This is an abstract which is inverted."
+        assert pages(pub_row) == "1-9"
 
 
 def test_rebuild_empty_abstract():
@@ -284,7 +288,7 @@ def test_rebuild_empty_abstract():
         "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
         "abstract_inverted_index": None,
     }
-    abstract = publication._rebuild_abstract(openalex_json)
+    abstract = _rebuild_abstract(openalex_json)
     assert abstract is None
 
 
@@ -292,7 +296,7 @@ def test_openalex_pages_start_only():
     openalex_json = {
         "biblio": {"issue": "11", "first_page": "1", "volume": "2"},
     }
-    pages = publication._openalex_pages(openalex_json)
+    pages = _openalex_pages(openalex_json)
     assert pages == "1"
 
 
@@ -300,7 +304,7 @@ def test_openalex_pages_end_only():
     openalex_json = {
         "biblio": {"issue": "11", "last_page": "9", "volume": "2"},
     }
-    pages = publication._openalex_pages(openalex_json)
+    pages = _openalex_pages(openalex_json)
     assert pages == "9"
 
 
@@ -324,8 +328,8 @@ def test_sulpub_fields(test_session, sulpub_json):
         session.add(pub)
 
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
-        assert publication._pages(pub_row) == "1-7"
-        assert publication._citation_count(pub_row) is None
+        assert pages(pub_row) == "1-7"
+        assert citation_count(pub_row) is None
 
 
 def test_volume_issue():
@@ -348,24 +352,24 @@ def test_volume_issue():
     # slowly peel away the platform metadata that's available to confirm that we are
     # matching in the right order, and looking for values correctly
 
-    assert publication._volume(pub) == "1"
-    assert publication._issue(pub) == "2"
+    assert volume(pub) == "1"
+    assert issue(pub) == "2"
 
     pub.openalex_json = {}
-    assert publication._volume(pub) == "3"
-    assert publication._issue(pub) == "4"
+    assert volume(pub) == "3"
+    assert issue(pub) == "4"
 
     pub.dim_json = {}
-    assert publication._volume(pub) == "5"
-    assert publication._issue(pub) == "6"
+    assert volume(pub) == "5"
+    assert issue(pub) == "6"
 
     pub.pubmed_json = {}
-    assert publication._volume(pub) == "7"
-    assert publication._issue(pub) == "8"
+    assert volume(pub) == "7"
+    assert issue(pub) == "8"
 
     pub.sulpub_json = {}
-    assert publication._volume(pub) is None
-    assert publication._issue(pub) is None
+    assert volume(pub) is None
+    assert issue(pub) is None
 
 
 def test_volume_issue_list():
@@ -375,8 +379,8 @@ def test_volume_issue_list():
         openalex_json={"biblio": {"volume": ["24"], "issue": ["615"]}},
     )
 
-    assert publication._volume(pub) == "24"
-    assert publication._issue(pub) == "615"
+    assert volume(pub) == "24"
+    assert issue(pub) == "615"
 
 
 def test_authors(test_session):

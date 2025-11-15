@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from rialto_airflow.apc import get_apc
 from rialto_airflow.database import get_session
 from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.distiller.title import title
 from rialto_airflow.harvest.openalex import source_by_issn
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
@@ -31,7 +32,7 @@ def distill(snapshot: Snapshot) -> int:
 
             # populate new publication columns
             cols = {
-                "title": _title(pub),
+                "title": title(pub),
                 "pub_year": _pub_year(pub),
                 "open_access": _open_access(pub),
                 "types": _types(pub),
@@ -63,21 +64,6 @@ def distill(snapshot: Snapshot) -> int:
 # function so they aren't being reinstantiated all the time?
 #
 
-
-def _title(pub):
-    """
-    Get the title from sulpub, dimensions, openalex, then wos.
-    """
-    return first(
-        pub,
-        rules=[
-            JsonPathRule("sulpub_json", "title"),
-            JsonPathRule("sulpub_json", "booktitle"),
-            JsonPathRule("dim_json", "title"),
-            JsonPathRule("openalex_json", "title"),
-            FuncRule("wos_json", _wos_title),
-        ],
-    )
 
 
 def _pub_year(pub):
@@ -151,15 +137,6 @@ def _apc(pub, context):
 # Helper functions to extract from specific JSON data structures that
 # aren't workable using JSON Path by itself.
 #
-
-
-def _wos_title(wos_json):
-    jsonp = json_path("static_data.summary.titles[*].title[*]")
-    for title in jsonp.find(wos_json):
-        if isinstance(title.value, dict) and title.value.get("type") == "item":
-            return title.value.get("content")
-
-    return None
 
 
 def _open_access_dim(dim_json: dict) -> Optional[str]:

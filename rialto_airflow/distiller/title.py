@@ -1,5 +1,6 @@
 from rialto_airflow.distiller import JsonPathRule, FuncRule, first, json_path
 
+
 def title(pub):
     """
     Get the title from sulpub, dimensions, openalex, then wos.

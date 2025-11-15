@@ -24,5 +24,3 @@ def journal_name(pub) -> str | None:
         source = source_by_issn(issn)
         return source.get("display_name") if source else None
     return None
-
-

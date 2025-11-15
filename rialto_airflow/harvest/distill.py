@@ -4,7 +4,15 @@ from typing import Optional
 from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import title, pub_year, open_access, types, publisher, journal_name, apc
+from rialto_airflow.distiller import (
+    title,
+    pub_year,
+    open_access,
+    types,
+    publisher,
+    journal_name,
+    apc,
+)
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
 

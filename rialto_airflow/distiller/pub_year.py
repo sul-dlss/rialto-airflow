@@ -1,5 +1,6 @@
 from .utils import JsonPathRule, first
 
+
 def pub_year(pub):
     """
     Get the pub_year from dimensions, openalex, wos and then sul-pub
@@ -16,5 +17,3 @@ def pub_year(pub):
             JsonPathRule("sulpub_json", "journal.year", is_valid_year=True),
         ],
     )
-
-

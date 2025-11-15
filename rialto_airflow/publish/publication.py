@@ -1,12 +1,22 @@
-import itertools
 import logging
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.distiller import FuncRule, JsonPathRule, all, first, json_path
+from rialto_airflow.distiller import (
+    abstract,
+    pages,
+    volume,
+    issue,
+    citation_count,
+    author_list_names,
+    first_author_name,
+    last_author_name,
+    author_list_orcids,
+    first_author_orcid,
+    last_author_orcid,
+)
 from rialto_airflow.schema.harvest import (
     Author,
     Funder,
@@ -19,7 +29,7 @@ from rialto_airflow.schema.reports import (
     PublicationsByDepartment,
     PublicationsBySchool,
 )
-from rialto_airflow.utils import join_keys, normalize_orcid, piped
+from rialto_airflow.utils import piped
 
 # NOTE: We used to write out CSV files to google drive as well.
 # This was removed in https://github.com/sul-dlss/rialto-airflow/pull/528 in case
@@ -252,23 +262,23 @@ def export_publications_by_author(snapshot) -> int:
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
-                    "abstract": _abstract(row),
-                    "author_list_names": piped(_author_list_names(row)),
-                    "author_list_orcids": piped(_author_list_orcids(row)),
+                    "abstract": abstract(row),
+                    "author_list_names": piped(author_list_names(row)),
+                    "author_list_orcids": piped(author_list_orcids(row)),
                     "academic_council": row.academic_council,
                     "apc": row.apc,
-                    "citation_count": _citation_count(row),
+                    "citation_count": citation_count(row),
                     "doi": row.doi,
                     "federally_funded": any(row.federal),
-                    "first_author_name": _first_author_name(row),
-                    "first_author_orcid": _first_author_orcid(row),
-                    "issue": _issue(row),
-                    "last_author_name": _last_author_name(row),
-                    "last_author_orcid": _last_author_orcid(row),
+                    "first_author_name": first_author_name(row),
+                    "first_author_orcid": first_author_orcid(row),
+                    "issue": issue(row),
+                    "last_author_name": last_author_name(row),
+                    "last_author_orcid": last_author_orcid(row),
                     "journal_name": row.journal_name,
                     "open_access": row.open_access,
                     "orcid": row.orcid,
-                    "pages": _pages(row),
+                    "pages": pages(row),
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
                     "publisher": row.publisher,
@@ -277,7 +287,7 @@ def export_publications_by_author(snapshot) -> int:
                     "pub_year": row.pub_year,
                     "title": row.title,
                     "types": piped(row.types),
-                    "volume": _volume(row),
+                    "volume": volume(row),
                 }
 
                 insert_session.execute(
@@ -291,398 +301,3 @@ def export_publications_by_author(snapshot) -> int:
         )
 
     return count
-
-
-def _abstract(row):
-    """
-    Get the abstract from openalex, dimensions, pubmed then crossref.
-    """
-    return first(
-        row,
-        rules=[
-            FuncRule("openalex_json", _rebuild_abstract),
-            JsonPathRule("dim_json", "abstract"),
-            FuncRule("pubmed_json", _pubmed_abstract),
-            JsonPathRule("crossref_json", "abstract"),
-        ],
-    )
-
-
-def _pubmed_abstract(pubmed_json: dict) -> str | None:
-    """
-    Get the abstract from PubMed JSON.
-    """
-    if pubmed_json is None:
-        return None
-
-    full_abstract = []
-    jsonp = json_path("MedlineCitation.Article.Abstract.AbstractText[*]")
-    abstract_text = jsonp.find(pubmed_json)
-    if abstract_text:
-        for abstract in abstract_text:
-            # sometimes the abstract is a string and not a dict of text segments
-            if isinstance(abstract.value, str):
-                full_abstract.append(abstract.value)
-            else:
-                full_abstract.append(abstract.value.get("#text", None))
-        # remove any None or empty-string segments before joining
-        full_abstract = [
-            text
-            for text in full_abstract
-            if text is not None and str(text).strip() != ""
-        ]
-        return " ".join(full_abstract)
-    return None
-
-
-def _rebuild_abstract(openalex_json: dict) -> str | None:
-    """
-    Rebuilds an abstract from a positional inverted index.
-    """
-
-    # openalex metadata isn't always defined
-    if openalex_json is None:
-        return None
-
-    # guard against the abstract data being missing
-    inverted_index = openalex_json.get("abstract_inverted_index")
-    if inverted_index is None:
-        return None
-
-    # Create a list to hold the words in their correct positions.
-    # We find the max position to make sure the list is large enough.
-    max_position = 0
-    for positions in inverted_index.values():
-        if positions:
-            max_position = max(max_position, max(positions))
-
-    # The list is zero-indexed, so we need max_position + 1 length.
-    abstract_words = [""] * (max_position + 1)
-
-    # Place each word in its correct position.
-    for word, positions in inverted_index.items():
-        for position in positions:
-            abstract_words[position] = word
-
-    # Join the words to form the final abstract.
-    return " ".join(abstract_words)
-
-
-def _pages(row) -> str | int | list | None:
-    return first(
-        row,
-        rules=[
-            FuncRule("openalex_json", _openalex_pages),
-            JsonPathRule("dim_json", "pages"),
-            JsonPathRule("sulpub_json", "journal.pages"),
-        ],
-    )
-
-
-def _openalex_pages(openalex_json: dict) -> str | None:
-    start_page = _openalex_start_page(openalex_json)
-    end_page = _openalex_end_page(openalex_json)
-    if start_page and end_page:
-        return f"{start_page}-{end_page}"
-    elif start_page:
-        return start_page
-    return end_page
-
-
-def _openalex_start_page(openalex_json: dict) -> str | None:
-    start_jsonp = json_path("biblio.first_page")
-    for start_page in start_jsonp.find(openalex_json):
-        return start_page.value
-    return None
-
-
-def _openalex_end_page(openalex_json: dict) -> str | None:
-    end_jsonp = json_path("biblio.last_page")
-    for end_page in end_jsonp.find(openalex_json):
-        return end_page.value
-    return None
-
-
-def _volume(row) -> str | None:
-    vol = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "biblio.volume"),
-            JsonPathRule("dim_json", "volume"),
-            JsonPathRule(
-                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Volume"
-            ),
-            JsonPathRule("sulpub_json", "journal.volume"),
-        ],
-    )
-
-    match vol:
-        case list():
-            return vol[0] if len(vol) > 0 else None
-        case str():
-            return vol
-        case _:
-            return None
-
-
-def _issue(row) -> str | None:
-    issue = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "biblio.issue"),
-            JsonPathRule("dim_json", "issue"),
-            JsonPathRule(
-                "pubmed_json", "MedlineCitation.Article.Journal.JournalIssue.Issue"
-            ),
-            JsonPathRule("sulpub_json", "journal.issue"),
-        ],
-    )
-
-    match issue:
-        case list():
-            return issue[0] if len(issue) > 0 else None
-        case str():
-            return issue
-        case _:
-            return None
-
-
-def _citation_count(row) -> str | int | None:
-    """
-    Get the citation count from OpenAlex, Dimensions, then WOS.
-    """
-    counts = all(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "cited_by_count"),
-            JsonPathRule("dim_json", "recent_citations"),
-            JsonPathRule(
-                "wos_json",
-                "dynamic_data.citation_related.tc_list.silo_tc[?@.coll_id == 'WOS'].local_count",
-            ),
-        ],
-    )
-    # drop any string or None values
-    counts = [count for count in counts if isinstance(count, int)]
-    return max(counts) if counts else None
-
-
-def _author_list_names(row) -> list[Any]:
-    """
-    Get a list of all the author names.
-    """
-    names = first(
-        row,
-        rules=[
-            JsonPathRule(
-                "openalex_json", "authorships[*].author.display_name", return_list=True
-            ),
-            FuncRule("dim_json", _dim_author_list_names),
-            FuncRule("pubmed_json", _pubmed_author_list_names),
-            JsonPathRule(
-                "wos_json",
-                "static_data.summary.names.name[*].display_name",
-                return_list=True,
-            ),
-            JsonPathRule(
-                "wos_json",
-                "static_data.summary.names.name.display_name",
-                return_list=True,
-            ),
-            FuncRule("crossref_json", _crossref_author_list_names),
-            FuncRule("sulpub_json", _sulpub_author_list_names),
-        ],
-    )
-
-    # the result of first could be None, a string or a list of values
-    # but we always need to return a list
-    if names is None:
-        return []
-    elif type(names) is list:
-        return names
-    else:
-        # package up single value in a list
-        return [names]
-
-
-def _first_author_name(row) -> str | None:
-    names = _author_list_names(row)
-    return names[0] if names is not None and len(names) > 0 else None
-
-
-def _last_author_name(row) -> str | None:
-    names = _author_list_names(row)
-    return names[-1] if names is not None and len(names) > 0 else None
-
-
-def _dim_author_list_names(row) -> list[str]:
-    if row is None:
-        return []
-
-    return [
-        match.value["first_name"] + " " + match.value["last_name"]
-        for match in json_path("authors[*]").find(row)
-    ]
-
-
-def _pubmed_author_list_names(row) -> list[str]:
-    if row is None:
-        return []
-
-    return [
-        join_keys(match.value, "ForeName", "LastName")
-        for match in json_path("MedlineCitation.Article.AuthorList.Author[*]").find(row)
-    ]
-
-
-def _crossref_author_list_names(row) -> list[str]:
-    if row is None:
-        return []
-
-    return [
-        join_keys(match.value, "given", "family")
-        for match in json_path("author[*]").find(row)
-    ]
-
-
-def _sulpub_author_list_names(row) -> list[str]:
-    """
-    Turn names like "Stanford, L. D." into "L. D. Stanford"
-    """
-    if row is None:
-        return []
-
-    names = []
-    for match in json_path("author[*].name").find(row):
-        parts = [s.strip() for s in match.value.split(",")]
-        names.append(" ".join(parts[1:] + [parts[0]]))
-
-    return names
-
-
-def _author_list_orcids(row) -> list[str]:
-    """
-    Get a pipe delimited list of all the author names.
-    """
-    orcids = all(
-        row,
-        rules=[
-            JsonPathRule(
-                "openalex_json", "authorships[*].author.orcid", return_list=True
-            ),
-            JsonPathRule("dim_json", "authors[*].orcid[*]", return_list=True),
-            FuncRule("pubmed_json", _pubmed_orcids),
-            JsonPathRule(
-                "wos_json",
-                "static_data.summary.names.name[*].orcid_id",
-                return_list=True,
-            ),
-            JsonPathRule(
-                "wos_json",
-                "static_data.summary.names.name.orcid_id",
-                return_list=True,
-            ),
-            JsonPathRule("crossref_json", "author[*].ORCID", return_list=True),
-        ],
-    )
-
-    # restructure a list of lists into a flat list of strings
-    orcids = list(itertools.chain(*orcids))
-
-    orcids = [normalize_orcid(orcid) for orcid in orcids if orcid is not None]
-
-    # unique
-    orcids = sorted(list(set(orcids)))
-
-    return orcids
-
-
-def _pubmed_orcids(row):
-    orcids = []
-    for result in json_path(
-        "MedlineCitation.Article.AuthorList.Author[*].Identifier"
-    ).find(row):
-        ids = result.value
-
-        # Identifier can be a single dict, or a list of dicts.
-        # Ensure that it is a list of dicts.
-        if type(ids) is dict:
-            ids = [ids]
-
-        for id_ in ids:
-            if id_.get("@Source") == "ORCID":
-                orcids.append(id_["#text"])
-
-    return orcids
-
-
-def _first_author_orcid(row) -> str | None:
-    orcid = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "authorships[0].author.orcid"),
-            JsonPathRule("dim_json", "authors[0].orcid[0]"),
-            FuncRule("pubmed_json", _pubmed_first_author_orcid),
-            JsonPathRule("wos_json", "static_data.summary.names.name[0].orcid_id"),
-            JsonPathRule("wos_json", "static_data.summary.names.name.orcid_id"),
-            JsonPathRule("crossref_json", "author[0].ORCID"),
-        ],
-    )
-
-    if orcid is not None:
-        orcid = normalize_orcid(orcid)
-
-    return orcid
-
-
-def _last_author_orcid(row) -> str | None:
-    orcid = first(
-        row,
-        rules=[
-            JsonPathRule("openalex_json", "authorships[-1].author.orcid"),
-            JsonPathRule("dim_json", "authors[-1].orcid[0]"),
-            FuncRule("pubmed_json", _pubmed_last_author_orcid),
-            JsonPathRule("wos_json", "static_data.summary.names.name[-1].orcid_id"),
-            JsonPathRule("wos_json", "static_data.summary.names.name.orcid_id"),
-            JsonPathRule("crossref_json", "author[-1].ORCID"),
-        ],
-    )
-
-    if orcid is not None:
-        orcid = normalize_orcid(orcid)
-
-    return orcid
-
-
-def _pubmed_first_author_orcid(pub) -> str | None:
-    return _pubmed_author_orcid(pub, pos=0)
-
-
-def _pubmed_last_author_orcid(pub) -> str | None:
-    return _pubmed_author_orcid(pub, pos=-1)
-
-
-def _pubmed_author_orcid(pub, pos: int) -> str | None:
-    try:
-        results = json_path(
-            f"MedlineCitation.Article.AuthorList.Author[{pos}].Identifier"
-        ).find(pub)
-    except KeyError:
-        # sometimes there is a single author object instead of a list of author objects
-        # in which case we always return the authors ORCID (if it's there)
-        results = json_path(
-            "MedlineCitation.Article.AuthorList.Author.Identifier"
-        ).find(pub)
-
-    for result in results:
-        ids = result.value
-
-        # Identifier can be a single dict or a list of dicts
-        if type(ids) is dict:
-            ids = [ids]
-
-        for id_ in ids:
-            if id_.get("@Source") == "ORCID":
-                return id_.get("#text")
-
-    return None

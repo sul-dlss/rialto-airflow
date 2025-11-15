@@ -1,0 +1,216 @@
+import datetime
+import logging
+from functools import cache
+from dataclasses import dataclass
+from typing import Callable, Optional
+
+from jsonpath_ng.ext import parse  # type: ignore
+from sqlalchemy.engine.row import Row  # type: ignore
+
+
+"""
+This module lets you define rules for extracting information from the JSON that
+has been collected for a publication. It is useful in situations where you want
+to extract a value from multiple locations in the JSON, which are expressed in
+order of preference, and you want to get the first one that matches.
+
+The JsonPathRule will look for the result of applying a particular JSON Path to
+the JSON. For rules that can't be expressed as a JSON Path you can use FuncRule
+that will use the result of calling a given function with the JSON.
+
+For example this will look for a title in sul_pub, Dimensions, Openalex and fall
+back to using a function to extract it from the WebOfScience metadata:
+
+    from rialto_airflow.distiller import first, JsonPathRule, FuncRule
+
+    first(
+        pub,
+        rules=[
+            JsonPathRule("sulpub_json", "title"),
+            JsonPathRule("dim_json", "title"),
+            JsonPathRule("openalex_json", "title"),
+            FuncRule("wos_json", _wos_title)
+        ]
+    )
+
+    def _wos_title(obj):
+        ...
+
+Some distilling happens during the harvest DAG, and some during the data
+publishing, so it was pulled out into a separate module.
+
+Maybe this could work only with JSON and be agnostic about operating on a
+Publication row?
+
+    first([
+        JsonPathRule(pub.sulpub_json, "title"),
+        JsonPathRule(pub.dim_json, "title"),
+        JsonPathRule(pub.openalex_json, "title"),
+        FuncRule(pub.wos_json, _wos_title)
+    ])
+
+"""
+
+
+@dataclass
+class JsonPathRule:
+    """
+    A rule for extracting a JsonPath from a given JSON column.
+
+    col: is the name of the column to extract from, e.g. "sul_pub"
+    matcher: a JsonPath string
+    is_valid_year: the value isn't greater than the current year (optional)
+    only_positive_number: the value is a positive number (optional)
+    return_list: ensures that a list of values is returned (optional and not usable with
+    is_valid_year and only_positive_number)
+    """
+
+    col: str
+    matcher: str
+    is_valid_year: bool = False
+    only_positive_number: bool = False
+    return_list: bool = False
+
+
+@dataclass
+class FuncRule:
+    """
+    A rule for using a function to extract from a given JSON column. It is
+    useful in situations where a JsonPath alone can't be used. The context
+    can include additional information to pass with the rule.
+
+    col: is the name of the column to extract from, e.g. "sul_pub"
+    matcher: is a function that is passed the JSON object
+    context: an optional dictionary of data to use when matching
+    """
+
+    col: str
+    matcher: Callable
+    context: Optional[dict] = None
+
+
+Rule = JsonPathRule | FuncRule
+
+RuleMatch = Optional[str | int | list]
+
+
+def first(pub: Row, rules: list[Rule]) -> Optional[str | list]:
+    """
+    Examines a Publication row using a list of rules and returns the result of
+    the first rule that matches. A rule could potentially return a list of
+    values.
+    """
+    results = all(pub, rules=rules)
+    return results[0] if len(results) > 0 else None
+
+
+def all(pub: Row, rules: list[Rule]) -> list:
+    """
+    Examines a Publication row using a list of rules and returns the result of
+    all rule matches.
+    """
+    results = []
+
+    for rule in rules:
+        if not isinstance(rule, Rule):
+            raise Exception("Rule must be JsonPathRule or FuncRule")
+
+        # get the appropriate bit of json to analyze
+        data = getattr(pub, rule.col)
+
+        # variable to store the rule match
+        result = None
+
+        if isinstance(rule, JsonPathRule):
+            result = _jsonpath_match(rule, data)
+        elif isinstance(rule, FuncRule):
+            result = _func_match(rule, data)
+
+        # a non-None, non-empty result indicates the rule hit a match
+        if result is not None and result != []:
+            results.append(result)
+
+    return results
+
+
+def _jsonpath_match(rule: JsonPathRule, data) -> Optional[list | str | int]:
+    jpath = json_path(rule.matcher)
+
+    # Sometimes a JSON Path can cause a KeyError if it attempts to access a
+    # dictionary using an integer list index. For example using the JSON Path:
+    #
+    #   foo[0]
+    #
+    # on JSON that looks like:
+    #
+    #   {"foo": {"bar": "baz"}}
+    #
+    # In these cases we want to simply return no results instead of throwing an
+    # exception.
+
+    try:
+        results = jpath.find(data)
+    except KeyError:
+        results = []
+
+    if rule.return_list:
+        return [result.value for result in results]
+
+    if len(results) > 0:
+        # note: we currently only examine the first JSON Path match
+        result = results[0].value
+        if rule.only_positive_number:
+            result = _ensure_positive_number(result)
+            if result is None:
+                logging.debug(
+                    f"could not cast '{results[0].value}' to a positive number; jpath={jpath}; data={data}"
+                )
+        elif rule.is_valid_year:
+            result = _ensure_valid_year(result)
+            if result is None:
+                logging.debug(
+                    f"could not cast '{results[0].value}' to a non-future year; jpath={jpath}; data={data}"
+                )
+
+    else:
+        result = None
+
+    return result
+
+
+def _ensure_positive_number(value: str | int) -> Optional[int]:
+    result = None
+    try:
+        result = int(value)
+        if result < 0:
+            result = None
+    except (ValueError, TypeError):
+        pass
+
+    return result
+
+
+def _ensure_valid_year(value: str | int) -> Optional[int]:
+    result = None
+    try:
+        result = int(value)
+        if result > datetime.datetime.now().year:
+            result = None
+    except (ValueError, TypeError):
+        pass
+
+    return result
+
+
+def _func_match(rule: FuncRule, data: dict) -> Optional[str | int]:
+    if rule.context is not None:
+        result = rule.matcher(data, rule.context)
+    else:
+        result = rule.matcher(data)
+
+    return result
+
+
+@cache
+def json_path(path):
+    return parse(path)

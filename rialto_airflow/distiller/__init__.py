@@ -1,4 +1,13 @@
-from rialto_airflow.distiller.utils import FuncRule, JsonPathRule, all, first, json_path
+from .utils import FuncRule, JsonPathRule, all, first, json_path
+
+from .title import title
+from .pub_year import pub_year
+from .open_access import open_access
+from .types import types
+from .publisher import publisher
+from .journal_issn import journal_issn
+from .journal_name import journal_name
+from .apc import apc
 
 """
 This module lets you define rules for extracting information from the JSON that
@@ -44,9 +53,17 @@ Publication row?
 """
 
 __all__ = [
-    "FuncRule",
-    "JsonPathRule",
     "all",
+    "apc",
     "first",
-    "json_path"
+    "FuncRule",
+    "journal_issn",
+    "journal_name",
+    "json_path",
+    "JsonPathRule",
+    "open_access",
+    "pub_year",
+    "publisher",
+    "title",
+    "types",
 ]

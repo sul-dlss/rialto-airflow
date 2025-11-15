@@ -5,6 +5,26 @@ from rialto_airflow.publish import publication
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.schema.reports import PublicationsByAuthor
 
+from rialto_airflow.distiller.abstract import (
+    abstract,
+    _pubmed_abstract,
+    _rebuild_abstract,
+)
+from rialto_airflow.distiller.pages import pages, _openalex_pages
+from rialto_airflow.distiller.volume import volume
+from rialto_airflow.distiller.issue import issue
+from rialto_airflow.distiller.citation_count import citation_count
+from rialto_airflow.distiller.author_names import (
+    author_list_names,
+    first_author_name,
+    last_author_name,
+)
+from rialto_airflow.distiller.author_orcids import (
+    author_list_orcids,
+    first_author_orcid,
+    last_author_orcid,
+)
+
 
 def test_write_publications_by_author(test_reports_session, snapshot, dataset, caplog):
     result = publication.export_publications_by_author(snapshot)
@@ -144,7 +164,7 @@ def test_write_publications_by_author(test_reports_session, snapshot, dataset, c
 
 
 def test_pubmed_abstract(pubmed_json):
-    abstract = publication._pubmed_abstract(pubmed_json)
+    abstract = _pubmed_abstract(pubmed_json)
     assert (
         abstract
         == "Comorbid insomnia with obstructive sleep apnea (COMISA) is associated with worse daytime function and more medical/psychiatric comorbidities vs either condition alone. E2006-G000-304 was a phase 3, one-month polysomnography trial in adults aged ≥55 years with insomnia."
@@ -184,7 +204,7 @@ def pubmed_json_text():
 
 
 def test_pubmed_fields(pubmed_json_text):
-    abstract = publication._pubmed_abstract(pubmed_json_text)
+    abstract = _pubmed_abstract(pubmed_json_text)
     assert abstract == "This is the abstract. It provides a summary of the article."
 
 
@@ -204,7 +224,7 @@ def test_pubmed_fields_no_abstract():
         },
     }
 
-    abstract = publication._pubmed_abstract(pubmed_no_abstract)
+    abstract = _pubmed_abstract(pubmed_no_abstract)
     assert abstract is None
 
 
@@ -244,13 +264,9 @@ def test_dimensions_fields(test_session, dim_json_fields):
         )
     session.add(pub)
 
-    with test_session.begin() as select_session:
-        result = select_session.execute(
-            select(Publication).where(Publication.doi == "10.000/000003")
-        )
-        for row in result:
-            assert publication._abstract(row) == "This is a sample Dimensions abstract."
-            assert publication._pages(row) == "1-10"
+    row = session.query(Publication).filter_by(doi="10.000/000003").first()
+    assert abstract(row) == "This is a sample Dimensions abstract."
+    assert pages(row) == "1-10"
 
 
 def test_openalex_fields(test_session, openalex_json):
@@ -272,10 +288,8 @@ def test_openalex_fields(test_session, openalex_json):
         )
         session.add(pub)
         pub_row = session.query(Publication).filter_by(doi="10.000/000003").first()
-        assert (
-            publication._abstract(pub_row) == "This is an abstract which is inverted."
-        )
-        assert publication._pages(pub_row) == "1-9"
+        assert abstract(pub_row) == "This is an abstract which is inverted."
+        assert pages(pub_row) == "1-9"
 
 
 def test_rebuild_empty_abstract():
@@ -284,7 +298,7 @@ def test_rebuild_empty_abstract():
         "biblio": {"issue": "11", "first_page": "1", "last_page": "9", "volume": "2"},
         "abstract_inverted_index": None,
     }
-    abstract = publication._rebuild_abstract(openalex_json)
+    abstract = _rebuild_abstract(openalex_json)
     assert abstract is None
 
 
@@ -292,7 +306,7 @@ def test_openalex_pages_start_only():
     openalex_json = {
         "biblio": {"issue": "11", "first_page": "1", "volume": "2"},
     }
-    pages = publication._openalex_pages(openalex_json)
+    pages = _openalex_pages(openalex_json)
     assert pages == "1"
 
 
@@ -300,7 +314,7 @@ def test_openalex_pages_end_only():
     openalex_json = {
         "biblio": {"issue": "11", "last_page": "9", "volume": "2"},
     }
-    pages = publication._openalex_pages(openalex_json)
+    pages = _openalex_pages(openalex_json)
     assert pages == "9"
 
 
@@ -324,8 +338,8 @@ def test_sulpub_fields(test_session, sulpub_json):
         session.add(pub)
 
         pub_row = session.query(Publication).filter_by(doi="10.000/sulpub").first()
-        assert publication._pages(pub_row) == "1-7"
-        assert publication._citation_count(pub_row) is None
+        assert pages(pub_row) == "1-7"
+        assert citation_count(pub_row) is None
 
 
 def test_volume_issue():
@@ -348,24 +362,24 @@ def test_volume_issue():
     # slowly peel away the platform metadata that's available to confirm that we are
     # matching in the right order, and looking for values correctly
 
-    assert publication._volume(pub) == "1"
-    assert publication._issue(pub) == "2"
+    assert volume(pub) == "1"
+    assert issue(pub) == "2"
 
     pub.openalex_json = {}
-    assert publication._volume(pub) == "3"
-    assert publication._issue(pub) == "4"
+    assert volume(pub) == "3"
+    assert issue(pub) == "4"
 
     pub.dim_json = {}
-    assert publication._volume(pub) == "5"
-    assert publication._issue(pub) == "6"
+    assert volume(pub) == "5"
+    assert issue(pub) == "6"
 
     pub.pubmed_json = {}
-    assert publication._volume(pub) == "7"
-    assert publication._issue(pub) == "8"
+    assert volume(pub) == "7"
+    assert issue(pub) == "8"
 
     pub.sulpub_json = {}
-    assert publication._volume(pub) is None
-    assert publication._issue(pub) is None
+    assert volume(pub) is None
+    assert issue(pub) is None
 
 
 def test_volume_issue_list():
@@ -375,8 +389,8 @@ def test_volume_issue_list():
         openalex_json={"biblio": {"volume": ["24"], "issue": ["615"]}},
     )
 
-    assert publication._volume(pub) == "24"
-    assert publication._issue(pub) == "615"
+    assert volume(pub) == "24"
+    assert issue(pub) == "615"
 
 
 def test_authors(test_session):
@@ -510,16 +524,16 @@ def test_authors(test_session):
     # slowly peel away the platform metadata that's available to confirm that we are
     # matching in the right order, and looking for values correctly
 
-    assert publication._author_list_names(pub) == [
+    assert author_list_names(pub) == [
         "Jane Open Alex",
         "Mike Open Alex",
         "Leland Open Alex",
     ]
-    assert publication._first_author_name(pub) == "Jane Open Alex"
-    assert publication._last_author_name(pub) == "Leland Open Alex"
-    assert publication._first_author_orcid(pub) == "jane-open-alex"
-    assert publication._last_author_orcid(pub) == "leland-open-alex"
-    assert publication._author_list_orcids(pub) == [
+    assert first_author_name(pub) == "Jane Open Alex"
+    assert last_author_name(pub) == "Leland Open Alex"
+    assert first_author_orcid(pub) == "jane-open-alex"
+    assert last_author_orcid(pub) == "leland-open-alex"
+    assert author_list_orcids(pub) == [
         "jane-crossref",
         "jane-dimensions",
         "jane-open-alex",
@@ -540,16 +554,16 @@ def test_authors(test_session):
     pub.openalex_json = {}
 
     # dimensions
-    assert publication._author_list_names(pub) == [
+    assert author_list_names(pub) == [
         "Jane Dimensions",
         "Mike Dimensions",
         "Leland Dimensions",
     ]
-    assert publication._first_author_name(pub) == "Jane Dimensions"
-    assert publication._last_author_name(pub) == "Leland Dimensions"
-    assert publication._first_author_orcid(pub) == "jane-dimensions"
-    assert publication._last_author_orcid(pub) == "leland-dimensions"
-    assert publication._author_list_orcids(pub) == [
+    assert first_author_name(pub) == "Jane Dimensions"
+    assert last_author_name(pub) == "Leland Dimensions"
+    assert first_author_orcid(pub) == "jane-dimensions"
+    assert last_author_orcid(pub) == "leland-dimensions"
+    assert author_list_orcids(pub) == [
         "jane-crossref",
         "jane-dimensions",
         "jane-pubmed",
@@ -567,16 +581,16 @@ def test_authors(test_session):
     pub.dim_json = {}
 
     # pubmed
-    assert publication._author_list_names(pub) == [
+    assert author_list_names(pub) == [
         "Jane Pubmed",
         "Mike Pubmed",
         "Leland Pubmed",
     ]
-    assert publication._first_author_name(pub) == "Jane Pubmed"
-    assert publication._last_author_name(pub) == "Leland Pubmed"
-    assert publication._first_author_orcid(pub) == "jane-pubmed"
-    assert publication._last_author_orcid(pub) == "leland-pubmed"
-    assert publication._author_list_orcids(pub) == [
+    assert first_author_name(pub) == "Jane Pubmed"
+    assert last_author_name(pub) == "Leland Pubmed"
+    assert first_author_orcid(pub) == "jane-pubmed"
+    assert last_author_orcid(pub) == "leland-pubmed"
+    assert author_list_orcids(pub) == [
         "jane-crossref",
         "jane-pubmed",
         "jane-wos",
@@ -591,12 +605,12 @@ def test_authors(test_session):
     pub.pubmed_json = {}
 
     # web-of-science
-    assert publication._author_list_names(pub) == ["Jane Wos", "Mike Wos", "Leland Wos"]
-    assert publication._first_author_name(pub) == "Jane Wos"
-    assert publication._last_author_name(pub) == "Leland Wos"
-    assert publication._first_author_orcid(pub) == "jane-wos"
-    assert publication._last_author_orcid(pub) == "leland-wos"
-    assert publication._author_list_orcids(pub) == [
+    assert author_list_names(pub) == ["Jane Wos", "Mike Wos", "Leland Wos"]
+    assert first_author_name(pub) == "Jane Wos"
+    assert last_author_name(pub) == "Leland Wos"
+    assert first_author_orcid(pub) == "jane-wos"
+    assert last_author_orcid(pub) == "leland-wos"
+    assert author_list_orcids(pub) == [
         "jane-crossref",
         "jane-wos",
         "leland-crossref",
@@ -608,16 +622,16 @@ def test_authors(test_session):
     pub.wos_json = {}
 
     # crossref
-    assert publication._author_list_names(pub) == [
+    assert author_list_names(pub) == [
         "Jane Crossref",
         "Mike Crossref",
         "Leland Crossref",
     ]
-    assert publication._first_author_name(pub) == "Jane Crossref"
-    assert publication._last_author_name(pub) == "Leland Crossref"
-    assert publication._first_author_orcid(pub) == "jane-crossref"
-    assert publication._last_author_orcid(pub) == "leland-crossref"
-    assert publication._author_list_orcids(pub) == [
+    assert first_author_name(pub) == "Jane Crossref"
+    assert last_author_name(pub) == "Leland Crossref"
+    assert first_author_orcid(pub) == "jane-crossref"
+    assert last_author_orcid(pub) == "leland-crossref"
+    assert author_list_orcids(pub) == [
         "jane-crossref",
         "leland-crossref",
         "mike-crossref",
@@ -626,16 +640,16 @@ def test_authors(test_session):
     pub.crossref_json = {}
 
     # sulpub (we don't extract orcids from sulpub)
-    assert publication._author_list_names(pub) == [
+    assert author_list_names(pub) == [
         "Jane Elizabeth Lathrop Sulpub",
         "Mike Sulpub",
         "Leland DeWitt Sulpub",
     ]
-    assert publication._first_author_name(pub) == "Jane Elizabeth Lathrop Sulpub"
-    assert publication._last_author_name(pub) == "Leland DeWitt Sulpub"
-    assert publication._first_author_orcid(pub) is None
-    assert publication._last_author_orcid(pub) is None
-    assert publication._author_list_orcids(pub) == []
+    assert first_author_name(pub) == "Jane Elizabeth Lathrop Sulpub"
+    assert last_author_name(pub) == "Leland DeWitt Sulpub"
+    assert first_author_orcid(pub) is None
+    assert last_author_orcid(pub) is None
+    assert author_list_orcids(pub) == []
 
 
 def test_authors_no_metadata():
@@ -643,12 +657,12 @@ def test_authors_no_metadata():
         doi="10.000/example",
         title="Help, I don't have any metadata!",
     )
-    assert publication._author_list_names(pub) == []
-    assert publication._first_author_name(pub) is None
-    assert publication._last_author_name(pub) is None
-    assert publication._first_author_orcid(pub) is None
-    assert publication._last_author_orcid(pub) is None
-    assert publication._author_list_orcids(pub) == []
+    assert author_list_names(pub) == []
+    assert first_author_name(pub) is None
+    assert last_author_name(pub) is None
+    assert first_author_orcid(pub) is None
+    assert last_author_orcid(pub) is None
+    assert author_list_orcids(pub) == []
 
 
 def test_pubmed_non_orcid():
@@ -673,9 +687,9 @@ def test_pubmed_non_orcid():
         },
     )
 
-    assert publication._first_author_orcid(pub) is None
-    assert publication._last_author_orcid(pub) is None
-    assert publication._author_list_orcids(pub) == []
+    assert first_author_orcid(pub) is None
+    assert last_author_orcid(pub) is None
+    assert author_list_orcids(pub) == []
 
 
 def test_one_author():
@@ -717,18 +731,18 @@ def test_one_author():
         },
     )
 
-    assert publication._author_list_names(pub) == ["Jane Pubmed"]
-    assert publication._first_author_name(pub) == "Jane Pubmed"
-    assert publication._last_author_name(pub) == "Jane Pubmed"
-    assert publication._first_author_orcid(pub) == "jane-pubmed"
+    assert author_list_names(pub) == ["Jane Pubmed"]
+    assert first_author_name(pub) == "Jane Pubmed"
+    assert last_author_name(pub) == "Jane Pubmed"
+    assert first_author_orcid(pub) == "jane-pubmed"
 
     # remove pubmed so that wos data is examined
     pub.pubmed_json = {}
 
-    assert publication._author_list_names(pub) == ["Jane Wos"]
-    assert publication._first_author_name(pub) == "Jane Wos"
-    assert publication._last_author_name(pub) == "Jane Wos"
-    assert publication._first_author_orcid(pub) == "jane-wos"
+    assert author_list_names(pub) == ["Jane Wos"]
+    assert first_author_name(pub) == "Jane Wos"
+    assert last_author_name(pub) == "Jane Wos"
+    assert first_author_orcid(pub) == "jane-wos"
 
 
 def test_pubmed_identifier_list():
@@ -761,9 +775,9 @@ def test_pubmed_identifier_list():
         },
     )
 
-    assert publication._author_list_orcids(pub) == ["jane-pubmed"]
-    assert publication._first_author_orcid(pub) == "jane-pubmed"
-    assert publication._last_author_orcid(pub) == "jane-pubmed"
+    assert author_list_orcids(pub) == ["jane-pubmed"]
+    assert first_author_orcid(pub) == "jane-pubmed"
+    assert last_author_orcid(pub) == "jane-pubmed"
 
 
 def test_crossref_missing_given_name():
@@ -785,7 +799,7 @@ def test_crossref_missing_given_name():
         },
     )
 
-    assert publication._author_list_names(pub) == ["Crossref", "Mike Crossref"]
+    assert author_list_names(pub) == ["Crossref", "Mike Crossref"]
 
 
 def test_pubmed_missing_given_name():
@@ -819,4 +833,4 @@ def test_pubmed_missing_given_name():
         },
     )
 
-    assert publication._author_list_names(pub) == ["Pubmed", "Mike Pubmed"]
+    assert author_list_names(pub) == ["Pubmed", "Mike Pubmed"]

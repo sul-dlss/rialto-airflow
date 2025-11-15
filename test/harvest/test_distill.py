@@ -2,7 +2,9 @@ import logging
 import pytest
 
 from rialto_airflow.schema.harvest import Publication, Author
-from rialto_airflow.harvest.distill import distill, _normalize_type, _journal_issn
+from rialto_airflow.harvest.distill import distill
+from rialto_airflow.distiller.types import _normalize_type
+from rialto_airflow.distiller.journal_issn import journal_issn
 
 # Set up JSON data that mirrors (in part) what we get from the respective APIs
 
@@ -1026,7 +1028,7 @@ def test_pubmed_publisher_journal(test_session, snapshot, pubmed_json):
 
     distill(snapshot)
     pub = _pub(session)
-    assert _journal_issn(pub) == "1873-2054"
+    assert journal_issn(pub) == "1873-2054"
     # will do live lookup in OpenAlex Sources API
     assert _pub(session).journal_name == "Health & Place"
     assert _pub(session).publisher == "Elsevier"
@@ -1051,7 +1053,7 @@ def test_dimensions_publisher_journal(test_session, snapshot):
     distill(snapshot)
 
     pub = _pub(session)
-    assert _journal_issn(pub) == "1476-4687"
+    assert journal_issn(pub) == "1476-4687"
     # will do live lookup in OpenAlex Sources API
     assert pub.publisher == "Springer Nature"
     assert pub.journal_name == "Nature"
@@ -1160,7 +1162,7 @@ def test_journal_issn(test_session, snapshot):
 
     # ISSNs extracted from multiple sources
     assert (
-        _journal_issn(_pub(session))
+        journal_issn(_pub(session))
         == "0000-0000|0009-4978|1111-1111|1523-8253|1943-5975|3333-3333|4444-4444"
     )
 
@@ -1204,7 +1206,7 @@ def test_null_issn(test_session):
         selected_pub = (
             session.query(Publication).filter_by(doi="10.000/some_doi").first()
         )
-        assert _journal_issn(selected_pub) is None
+        assert journal_issn(selected_pub) is None
 
 
 def test_invalid_issn(test_session, snapshot):
@@ -1230,4 +1232,4 @@ def test_invalid_issn(test_session, snapshot):
     distill(snapshot)
 
     # no valid ISSNs
-    assert _journal_issn(_pub(session)) == "1234-0000"
+    assert journal_issn(_pub(session)) == "1234-0000"

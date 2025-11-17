@@ -71,6 +71,8 @@ def test_normalize_doi():
         == "10.48550/arxiv.2202.01037"
     )
     assert utils.normalize_doi(None) is None
+    assert utils.normalize_doi("") is None
+    assert utils.normalize_doi("   ") is None
 
 
 def test_normalize_pmid():

@@ -272,7 +272,7 @@ def test_comma():
     this starts working again we can stop ignoring them when looking them up by
     DOI when doing the fill-in process.
     """
-    with pytest.raises(requests.exceptions.HTTPError, match="Bad Request for url"):
+    with pytest.raises(pyalex.api.QueryError, match="Invalid query parameter"):
         dois = "10.1103/physrevd.72,031101"
         pyalex.Works().filter(doi=dois).get()
 
@@ -284,7 +284,9 @@ def test_colon():
     filter using an OR boolean. If this test starts passing we can consider
     stopping ignoring them.
     """
-    with pytest.raises(requests.exceptions.HTTPError, match="Bad Request for url"):
+    with pytest.raises(
+        pyalex.api.QueryError, match="It looks like you're trying to do an OR query"
+    ):
         dois = "abc123|doi:abc123"
         pyalex.Works().filter(doi=dois).get()
 

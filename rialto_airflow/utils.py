@@ -70,15 +70,11 @@ def normalize_arxiv_id_to_doi(possible_arxiv_doi: str):
     colon with a period). For example, the arXiv ID arXiv:2202.01037 will
     translate to the DOI link https://doi.org/10.48550/arXiv.2202.01037."
     """
-    return (
-        re.sub("^arxiv:", "10.48550/arxiv.", possible_arxiv_doi, flags=re.IGNORECASE)
-        if possible_arxiv_doi
-        else None
-    )
+    return re.sub("^arxiv:", "10.48550/arxiv.", possible_arxiv_doi, flags=re.IGNORECASE)
 
 
 def normalize_doi(doi):
-    if doi is None:
+    if doi is None or doi.strip() == "":
         _data_quality_warning("Empty DOI")
         return None
 

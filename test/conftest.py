@@ -341,6 +341,7 @@ def wos_json_no_page_info():
 @pytest.fixture
 def sulpub_json():
     return {
+        "sulpubid": "123456",
         "journal": {
             "name": "Bad Limes Journal of Science",
             "issue": "9",

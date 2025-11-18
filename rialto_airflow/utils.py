@@ -129,6 +129,9 @@ def piped(lst: list[str] | None) -> Optional[str]:
     if lst is None:
         return None
 
+    # ensure the list doesn't contain None
+    lst = list(filter(lambda item: item is not None, lst))
+
     return "|".join(lst)
 
 

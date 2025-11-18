@@ -98,3 +98,8 @@ def test_normalize_orcid():
         utils.normalize_orcid(" HTTPS://ORCID.org/0000-0002-7262-6251 ")
         == "0000-0002-7262-6251"
     )
+
+
+def test_piped():
+    assert utils.piped(["a", "b", "c"]) == "a|b|c"
+    assert utils.piped(["a", None, "c", None, "d"]) == "a|c|d"  # type: ignore

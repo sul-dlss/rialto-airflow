@@ -469,7 +469,7 @@ def _citation_count(row) -> str | int | None:
 
 def _author_list_names(row) -> list[Any]:
     """
-    Get a pipe delimited list of all the author names.
+    Get a list of all the author names.
     """
     names = first(
         row,

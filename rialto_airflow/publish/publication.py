@@ -301,3 +301,49 @@ def export_publications_by_author(snapshot) -> int:
         )
 
     return count
+
+
+def generate_download_files(data_dir) -> None:
+    """
+    Generate download files for publications data.
+    """
+    # move this to top imports section once refactor is merged
+    from rialto_airflow.utils import downloads_dir
+    from rialto_airflow.database import create_engine, db_uri
+
+    TABLES = [
+        "publications",
+        "publications_by_department",
+        "publications_by_school",
+        "publications_by_author",
+    ]
+
+    # Using raw_connection for access to psycopg2 cursor's copy_expert method
+    conn = create_engine(db_uri(RIALTO_REPORTS_DB_NAME), echo=False).raw_connection()
+    cursor = conn.cursor()
+    for table in TABLES:
+        filepath = f"{downloads_dir(data_dir)}/{table}.csv"
+        copy_stmt = f"COPY {table} TO STDOUT WITH (FORMAT CSV, HEADER, DELIMITER ',');"
+        # Open the output file in write mode
+        with open(f"{filepath}", "w") as f:
+            # Execute the COPY command and stream the output directly to the file
+            cursor.copy_expert(copy_stmt, f)
+            logging.info(f"Generated download file at {filepath}")
+
+    # zip the files
+    # move imports later
+    import zipfile
+    import os
+
+    for table in TABLES:
+        filepath = f"{downloads_dir(data_dir)}/{table}.csv"
+        zip_temp_filepath = f"{downloads_dir(data_dir)}/{table}-temp.zip"
+
+        with zipfile.ZipFile(zip_temp_filepath, "w") as zipf:
+            zipf.write(filepath, arcname=os.path.basename(filepath))
+            zip_filepath = f"{downloads_dir(data_dir)}/{table}.zip"
+            # Move the temp zip to the final zip filepath and delete the original CSV
+            os.rename(zip_temp_filepath, zip_filepath)
+            os.remove(filepath)
+            logging.info(f"Generated zip file at {zip_filepath}")
+

@@ -46,6 +46,10 @@ def publish_to_reports():
     def publish_publications_by_author(snapshot):
         publication.export_publications_by_author(snapshot)
 
+    @task
+    def generate_download_files(data_dir):
+        publication.generate_download_files(data_dir)
+
     snapshot = get_snapshot()
 
     (
@@ -53,6 +57,7 @@ def publish_to_reports():
         >> publish_publications_by_school(snapshot)
         >> publish_publications_by_department(snapshot)
         >> publish_publications_by_author(snapshot)
+        >> generate_download_files(data_dir)
     )
 
 

@@ -1,9 +1,10 @@
 import logging
-
+import zipfile
+import os
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from rialto_airflow.database import get_session
+from rialto_airflow.database import create_engine, db_uri, get_session
 from rialto_airflow.distiller import (
     abstract,
     pages,
@@ -29,7 +30,7 @@ from rialto_airflow.schema.reports import (
     PublicationsByDepartment,
     PublicationsBySchool,
 )
-from rialto_airflow.utils import piped
+from rialto_airflow.utils import downloads_dir, piped
 
 # NOTE: We used to write out CSV files to google drive as well.
 # This was removed in https://github.com/sul-dlss/rialto-airflow/pull/528 in case
@@ -307,10 +308,6 @@ def generate_download_files(data_dir) -> None:
     """
     Generate download files for publications data.
     """
-    # move this to top imports section once refactor is merged
-    from rialto_airflow.utils import downloads_dir
-    from rialto_airflow.database import create_engine, db_uri
-
     TABLES = [
         "publications",
         "publications_by_department",
@@ -330,11 +327,6 @@ def generate_download_files(data_dir) -> None:
             cursor.copy_expert(copy_stmt, f)
             logging.info(f"Generated download file at {filepath}")
 
-    # zip the files
-    # move imports later
-    import zipfile
-    import os
-
     for table in TABLES:
         filepath = f"{downloads_dir(data_dir)}/{table}.csv"
         zip_temp_filepath = f"{downloads_dir(data_dir)}/{table}-temp.zip"
@@ -346,4 +338,3 @@ def generate_download_files(data_dir) -> None:
             os.rename(zip_temp_filepath, zip_filepath)
             os.remove(filepath)
             logging.info(f"Generated zip file at {zip_filepath}")
-

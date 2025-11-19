@@ -263,6 +263,8 @@ def openalex_json():
             "inverted.": [6],
         },
         "cited_by_count": 25,
+        "apc_paid": {"value_usd": 123},
+        "open_access": {"oa_status": "gold"},
     }
 
 
@@ -347,9 +349,11 @@ def sulpub_json():
             "issue": "9",
             "pages": "1-7",
             "volume": "4",
+            "year": 1999,
         },
         "issn": ["1234-0000"],
         "pmid": "123456",
+        "title": "Sometimes limes are ok",
     }
 
 

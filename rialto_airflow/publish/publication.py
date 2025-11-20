@@ -333,8 +333,8 @@ def generate_download_files(data_dir) -> None:
 
         with zipfile.ZipFile(zip_temp_filepath, "w") as zipf:
             zipf.write(filepath, arcname=os.path.basename(filepath))
-            zip_filepath = f"{downloads_dir(data_dir)}/{table}.zip"
-            # Move the temp zip to the final zip filepath and delete the original CSV
-            os.rename(zip_temp_filepath, zip_filepath)
-            os.remove(filepath)
-            logging.info(f"Generated zip file at {zip_filepath}")
+        zip_filepath = f"{downloads_dir(data_dir)}/{table}.zip"
+        # Move the temp zip to the final zip filepath and delete the original CSV
+        os.rename(zip_temp_filepath, zip_filepath)
+        os.remove(filepath)
+        logging.info(f"Generated zip file at {zip_filepath}")

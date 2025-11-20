@@ -1,3 +1,4 @@
+import pytest
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
@@ -52,3 +53,34 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
 
     assert "started writing publications table" in caplog.text
     assert "finished writing publications table" in caplog.text
+
+
+def test_generate_download_files(tmp_path):
+    # generate the download files
+    downloads_dir = tmp_path / "downloads"
+    downloads_dir.mkdir()
+    publication.generate_download_files(tmp_path)
+
+    # check that the expected files were created and CSVs removed
+    publications_file = downloads_dir / "publications.zip"
+    assert publications_file.is_file()
+    assert downloads_dir / "publications.csv" not in downloads_dir.iterdir()
+
+    publications_by_school_file = downloads_dir / "publications_by_school.zip"
+    assert publications_by_school_file.is_file()
+    assert downloads_dir / "publications_by_school.csv" not in downloads_dir.iterdir()
+
+    publications_by_department_file = downloads_dir / "publications_by_department.zip"
+    assert publications_by_department_file.is_file()
+    assert (
+        downloads_dir / "publications_by_department.csv" not in downloads_dir.iterdir()
+    )
+
+    publications_by_author_file = downloads_dir / "publications_by_author.zip"
+    assert publications_by_author_file.is_file()
+    assert downloads_dir / "publications_by_author.csv" not in downloads_dir.iterdir()
+
+
+def test_no_downloads_dir(snapshot, tmp_path):
+    with pytest.raises(Exception, match="downloads directory missing at"):
+        publication.generate_download_files(tmp_path)

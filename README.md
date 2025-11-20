@@ -38,13 +38,14 @@ The publish_orcid_to_reports DAG requires a CSV of active authors (active_author
 
 Put the `authors.csv` and `authors_active.csv` file in the `data/` directory.
 
+5. The publish_to_reports DAG expects a `downloads/` directory to exist in the directory for `AIRFLOW_VAR_DATA_DIR`.
 
-5. Bring up containers.
+6. Bring up containers.
 ```
 docker compose up -d
 ```
 
-6. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password: "airflow" and "airflow".
+7. The Airflow application will be available at `localhost:8080` and can be accessed with the default Airflow username and password: "airflow" and "airflow".
 
 ## Development
 

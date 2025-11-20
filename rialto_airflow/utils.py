@@ -25,6 +25,16 @@ def rialto_active_authors_file(data_dir):
         raise Exception(f"authors file missing at {authors_file}")
 
 
+def downloads_dir(data_dir):
+    """Get the path to the rialto data downloads directory"""
+    data_path = Path(data_dir) / "downloads"
+
+    if data_path.is_dir():
+        return str(data_path)
+    else:
+        raise Exception(f"downloads directory missing at {data_path}")
+
+
 @cache
 def doi_candidate_regex():
     """

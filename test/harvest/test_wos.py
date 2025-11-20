@@ -225,7 +225,9 @@ def test_customization_error(
     test_session, tmp_path, caplog, mock_authors, requests_mock
 ):
     """
-    A 500 error from WoS with a specific JSON error payload should be skipped over.
+    A 500 error (with a specific JSON error payload) we've seen from WoS.
+    Now handled like any other 500 error, but confirm that we get the error
+    message on the same log line as the HTTP error code.
     """
     requests_mock.get(
         re.compile(".*"),
@@ -237,7 +239,7 @@ def test_customization_error(
     snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
-    assert "got a 500 Customization Error" in caplog.text
+    assert re.search("500 Server Error.*Customization error", caplog.text)
 
 
 def test_not_found_error(test_session, tmp_path, caplog, mock_authors, requests_mock):
@@ -439,3 +441,46 @@ def test_publications_from_dois():
 
     # the number of pubs we get back should exceed the batch size if the paging is working
     assert len(pubs) > 50
+
+
+@pytest.fixture
+def mock_wos_api(monkeypatch):
+    def f(*args, **kwargs):
+        query = args[0]
+        if "my.unretrievable" in query:
+            raise requests.exceptions.HTTPError(
+                "https://wos-api.clarivate.com/api/wos?thisrequest=wontwork",
+                400,
+                "Server.Parser.NO_MATCHRULE, Translation Exception : NO_MATCHRULE:No matching rule found",
+            )
+
+        # NOTE: the below is not at all similar to the real API response, and
+        # would have to be fleshed out if this mock was used for anything that
+        # tries to use an API result.
+        yield {"key": "value"}
+
+    monkeypatch.setattr(wos, "_wos_api", f)
+
+
+def test_publications_from_doi_batch_with_error_doi(mock_wos_api, caplog):
+    dois = [
+        "10.29309/tpmj/2015.22.05.1304",
+        "10.1337/my.unretrievable.D01",  # should error in batch, and individually
+        "10.1021/nl401130d",
+        "10.1097/pcc.0000000000003026",
+        "10.2331/suisan.19.1069",
+        "10.1103/physrevb.53.r4221",
+        "10.1130/b31546.1",
+    ]
+
+    pubs = list(wos.publications_from_dois(dois))
+
+    assert len(pubs) == 6  # 6 of the 7 DOIs should return a result without error
+    assert re.search(
+        f"Unexpected error querying for DOIs in DOI batch, trying one at a time.*{dois[0]}.*{dois[-1]}.*error.*400: 'Server.Parser.NO_MATCHRULE, Translation Exception : NO_MATCHRULE:No matching rule found",
+        caplog.text,
+    )
+    assert (
+        "Unexpected error querying for single DOI from larger batch.  DOI=10.1337/my.unretrievable.D01"
+        in caplog.text
+    )

@@ -135,9 +135,40 @@ def orcid_publications(orcid) -> Generator[dict, None, None]:
 def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
     """
     A generator that returns publications associated a list of DOIs.
+
+    It will first try to lookup the DOIs in batches.  If a batch fails it will
+    try to look up each DOI in the batch individually, because we've seen batches
+    fail due to a single DOI within it, where many of the others might lookup successfully.
+    See https://github.com/sul-dlss/rialto-airflow/issues/680
+
+    A wordy note on timeouts in the API calls below (first value is
+    connection timeout, second is read):
+    * per the docs -- https://requests.readthedocs.io/en/stable/user/advanced/#timeouts
+    "It’s a good practice to set connect timeouts to slightly larger than a
+    multiple of 3, which is the default TCP packet retransmission window."
+    * The initial lookup read timeout is longer, a minute, but not too long, because responses should
+    be relatively quick, and we have a lot of batches to get through.  The read timeout for individual
+    lookups is much more aggressive at 15 seconds, because we switched to batches due to long runs
+    as a result of individual DOI lookups.
     """
     for doi_batch in batched(dois, n=50):
-        yield from _wos_api(f"DO=({' '.join(doi_batch)})")
+        try:
+            yield from _wos_api(
+                f"DO=({' '.join(doi_batch)})",
+                should_raise_for_status=True,
+                timeout=(6.05, 60),
+            )
+        except Exception as e:
+            logging.error(
+                f"Unexpected error querying for DOIs in DOI batch, trying one at a time.  doi_batch={doi_batch} -- error={e}"
+            )
+            for doi in doi_batch:
+                try:
+                    yield from _wos_api(f"DO=({doi})", timeout=(6.05, 15))
+                except Exception as e:
+                    logging.error(
+                        f"Unexpected error querying for single DOI from larger batch.  DOI={doi} -- error={e}"
+                    )
 
 
 def _wos_api_retry() -> Retry:
@@ -154,7 +185,11 @@ def _wos_api_retry() -> Retry:
     return Retry(status=10, status_forcelist=[429], backoff_factor=3, backoff_jitter=60)
 
 
-def _wos_api(query) -> Generator[dict, None, None]:
+def _wos_api(
+    query,
+    should_raise_for_status: bool = False,
+    timeout: int | tuple[float, float] | None = None,
+) -> Generator[dict, None, None]:
     """
     A generator that returns publications associated a list of DOIs.
     """
@@ -183,8 +218,10 @@ def _wos_api(query) -> Generator[dict, None, None]:
     # get the initial set of results, which also gives us a Query ID to fetch
     # subsequent pages of results if there are any
     logging.debug(f"fetching {base_url} with {params}")
-    resp: requests.Response = http.get(base_url, params=params, headers=headers)
-    if not check_status(resp):
+    resp: requests.Response = http.get(
+        base_url, params=params, headers=headers, timeout=timeout
+    )
+    if not check_status(resp, should_raise_for_status):
         return
 
     results = get_json(resp)
@@ -215,9 +252,12 @@ def _wos_api(query) -> Generator[dict, None, None]:
         http = requests.Session()
         http.mount("https://", HTTPAdapter(max_retries=_wos_api_retry()))
         resp = http.get(
-            f"{base_url}/query/{query_id}", params=page_params, headers=headers
+            f"{base_url}/query/{query_id}",
+            params=page_params,
+            headers=headers,
+            timeout=timeout,
         )
-        if not check_status(resp):
+        if not check_status(resp, should_raise_for_status):
             return
 
         records = get_json(resp)
@@ -245,27 +285,21 @@ def get_json(resp: requests.Response) -> Optional[dict]:
             raise e
 
 
-def check_status(resp: requests.Response) -> bool:
-    # see https://github.com/sul-dlss/rialto-airflow/issues/208
-    if (
-        resp.status_code == 500
-        and resp.headers.get("Content-Type") == "application/json"
-        and "Customization error" in resp.json().get("message", "")
-    ):
-        # TODO: this would be a good place for a honeybadger alert, so missing data doesn't fall through the cracks
-        logging.error(f"got a 500 Customization Error when looking up {resp.url}")
-        return False
-    else:
+def check_status(resp: requests.Response, should_raise_for_status: bool) -> bool:
+    try:
         # try raise_for_status() is pretty much what requests.Response.ok() does. But
         # doing similar, instead of a conditional on the ok() result, allows us to leverage
-        # the error message building that raise_for_status() already does.
-        try:
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            # TODO: this would be a good place for a honeybadger alert, so missing data doesn't fall through the cracks
-            logging.error(f"{e} -- {resp.text}")
+        # the error message building that raise_for_status() already does, before re-raising
+        # the appropriate HTTPError.
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        logging.error(f"{e} -- {resp.text}")
+        if should_raise_for_status:
+            raise
+        else:
             return False
-        return True
+
+    return True
 
 
 def get_doi(pub) -> Optional[str]:

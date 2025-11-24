@@ -3,6 +3,7 @@ from pathlib import Path
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from airflow.timetables.trigger import CronTriggerTimetable
 
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.snapshot import Snapshot
@@ -15,7 +16,9 @@ This DAG publishes data to postgres that is used to build dashboards
 
 
 @dag(
-    schedule="@weekly",
+    schedule=CronTriggerTimetable(
+        "0 1 * * 3", timezone="UTC"
+    ),  # At 01:00 on Wednesdays
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,

@@ -80,8 +80,6 @@ class PublicationsByAuthor(ReportsSchemaBase):  # type: ignore
     federally_funded = Column(Boolean)
     first_author_name = Column(String)
     first_author_orcid = Column(String)
-    funder_list_grid = Column(Text)
-    funder_list_name = Column(Text)
     grant_ids = Column(Text)
     issue = Column(String)
     journal_name = Column(String)

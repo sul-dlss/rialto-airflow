@@ -1,7 +1,7 @@
 import logging
 import zipfile
 import os
-from sqlalchemy import func, select
+from sqlalchemy import func, select, types
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import create_engine, db_uri, get_session
@@ -304,29 +304,75 @@ def export_publications_by_author(snapshot) -> int:
     return count
 
 
+TABLES = {
+    "publications": Publications,
+    "publications_by_department": PublicationsByDepartment,
+    "publications_by_school": PublicationsBySchool,
+    "publications_by_author": PublicationsByAuthor,
+}
+
+
 def generate_download_files(data_dir) -> None:
     """
     Generate download files for publications data.
     """
-    TABLES = [
-        "publications",
-        "publications_by_department",
-        "publications_by_school",
-        "publications_by_author",
-    ]
-
     # Using raw_connection for access to psycopg2 cursor's copy_expert method
     conn = create_engine(db_uri(RIALTO_REPORTS_DB_NAME), echo=False).raw_connection()
     cursor = conn.cursor()
     for table in TABLES:
         filepath = f"{downloads_dir(data_dir)}/{table}.csv"
-        copy_stmt = f"COPY {table} TO STDOUT WITH (FORMAT CSV, HEADER, DELIMITER ',');"
-        # Open the output file in write mode
         with open(f"{filepath}", "w") as f:
             # Execute the COPY command and stream the output directly to the file
-            cursor.copy_expert(copy_stmt, f)
+            cursor.copy_expert(_copy_stmt(table), f)
             logging.info(f"Generated download file at {filepath}")
+    _zip_files(data_dir)
+    cursor.close()
+    conn.close()
 
+
+def _copy_stmt(table: str) -> str:
+    """
+    Create a COPY statement that formats boolean values.
+    """
+    table_class = TABLES[table]
+    bool_cols = _get_boolean_columns(table_class)
+    all_columns = _get_table_columns(table_class)
+
+    # Build SELECT with CASE statements for boolean columns
+    # If we need to add any further processing, let's move away from this approach
+    # and write our own method to write to CSV.
+    select_columns = []
+    for col in all_columns:
+        if col in bool_cols:
+            select_columns.append(
+                f"CASE WHEN {col} IS TRUE THEN 'true' WHEN {col} IS FALSE THEN 'false' ELSE NULL END AS {col}"
+            )
+        else:
+            select_columns.append(col)
+
+    columns_str = ", ".join(select_columns)
+    return f"COPY (SELECT {columns_str} FROM {table}) TO STDOUT WITH CSV HEADER"
+
+
+def _get_table_columns(table_class) -> list[str]:
+    """
+    Get all column names for a table.
+    """
+    return [column.name for column in table_class.__table__.columns]  # type: ignore
+
+
+def _get_boolean_columns(table_class) -> list[str]:
+    bool_cols = []
+    for column in table_class.__table__.columns:
+        if isinstance(column.type, types.Boolean):
+            bool_cols.append(column.name)
+    return bool_cols
+
+
+def _zip_files(data_dir) -> None:
+    """
+    Zip the files and remove the original CSVs
+    """
     for table in TABLES:
         filepath = f"{downloads_dir(data_dir)}/{table}.csv"
         zip_temp_filepath = f"{downloads_dir(data_dir)}/{table}-temp.zip"

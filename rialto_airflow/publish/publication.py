@@ -233,7 +233,7 @@ def export_publications_by_author(snapshot) -> int:
                 Author.orcid,
                 Author.primary_school,
                 Author.primary_dept,  # type: ignore
-                Author.primary_role,  # type: ignore
+                Author.role,  # type: ignore
                 Author.sunet,  # type: ignore
                 Author.academic_council,  # type: ignore
                 Publication.pub_year,  # type: ignore
@@ -283,7 +283,7 @@ def export_publications_by_author(snapshot) -> int:
                     "primary_school": row.primary_school,
                     "primary_department": row.primary_dept,
                     "publisher": row.publisher,
-                    "role": row.primary_role,
+                    "role": row.role,
                     "sunet": row.sunet,
                     "pub_year": row.pub_year,
                     "title": row.title,

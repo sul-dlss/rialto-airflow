@@ -83,7 +83,7 @@ class Author(HarvestSchemaBase):  # type: ignore
     last_name = Column(String, nullable=False)
     status = Column(Boolean)
     academic_council = Column(Boolean)
-    primary_role = Column(String)
+    role = Column(String)
     schools = Column(ARRAY(String))
     departments = Column(ARRAY(String))
     primary_school = Column(String)

@@ -152,7 +152,7 @@ def test_create_schema(
                 "last_name",
                 "status",
                 "academic_council",
-                "primary_role",
+                "role",
                 "schools",
                 "departments",
                 "primary_school",

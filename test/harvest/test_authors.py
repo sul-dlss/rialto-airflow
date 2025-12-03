@@ -90,7 +90,7 @@ def test_load_authors_table(test_session, tmp_path, caplog, authors_csv, snapsho
         assert author.orcid == "https://orcid.org/0000-0000-0000-0001"
         assert author.status
         assert not author.academic_council
-        assert author.primary_role == "staff"
+        assert author.role == "staff"
         assert author.primary_school == "School of Engineering"
         assert author.primary_dept == "Computer Science"
         assert author.primary_division == "Philanthropy Division"

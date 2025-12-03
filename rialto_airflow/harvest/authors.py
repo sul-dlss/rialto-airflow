@@ -36,7 +36,7 @@ def load_authors_table(snapshot) -> None:
                         last_name=row["last_name"],
                         status=to_boolean(row["active"]),
                         academic_council=to_boolean(row["academic_council"]),
-                        primary_role=row["role"],
+                        role=row["role"],
                         schools=to_array(row["all_schools"]),
                         departments=to_array(row["all_departments"]),
                         primary_school=row["primary_school"],

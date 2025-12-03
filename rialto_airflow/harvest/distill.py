@@ -79,4 +79,4 @@ def _academic_council(pub) -> Optional[bool]:
 
 
 def _faculty_authored(pub) -> Optional[bool]:
-    return any(author.primary_role == "faculty" for author in pub.authors)
+    return any(author.role == "faculty" for author in pub.authors)

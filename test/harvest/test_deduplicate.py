@@ -45,7 +45,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             orcid="0298098343",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="faculty",
+            role="faculty",
             schools=[
                 "Vice Provost for Undergraduate Education",
                 "School of Humanities and Sciences",
@@ -62,7 +62,7 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             orcid="02980983434",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="staff",
+            role="staff",
             schools=[
                 "School of Humanities and Sciences",
             ],
@@ -222,7 +222,7 @@ def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubme
             orcid="0298098343",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="faculty",
+            role="faculty",
             schools=[
                 "Vice Provost for Undergraduate Education",
                 "School of Humanities and Sciences",
@@ -239,7 +239,7 @@ def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubme
             orcid="02980983434",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="staff",
+            role="staff",
             schools=[
                 "School of Humanities and Sciences",
             ],

@@ -139,7 +139,7 @@ def test_author_based_fields(test_session, snapshot, openalex_json, dim_json):
             orcid="0298098343",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="faculty",
+            role="faculty",
             schools=[
                 "Vice Provost for Undergraduate Education",
                 "School of Humanities and Sciences",
@@ -155,7 +155,7 @@ def test_author_based_fields(test_session, snapshot, openalex_json, dim_json):
             orcid="02980983434",
             primary_school="School of Humanities and Sciences",
             primary_dept="Social Sciences",
-            primary_role="staff",
+            role="staff",
             schools=[
                 "School of Humanities and Sciences",
             ],

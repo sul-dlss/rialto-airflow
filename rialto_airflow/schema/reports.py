@@ -29,8 +29,6 @@ class Publications(ReportsSchemaBase):  # type: ignore
     federally_funded = Column(Boolean)
     academic_council_authored = Column(Boolean)
     faculty_authored = Column(Boolean)
-    created_at = Column(DateTime, server_default=utcnow())
-    updated_at = Column(DateTime, onupdate=utcnow())
 
 
 class PublicationsBySchool(ReportsSchemaBase):  # type: ignore

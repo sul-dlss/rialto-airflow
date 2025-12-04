@@ -1,4 +1,5 @@
 import pytest
+import zipfile
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
@@ -55,7 +56,12 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
     assert "finished writing publications table" in caplog.text
 
 
-def test_generate_download_files(tmp_path):
+@pytest.fixture
+def rialto_reports_db_name(monkeypatch):
+    monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
+
+
+def test_generate_download_files(tmp_path, rialto_reports_db_name):
     # generate the download files
     downloads_dir = tmp_path / "downloads"
     downloads_dir.mkdir()
@@ -79,6 +85,20 @@ def test_generate_download_files(tmp_path):
     publications_by_author_file = downloads_dir / "publications_by_author.zip"
     assert publications_by_author_file.is_file()
     assert downloads_dir / "publications_by_author.csv" not in downloads_dir.iterdir()
+
+    # Unzip publications.zip and check contents
+    with zipfile.ZipFile(publications_file, "r") as zip_file:
+        zip_file.extractall(downloads_dir)
+
+    # Assert that publications.csv exists
+    csv_file = downloads_dir / "publications.csv"
+    assert csv_file.is_file()
+
+    # Check that 'true' not 't' exists for the first publication
+    with open(csv_file, "r") as f:
+        lines = f.readlines()
+        assert len(lines) >= 2
+        assert "true,true,true" in lines[1]
 
 
 def test_no_downloads_dir(snapshot, tmp_path):

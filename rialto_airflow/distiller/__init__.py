@@ -15,6 +15,7 @@ from .volume import volume
 from .citation_count import citation_count
 from .author_names import author_list_names, first_author_name, last_author_name
 from .author_orcids import author_list_orcids, first_author_orcid, last_author_orcid
+from .grant_ids import grant_ids
 
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "first_author_name",
     "first_author_orcid",
     "FuncRule",
+    "grant_ids",
     "issue",
     "journal_issn",
     "journal_name",

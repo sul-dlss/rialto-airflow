@@ -1,0 +1,14 @@
+Field,Type,Description
+id,Integer,RIALTO database primary key 
+doi,String,DOI (Digital Object Identifier)
+academic_council_authored,Boolean,True if any Stanford author is a member of the Stanford Academic Council
+apc,Integer,"Article Processing Charge, in order of preference: (1) API ""paid"" price data from OpenAlex (typically comes from OpenAPC, a crowdsourced APC dataset where individual researchers and institutions can add APC data), (2) open dataset of APCs prepared by the ScholCom Lab at Simon Fraser University and available at  https://doi.org/10.7910/DVN/CR1MMV, (3) ""list"" price from OpenAlex. For any remaining publication, we estimate the APC based on the Open Access category: ""Gold""=$2,450; ""Hybrid""=$3,600; all other categories = $0."
+faculty_authored,Boolean,True if any Stanford author has a primary role of faculty
+federally_funded,Boolean,"True if at least one of the publication’s funders is federal. Funder data for each publication is provided by Dimensions or OpenAlex, and we use the OSTP Impact dataset, enhanced with ROR identifiers, to identify which funders are federal. "
+journal_name,String,Name of journal which published the publication
+open_access,String,"Open Access category, as determined by OpenAlex or Dimensions. One of: diamond, gold, hybrid, green, bronze, closed. May be null."
+primary_department,String,The primary Stanford department a researcher is affiliated with. A researcher may have multiple affiliations beyond this primary department.
+primary_school,String,The primary Stanford school a Stanford author is affiliated with. There is a row in the dataset for each primary_school associated with an author. 
+pub_year,Integer,Year of publication
+publisher,String,"Publisher of the journal in which the publication appears, if applicable, obtained from OpenAlex."
+types,String,"Types of publication, normalized to values: Article, Book, Chapter, Correction/Retraction, Dataset, Dissertation, Editorial Material, Other. Types are pipe-delimited when there are multiple."

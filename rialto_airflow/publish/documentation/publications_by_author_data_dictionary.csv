@@ -1,0 +1,28 @@
+Field,Type,Description
+id,Integer,RIALTO database primary key 
+doi,String,DOI (Digital Object Identifier)
+sunet,String,SUNet ID of the Stanford author associated with the publication
+orcid,String,ORCID of the Stanford author associated with the publication
+abstract,String,"Abstract, from OpenAlex, Dimensions, PubMed, or CrossRef"
+academic_council,Boolean,True if author is a member of the Stanford Academic Council
+apc,Integer,"Article Processing Charge, in order of preference: (1) API ""paid"" price data from OpenAlex (typically comes from OpenAPC, a crowdsourced APC dataset where individual researchers and institutions can add APC data), (2) open dataset of APCs prepared by the ScholCom Lab at Simon Fraser University and available at  https://doi.org/10.7910/DVN/CR1MMV, (3) ""list"" price from OpenAlex. For any remaining publication, we estimate the APC based on the Open Access category: ""Gold""=$2,450; ""Hybrid""=$3,600; all other categories = $0."
+author_list_names,String,"Pipe-delimited list of all authors. From, in order of preference: OpenAlex, Dimensions, PubMed, Web of Science, CrossRef, or Stanford University Libraries Publications (SUL-Pub database). "
+author_list_orcids,String,"Pipe-delimited list of all authors' ORCIDs available from all of OpenAlex, Dimensions, PubMed, Web of Science, CrossRef, or Stanford University Libraries Publications (SUL-Pub database)"
+citation_count,Integer,"Count of references to the publication, taking the highest citation count from OpenAlex, Dimensions, and Web of Science."
+federally_funded,Boolean,"True if at least one of the publication’s funders is federal. Funder data for each publication is provided by Dimensions or OpenAlex, and we use the OSTP Impact dataset, enhanced with ROR identifiers, to identify which funders are federal. "
+first_author_name,String,Author name that appears first on the publication
+first_author_orcid,String,"ORCID, if available, for the first author on the publication"
+issue,String,Issue number for the journal in which the publication appeared
+journal_name,String,Name of journal which published the publication
+last_author_name,String,Author name that appears last on the publication
+last_author_orcid,String,"ORCID, if available, for the last author on the publication"
+open_access,String,"Open Access category, as determined by OpenAlex or Dimensions. One of: diamond, gold, hybrid, green, bronze, closed. May be null."
+pages,String,Page numbers for the publication
+primary_department,String,The primary Stanford department a researcher is affiliated with. A researcher may have multiple affiliations beyond this primary department.
+primary_school,String,The primary Stanford school a researcher is affiliated with. A researcher may have multiple affiliations beyond this primary school. 
+pub_year,Integer,Year of publication
+publisher,String,"Publisher of the journal in which the publication appears, if applicable, obtained from OpenAlex."
+role,String,"Primary role of the author at Stanford. One of: affiliate, faculty, fellow, msstudent, phdstudent, postdoc, registry, resident, staff, student, other"
+title,String,Title of the publication
+types,String,"Types of publication, normalized to values: Article, Book, Chapter, Correction/Retraction, Dataset, Dissertation, Editorial Material, Other. Types are pipe-delimited when there are multiple."
+volume,String,"Volume of the journal in which the publication appeared, if available"

@@ -93,6 +93,8 @@ def test_generate_download_files(tmp_path, rialto_reports_db_name):
     # Assert that publications.csv exists
     csv_file = downloads_dir / "publications.csv"
     assert csv_file.is_file()
+    dictionary_file = downloads_dir / "publications_data_dictionary.csv"
+    assert dictionary_file.is_file()
 
     # Check that 'true' not 't' exists for the first publication
     with open(csv_file, "r") as f:

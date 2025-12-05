@@ -374,10 +374,13 @@ def _zip_files(data_dir) -> None:
     Zip the files and remove the original CSVs
     """
     for table in TABLES:
+        # include the latest data_dictionary file
+        data_dictionary = f"{os.path.dirname(os.path.abspath(__file__))}/documentation/{table}_data_dictionary.csv"
         filepath = f"{downloads_dir(data_dir)}/{table}.csv"
         zip_temp_filepath = f"{downloads_dir(data_dir)}/{table}-temp.zip"
 
         with zipfile.ZipFile(zip_temp_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(data_dictionary, arcname=os.path.basename(data_dictionary))
             zipf.write(filepath, arcname=os.path.basename(filepath))
         zip_filepath = f"{downloads_dir(data_dir)}/{table}.zip"
         # Move the temp zip to the final zip filepath and delete the original CSV

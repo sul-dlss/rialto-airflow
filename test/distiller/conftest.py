@@ -34,16 +34,12 @@ def openalex_json():
         "publication_year": 2022,
         "open_access": {"oa_status": "gold"},
         "type": "preprint",
-        "grants": [
+        "awards": [
             {
-                "funder": "https://openalex.org/F4320306076",
-                "funder_display_name": "National Science Foundation",
-                "award_id": "ABI 1661218",
+                "funder_award_id": "ABI 1661218",
             },
             {
-                "funder": "https://openalex.org/F4320306084",
-                "funder_display_name": "U.S. Department of Energy",
-                "award_id": None,
+                "funder_award_id": None,
             },
         ],
         "abstract_inverted_index": {

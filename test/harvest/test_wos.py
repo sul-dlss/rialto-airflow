@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass
 
 import dotenv
 import pandas
@@ -12,7 +11,7 @@ import requests
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.harvest import wos
 from rialto_airflow.snapshot import Snapshot
-from test.utils import num_jsonl_objects
+from test.utils import num_jsonl_objects, num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -213,12 +212,6 @@ def test_log_message(tmp_path, mock_authors, mock_many_wos, caplog):
     snapshot = Snapshot.create(tmp_path, "rialto_test")
     wos.harvest(snapshot, limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
-
-
-@dataclass
-class MockResponse:
-    status_code: int = 500
-    content: str = ""
 
 
 def test_customization_error(
@@ -484,3 +477,56 @@ def test_publications_from_doi_batch_with_error_doi(mock_wos_api, caplog):
         "Unexpected error querying for single DOI from larger batch.  DOI=10.1337/my.unretrievable.D01"
         in caplog.text
     )
+
+
+@pytest.fixture
+def mock_response_500(monkeypatch):
+    """
+    NOTE: The text property of the returned requests.Response object can be
+    referenced without error; we just had trouble overriding it when first
+    implementing this fixture, and overriding it wasn't essential to the tests
+    first using the fixture.
+    """
+
+    def raise_for_status():
+        raise requests.exceptions.HTTPError(
+            "https://rest.service/api/path?param=value",
+            500,
+            "🤮",
+        )
+
+    mock_resp = requests.Response()
+    monkeypatch.setattr(mock_resp, "raise_for_status", raise_for_status)
+    return mock_resp
+
+
+@pytest.fixture
+def mock_response_200(monkeypatch):
+    def raise_for_status():
+        pass
+
+    mock_resp = requests.Response()
+    monkeypatch.setattr(mock_resp, "raise_for_status", raise_for_status)
+    return mock_resp
+
+
+def test_check_status_should_raise_true(mock_response_500, mock_response_200, caplog):
+    with pytest.raises(requests.exceptions.HTTPError):
+        wos.check_status(resp=mock_response_500, should_raise_for_status=True)
+
+    assert (
+        wos.check_status(resp=mock_response_200, should_raise_for_status=True) is True
+    )
+
+    assert num_log_record_matches(caplog.records, logging.ERROR, "🤮") == 1
+
+
+def test_check_status_should_raise_false(mock_response_500, mock_response_200, caplog):
+    assert (
+        wos.check_status(resp=mock_response_500, should_raise_for_status=False) is False
+    )
+    assert (
+        wos.check_status(resp=mock_response_200, should_raise_for_status=False) is True
+    )
+
+    assert num_log_record_matches(caplog.records, logging.ERROR, "🤮") == 1

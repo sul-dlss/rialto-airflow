@@ -17,6 +17,7 @@ from rialto_airflow.distiller import (
     author_list_orcids,
     first_author_orcid,
     last_author_orcid,
+    grant_ids
 )
 from rialto_airflow.schema.harvest import (
     Author,
@@ -273,6 +274,7 @@ def export_publications_by_author(snapshot) -> int:
                     "federally_funded": any(row.federal),
                     "first_author_name": first_author_name(row),
                     "first_author_orcid": first_author_orcid(row),
+                    "grant_ids": grant_ids(row),
                     "issue": issue(row),
                     "last_author_name": last_author_name(row),
                     "last_author_orcid": last_author_orcid(row),

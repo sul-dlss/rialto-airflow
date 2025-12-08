@@ -85,7 +85,6 @@ def normalize_arxiv_id_to_doi(possible_arxiv_doi: str):
 
 def normalize_doi(doi):
     if doi is None or doi.strip() == "":
-        _data_quality_warning("Empty DOI")
         return None
 
     context = {"doi_candidate": doi}

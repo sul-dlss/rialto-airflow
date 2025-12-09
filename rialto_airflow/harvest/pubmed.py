@@ -24,7 +24,7 @@ Params = Dict[str, Union[int, str]]
 
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov"
 MAX_RESULTS = 1000  # the maximum number of pubmed IDs we will get for the query
-SEARCH_PATH = f"/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax={MAX_RESULTS}"  # this endpoint suppots json
+SEARCH_PATH = f"/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax={MAX_RESULTS}"  # this endpoint supports json
 FETCH_PATH = f"/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&retmax={MAX_RESULTS}"  # only xml is supported by this endpoint
 HEADERS = {"User-Agent": "stanford-library-rialto", "Accept": "application/json"}
 
@@ -112,10 +112,10 @@ def fill_in(snapshot: Snapshot):
                 logging.debug(f"looking up DOIs {dois}")
 
                 # find PMIDs for the DOIs, and then get full records
-                # note that there are likey not as many PMIDs returned as DOIs that were queried
-                # and the ordering may be different thatn the queried DOIs
+                # note that there are likely not as many PMIDs returned as DOIs that were queried
+                # and the ordering may be different than the queried DOIs
                 # but this doesn't matter, because we will get the full pubmed record for each PMID returned
-                # and then find the DOI in the full pmbued record to figure out which publication to update
+                # and then find the DOI in the full pubmed record to figure out which publication to update
                 # in the database
                 pmids = pmids_from_dois(dois)
                 pubmed_pubs = publications_from_pmids(pmids)
@@ -191,7 +191,7 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
         results = response.content
 
         json_results = xmltodict.parse(results)
-        pubs = json_results["PubmedArticleSet"]["PubmedArticle"]
+        pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")
         if not isinstance(pubs, list):
             # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
             return [pubs]
@@ -271,6 +271,7 @@ def get_identifier(pub, identifier_name) -> Optional[str]:
             if "@IdType" in identifier and identifier["@IdType"] == identifier_name:
                 return identifier["#text"]
     except KeyError:
+        logging.info(f"No identifiers found in pubmed record for {pub}")
         return None
 
     return None

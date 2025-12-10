@@ -102,7 +102,7 @@ def fill_in(snapshot: Snapshot):
                 select(Publication.doi)  # type: ignore
                 .where(Publication.doi.is_not(None))  # type: ignore
                 .where(Publication.pubmed_json.is_(None))
-                .execution_options(yield_per=75)
+                .execution_options(yield_per=50)
             )
 
             for rows in select_session.execute(stmt).partitions():
@@ -213,29 +213,22 @@ def _pubmed_search_api(query) -> list:
 
     full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
     logging.debug(f"searching pubmed with {params}")
-    try:
-        response = requests.get(full_url, params=params, headers=HEADERS)
-        response.raise_for_status()
 
-        results = response.json()
+    response = requests.get(full_url, params=params, headers=HEADERS)
+    response.raise_for_status()
+    results = response.json()
 
-        if "error" in results:
-            logging.error(f"Error in results found for {query}: {results['error']}")
-            return []
-
-        if results.get("esearchresult", {}).get("count") is None:
-            logging.debug(f"No esearchresult or count found for {query}")
-            return []
-
-        if int(results["esearchresult"]["count"]) == 0:
-            logging.debug(f"No results found for {query}")
-            return []
-
-        return results["esearchresult"]["idlist"]  # return a list of pmids
-
-    except requests.exceptions.RequestException as e:  # Catch all requests exceptions
-        logging.error(f"Error searching pubmed query {params}: {e}")
+    if "error" in results:
+        logging.error(f"Error in results found for {query}: {results['error']}")
         return []
+    elif results.get("esearchresult", {}).get("count") is None:
+        logging.debug(f"No esearchresult or count found for {query}")
+        return []
+    elif int(results["esearchresult"]["count"]) == 0:
+        logging.debug(f"No results found for {query}")
+        return []
+    else:
+        return results["esearchresult"]["idlist"]  # return a list of pmids
 
 
 # get the DOI from the pubmed record

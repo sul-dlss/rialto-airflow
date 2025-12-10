@@ -191,7 +191,7 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
         results = response.content
 
         json_results = xmltodict.parse(results)
-        pubs = json_results["PubmedArticleSet"].get("PubmedArticle")
+        pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")
         if pubs is None:
             return []
         if not isinstance(pubs, list):

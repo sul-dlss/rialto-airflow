@@ -654,3 +654,41 @@ def test_get_identifier():
     assert pubmed.get_identifier(pubmed_json(), "pmc") == "PMC10275701"
     assert pubmed.get_identifier(pubmed_json(), "pii") == "494746"
     assert pubmed.get_identifier(pubmed_json(), "invalid") is None
+
+
+def test_pubs_from_pmids_no_articles(requests_mock, pubmed_book_xml):
+    """
+    Test that an empty list is returned when no articles are found for a PMIDs
+    """
+    requests_mock.post(
+        re.compile(".*"),
+        text=pubmed_book_xml,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+    pubs = pubmed.publications_from_pmids(["00000000"])
+    assert pubs == []
+
+
+@pytest.fixture
+def pubmed_book_xml():
+    return """<?xml version="1.0" ?>
+        <!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
+        <PubmedArticleSet><PubmedBookArticle>
+        <BookDocument>
+            <PMID Version="1">38478703</PMID>
+            <ArticleIdList><ArticleId IdType="bookaccession">NBK601514</ArticleId><ArticleId IdType="doi">10.25302/01.2021.ME.150731469</ArticleId></ArticleIdList>
+            <Book>
+            <Publisher><PublisherName>Patient-Centered Outcomes Research Institute (PCORI)</PublisherName><PublisherLocation>Washington (DC)</PublisherLocation></Publisher>
+            <BookTitle book="pcori12021me15073146">Comparing Preferences for Depression and Diabetes Treatment among Adults of Different Racial and Ethnic Groups Who Reported Discrimination in Health Care</BookTitle>
+            <PubDate><Year>2021</Year><Month>01</Month></PubDate>
+            <CollectionTitle book="pcoricollect">PCORI Final Research Reports</CollectionTitle>
+            <ELocationID EIdType="doi">10.25302/01.2021.ME.150731469</ELocationID>
+            <PublicationType UI="D016454">Review</PublicationType>
+            <Abstract><AbstractText Label="BACKGROUND">The abstract.</AbstractText></Abstract>
+            </Book>
+        </BookDocument>
+        <PubmedBookData>
+            <ArticleIdList><ArticleId IdType="pubmed">38478703</ArticleId></ArticleIdList></PubmedBookData>
+        </PubmedBookArticle></PubmedArticleSet>
+        """

@@ -192,6 +192,8 @@ def publications_from_pmids(pmids: list[str]) -> list[str]:
 
         json_results = xmltodict.parse(results)
         pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")
+        if pubs is None:
+            return []
         if not isinstance(pubs, list):
             # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
             return [pubs]
@@ -245,7 +247,9 @@ def get_doi(pub) -> Optional[str]:
 
     # this is a fallback if the DOI is not in the expected place
     try:
-        ids = pub["MedlineCitation"]["Article"]["ELocationID"]
+        ids = pub.get("MedlineCitation", {}).get("Article", {}).get("ELocationID")
+        if ids is None:
+            return None
         # if there is only one identifier, it is not a list, so make it a list so we can iterate over it
         if not isinstance(ids, list):
             ids = [ids]
@@ -262,7 +266,9 @@ def get_doi(pub) -> Optional[str]:
 def get_identifier(pub, identifier_name) -> Optional[str]:
     # look through the list of identifiers in the pubmed record
     try:
-        ids = pub["PubmedData"]["ArticleIdList"]["ArticleId"]
+        ids = pub.get("PubmedData", {}).get("ArticleIdList", {}).get("ArticleId")
+        if ids is None:
+            return None
         # if there is only one identifier, it is not a list, so make it a list so we can iterate over it
         if not isinstance(ids, list):
             ids = [ids]

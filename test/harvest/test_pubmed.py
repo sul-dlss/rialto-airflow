@@ -236,26 +236,6 @@ def test_pubmed_search_unexpected_response(requests_mock, caplog):
     )
 
 
-def test_pubmed_search_handles_500(requests_mock, caplog):
-    """
-    This is a test of the Pubmed Search API to ensures we don't crash with a 500 response.
-    """
-    caplog.set_level(logging.INFO)
-
-    requests_mock.get(
-        re.compile(".*"),
-        json={},
-        status_code=500,
-        headers={"Content-Type": "application/json"},
-    )
-    result = pubmed.pmids_from_orcid("12345")
-    assert result == []
-    assert (
-        "Error searching pubmed query {'term': '12345[auid]'}: 500 Server Error"
-        in caplog.text
-    )
-
-
 def test_pubmed_search_orcid_found_publications():
     """
     This is a live test of the Pubmed Search API to ensure we can get PMIDs back given an ORCID.

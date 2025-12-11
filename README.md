@@ -202,6 +202,20 @@ Getting errors with dependencies when trying to run the tests that look somethin
 
 Try clearing the virtual env folder and let it rebuild on the next run: `rm -rf .venv`
 
+## CLI
+
+The `rialto` command line utility lets you run some bespoke data export tasks, like exporting a CSV of publications for a particular author:
+
+```
+uv run rialto publications makeller
+```
+
+Or there is this mouthful if you want to run it in a running Docker environment:
+
+```
+docker compose exec -u airflow -ti airflow-worker uv run rialto publications makeller
+```
+
 ## Deployment
 
 Deployment to https://sul-rialto-airflow-XXXX.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:

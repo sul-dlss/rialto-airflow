@@ -119,6 +119,7 @@ def publication_fields():
     # for some reason "researchers" causes 408 errors when harvesting, maybe we
     # can add it back when this is resolved?
     fields.remove("researchers")
+    fields.remove("research_orgs")
 
     return fields
 

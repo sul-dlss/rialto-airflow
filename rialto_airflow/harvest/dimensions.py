@@ -161,7 +161,7 @@ def query_with_retry(q, retry=5):
         try:
             # use query_iterative which will page responses but aggregate them
             # into a complete result set. The maximum number of results is 50,000.
-            return dsl().query_iterative(q, show_results=False)
+            return dsl().query_iterative(q, show_results=False, limit=25)
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(

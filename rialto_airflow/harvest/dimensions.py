@@ -116,11 +116,17 @@ def publication_fields():
     result = dsl().query("describe schema")
     fields = list(result.data["sources"]["publications"]["fields"].keys())
 
-    # for some reason "researchers" causes 408 errors when harvesting, maybe we
-    # can add it back when this is resolved?
-    fields.remove("researchers")
-    fields.remove("research_orgs")
-
+    # for some reason "researchers" and other large fields can cause 408 errors when harvesting
+    # maybe we can add them back if this is resolved.
+    fields_to_remove = [
+        "researchers",
+        "research_orgs",
+        "referenced_pubs",
+        "concepts",
+    ]
+    for field in fields_to_remove:
+        if field in fields:
+            fields.remove(field)
     return fields
 
 
@@ -162,6 +168,9 @@ def query_with_retry(q, retry=5):
         try:
             # use query_iterative which will page responses but aggregate them
             # into a complete result set. The maximum number of results is 50,000.
+            # Using the limit param because some recent results are very large and
+            # we get an error if the response exceeds a certain size. Consider raising or
+            # removing the limit if the issue is resolved.
             return dsl().query_iterative(q, show_results=False, limit=25)
         except requests.exceptions.RequestException as e:
             if try_count > retry:

@@ -22,27 +22,30 @@ def test_publications_from_dois():
         )
     )
     assert len(pubs) == 2
-    assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
-    assert len(pubs[1].keys()) == 73, "second publication has 73 columns"
+    assert len(pubs[0].keys()) == 70, "first publication has 70 columns"
+    assert len(pubs[1].keys()) == 70, "second publication has 70 columns"
 
 
 def test_publication_fields():
     fields = dimensions.publication_fields()
-    assert len(fields) == 73
+    assert len(fields) == 70
     assert "title" in fields
 
     # For some reason including the "researchers" field can cause the Dimensions
     # API to throw an HTTP 408 error. Maybe this can be altered once this issue is
     # addressed: https://github.com/digital-science/dimcli/issues/90
     assert "researchers" not in fields
+    assert "research_orgs" not in fields
+    assert "concepts" not in fields
+    assert "referenced_pubs" not in fields
 
 
 def test_publications_from_orcid():
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
-    assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
-    assert len(pubs[1].keys()) == 73, "second publication has 73 columns"
+    assert len(pubs[0].keys()) == 70, "first publication has 70 columns"
+    assert len(pubs[1].keys()) == 70, "second publication has 70 columns"
 
 
 @pytest.fixture
@@ -85,8 +88,8 @@ def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
-    assert len(pubs[0].keys()) == 73, "first publication has 73 columns"
-    assert len(pubs[1].keys()) == 73, "second publication has 73 columns"
+    assert len(pubs[0].keys()) == 70, "first publication has 70 columns"
+    assert len(pubs[1].keys()) == 70, "second publication has 70 columns"
     assert num_log_record_matches(
         caplog.records,
         logging.DEBUG,

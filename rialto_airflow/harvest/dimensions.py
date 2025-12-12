@@ -97,7 +97,7 @@ def publications_from_orcid(orcid: str, batch_size=200):
     logging.debug(f"looking up publications for orcid {orcid}")
     orcid = normalize_orcid(orcid)
     fields = " + ".join(publication_fields())
-
+    logging.info(f"Harvesting publications for ORCID {orcid}")
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"
         return publications [{fields}]

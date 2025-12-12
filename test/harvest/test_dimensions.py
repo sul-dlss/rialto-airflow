@@ -35,6 +35,9 @@ def test_publication_fields():
     # API to throw an HTTP 408 error. Maybe this can be altered once this issue is
     # addressed: https://github.com/digital-science/dimcli/issues/90
     assert "researchers" not in fields
+    assert "research_orgs" not in fields
+    assert "concepts" not in fields
+    assert "referenced_pubs" not in fields
 
 
 def test_publications_from_orcid():

@@ -5,6 +5,39 @@
 
 This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
 
+## Workflow
+
+```mermaid
+flowchart TD
+  last_harvest(Determine last harvest) --> sul_pub_harvest(SUL-Pub harvest)
+  sul_pub_harvest --> sul_pub_pubs[/SUL-Pub publications/]
+  rialto_orgs_export --> last_harvest
+  last_harvest --> dimensions_harvest_orcid(Dimensions harvest ORCID)
+  last_harvest --> openalex_harvest_orcid(OpenAlex harvest ORCID)
+  dimensions_harvest_orcid --> dimensions_contribs[/Dimensions contributions/]
+  openalex_harvest_orcid --> openalex_contribs[/OpenAlex contributions/]
+  dimensions_contribs --> contribs_to_pubs
+  openalex_contribs --> contribs_to_pubs
+  contribs_to_pubs --> dimensions_pubs[/Dimensions publications/]
+  contribs_to_pubs --> openalex_pubs[/OpenAlex publications/]
+  dimensions_pubs -- DOI --> merge_pubs(Merge publications)
+  openalex_pubs -- DOI --> merge_pubs(Merge publications)
+  sul_pub_pubs -- DOI --> merge_pubs(Merge publications)
+  merge_pubs --> drop_duplicates(Remove duplicates)
+  drop_duplicates --> all_pubs[/All publications/]
+  all_pubs --> extract_dois(Extract DOIs)
+  extract_dois --> dois[/Unique DOIs/]
+  dois --> dimensions_enrich(Dimensions harvest DOI)
+  dois --> openalex_enrich(OpenAlex harvest DOI)
+  openalex_enrich --> openalex_enriched[/OpenAlex enriched publications/]
+  dimensions_enriched -- DOI --> merge_pubs_two(Merge publications)
+  openalex_enriched -- DOI --> merge_pubs_two(Merge publications)
+  rialto_orgs_export --> join_org_data
+  merge_pubs_two -- SUNETID --> join_org_data(Join organizational data)
+  join_org_data --> all_enriched_publications[/All enriched publications/]
+  all_enriched_publications --> publish(Publish)
+```
+
 ## Running Locally with Docker
 
 Based on the documentation, [Running Airflow in Docker](https://airflow.apache.org/docs/apache-airflow/stable/start/docker.html).

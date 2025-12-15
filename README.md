@@ -5,7 +5,9 @@
 
 This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
 
-## Workflow
+## Workflows
+
+### Harvest
 
 1. Every Sunday at midnight create a new database named with a timestamp: `rialto_YYYYMMDDHHMMSS`.
 2. Create a new “snapshot” directory using the same timestamp: `/data/snapshots/YYMMDDHHMMSS`.

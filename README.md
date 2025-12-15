@@ -5,6 +5,31 @@
 
 This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
 
+## Workflows
+
+### Harvest
+
+1. Every Sunday at midnight create a new database named with a timestamp: `rialto_YYYYMMDDHHMMSS`.
+2. Create a new “snapshot” directory using the same timestamp: `/data/snapshots/YYMMDDHHMMSS`.
+3. Load the current Stanford Authors CSV export from [rialto-orgs](https://github.com/sul-dlss/rialto-orgs): `/data/authors.csv` into the Author database table.
+4. Use APIs from the following platforms to retrieve publication metadata using an author’s ORCID:
+    * Dimensions
+    * OpenAlex
+    * Web of Science
+    * PubMed
+5. Retrieve all *approved* publications from the [sul_pub](https://github.com/sul-dlss/sul_pub) API.
+6. *Fill in* missing publication metadata by looking in the following platforms by DOI for publications:
+    * Dimensions
+    * OpenAlex
+    * Web of Science
+    * PubMed
+    * Crossref
+7. *Deduplicate* publications, using their platform specific identifiers, currently just Web of Science and OpenAlex.
+8. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
+9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
+10. Mark the snapshot as complete by putting a `snapshot.json` in the snapshot directory.
+11. Every week we look for `rialto_YYMMDDHHMMSS` databases and snapshot directories that are older than 30 days and we delete them.
+
 ## Running Locally with Docker
 
 Based on the documentation, [Running Airflow in Docker](https://airflow.apache.org/docs/apache-airflow/stable/start/docker.html).

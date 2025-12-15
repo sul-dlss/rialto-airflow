@@ -8,35 +8,29 @@ This repository contains an Airflow setup for harvesting and analyzing Stanford 
 ## Workflow
 
 ```mermaid
-flowchart TD
-  last_harvest(Determine last harvest) --> sul_pub_harvest(SUL-Pub harvest)
-  sul_pub_harvest --> sul_pub_pubs[/SUL-Pub publications/]
-  rialto_orgs_export --> last_harvest
-  last_harvest --> dimensions_harvest_orcid(Dimensions harvest ORCID)
-  last_harvest --> openalex_harvest_orcid(OpenAlex harvest ORCID)
-  dimensions_harvest_orcid --> dimensions_contribs[/Dimensions contributions/]
-  openalex_harvest_orcid --> openalex_contribs[/OpenAlex contributions/]
-  dimensions_contribs --> contribs_to_pubs
-  openalex_contribs --> contribs_to_pubs
-  contribs_to_pubs --> dimensions_pubs[/Dimensions publications/]
-  contribs_to_pubs --> openalex_pubs[/OpenAlex publications/]
-  dimensions_pubs -- DOI --> merge_pubs(Merge publications)
-  openalex_pubs -- DOI --> merge_pubs(Merge publications)
-  sul_pub_pubs -- DOI --> merge_pubs(Merge publications)
-  merge_pubs --> drop_duplicates(Remove duplicates)
-  drop_duplicates --> all_pubs[/All publications/]
-  all_pubs --> extract_dois(Extract DOIs)
-  extract_dois --> dois[/Unique DOIs/]
-  dois --> dimensions_enrich(Dimensions harvest DOI)
-  dois --> openalex_enrich(OpenAlex harvest DOI)
-  openalex_enrich --> openalex_enriched[/OpenAlex enriched publications/]
-  dimensions_enriched -- DOI --> merge_pubs_two(Merge publications)
-  openalex_enriched -- DOI --> merge_pubs_two(Merge publications)
-  rialto_orgs_export --> join_org_data
-  merge_pubs_two -- SUNETID --> join_org_data(Join organizational data)
-  join_org_data --> all_enriched_publications[/All enriched publications/]
-  all_enriched_publications --> publish(Publish)
+tbd
 ```
+
+1. creates a new database named with a timestamp: rialto_YYYYMMDDHHMMSS
+2. creates a new “snapshot” directory using the same timestamp: /data/snapshots/YYMMDDHHMMSS
+3. loads the current Stanford Authors CSV export from rialto-orgs: /data/authors.csv into the Author database table (~8 min)
+4. uses APIs from the following platforms to retrieve publication metadata using an Author’s ORCID which it stores in the Publication and Author database tables, as well as in a JSONL file in the snapshot directory:
+  1. Dimensions (~11.5 hrs)
+  2. OpenAlex (~8 hrs)
+  3. Web of Science (~3 hrs)
+  4. PubMed (~2 hrs)
+5. retrieves all approved publications from the sul_pub API and stores them in the Publication and Author tables and as a JSONL file. (~3.5 hrs)
+6. “fills in” missing publication metadata by looking in the following platforms by DOI for publications:
+  1. Dimensions (~4 hrs)
+  2. OpenAlex (~1 hr)
+  3. Web of Science (~.5 hrs)
+  4.PubMed (~ 4 hrs)
+  5. Crossref (~13 hrs)
+7. “deduplicates” publications, using their platform specific identifiers, currently just Web of Science and OpenAlex, but more are planned. (~1 min!)
+8. “distills” publication metadata, or extracts some fields from platform metadata into columns in the Publication table. (~7 hrs)
+9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the Funder database table which it links to the Publication table. This involves looks up to OpenAlex to fetch funding information by openalex_id. (~21 hrs)
+10. Mark the snapshot as complete by putting a snapshot.json in the snapshot directory.
+11. Every week we look for rialto_YYMMDDHHMMSS databases and snapshot directories that are older than 30 days and we delete them.
 
 ## Running Locally with Docker
 

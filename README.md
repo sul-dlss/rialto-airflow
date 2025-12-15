@@ -15,20 +15,20 @@ tbd
 2. creates a new “snapshot” directory using the same timestamp: /data/snapshots/YYMMDDHHMMSS
 3. loads the current Stanford Authors CSV export from rialto-orgs: /data/authors.csv into the Author database table (~8 min)
 4. uses APIs from the following platforms to retrieve publication metadata using an Author’s ORCID which it stores in the Publication and Author database tables, as well as in a JSONL file in the snapshot directory:
-  1. Dimensions (~11.5 hrs)
-  2. OpenAlex (~8 hrs)
-  3. Web of Science (~3 hrs)
-  4. PubMed (~2 hrs)
-5. retrieves all approved publications from the sul_pub API and stores them in the Publication and Author tables and as a JSONL file. (~3.5 hrs)
+  * Dimensions
+  * OpenAlex
+  * Web of Science
+  * PubMed
+5. retrieves all approved publications from the sul_pub API and stores them in the Publication and Author tables and as a JSONL file.
 6. “fills in” missing publication metadata by looking in the following platforms by DOI for publications:
-  1. Dimensions (~4 hrs)
-  2. OpenAlex (~1 hr)
-  3. Web of Science (~.5 hrs)
-  4.PubMed (~ 4 hrs)
-  5. Crossref (~13 hrs)
-7. “deduplicates” publications, using their platform specific identifiers, currently just Web of Science and OpenAlex, but more are planned. (~1 min!)
-8. “distills” publication metadata, or extracts some fields from platform metadata into columns in the Publication table. (~7 hrs)
-9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the Funder database table which it links to the Publication table. This involves looks up to OpenAlex to fetch funding information by openalex_id. (~21 hrs)
+  * Dimensions
+  * OpenAlex
+  * Web of Science
+  * PubMed
+  * Crossref
+7. “deduplicates” publications, using their platform specific identifiers, currently just Web of Science and OpenAlex, but more are planned.
+8. “distills” publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
+9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the Funder database table which it links to the Publication table. This involves looks up to OpenAlex to fetch funding information by openalex_id.
 10. Mark the snapshot as complete by putting a snapshot.json in the snapshot directory.
 11. Every week we look for rialto_YYMMDDHHMMSS databases and snapshot directories that are older than 30 days and we delete them.
 

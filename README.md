@@ -15,17 +15,17 @@ tbd
 2. creates a new “snapshot” directory using the same timestamp: /data/snapshots/YYMMDDHHMMSS
 3. loads the current Stanford Authors CSV export from rialto-orgs: /data/authors.csv into the Author database table (~8 min)
 4. uses APIs from the following platforms to retrieve publication metadata using an Author’s ORCID which it stores in the Publication and Author database tables, as well as in a JSONL file in the snapshot directory:
-  * Dimensions
-  * OpenAlex
-  * Web of Science
-  * PubMed
+    * Dimensions
+    * OpenAlex
+    * Web of Science
+    * PubMed
 5. retrieves all approved publications from the sul_pub API and stores them in the Publication and Author tables and as a JSONL file.
 6. “fills in” missing publication metadata by looking in the following platforms by DOI for publications:
-  * Dimensions
-  * OpenAlex
-  * Web of Science
-  * PubMed
-  * Crossref
+    * Dimensions
+    * OpenAlex
+    * Web of Science
+    * PubMed
+    * Crossref
 7. “deduplicates” publications, using their platform specific identifiers, currently just Web of Science and OpenAlex, but more are planned.
 8. “distills” publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
 9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the Funder database table which it links to the Publication table. This involves looks up to OpenAlex to fetch funding information by openalex_id.

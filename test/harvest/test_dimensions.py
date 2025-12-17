@@ -73,7 +73,11 @@ def mock_dimensions_dsl_query_error(monkeypatch):
         if req_count > 1:
             return original_query_iterative(*args, **kwargs)
         else:
-            raise dimensions.requests.exceptions.RequestException("transient error")
+            exception = dimensions.requests.exceptions.RequestException(
+                "transient error"
+            )
+            exception.response = type("MockResponse", (), {"status_code": 429})()
+            raise exception
 
     monkeypatch.setattr(
         patched_dsl, "query_iterative", query_iterative_raise_sometimes_fn
@@ -94,6 +98,54 @@ def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
         caplog.records,
         logging.DEBUG,
         "Dimensions query error retry 1 of 5: transient error",
+    )
+
+
+@pytest.fixture
+def mock_dimensions_dsl_query_login_error(monkeypatch):
+    """
+    Mock our function for fetching publications by orcid from Dimensions
+    such that the first call results in an authentication error.
+    """
+
+    patched_dsl = dimensions.dsl()  # Dimensions dimcli.Dsl instance lets you query
+    original_query_iterative = (
+        patched_dsl.query_iterative
+    )  # a ref to the real query_iterative function
+
+    # for the first call to query_iterative that does an orcid query on publications,
+    # raise a request exception. For the rest, just call the real query function.
+    req_count = 0
+
+    def query_iterative_raise_sometimes_fn(*args, **kwargs):
+        nonlocal req_count
+        if "search publications where researchers.orcid_id = " not in args[0]:
+            return original_query_iterative(*args, **kwargs)
+
+        req_count += 1
+        if req_count > 1:
+            return original_query_iterative(*args, **kwargs)
+        else:
+            exception = dimensions.requests.exceptions.RequestException("login error")
+            exception.response = type("MockResponse", (), {"status_code": 401})()
+            raise exception
+
+    monkeypatch.setattr(
+        patched_dsl, "query_iterative", query_iterative_raise_sometimes_fn
+    )
+    monkeypatch.setattr(
+        dimensions, "dsl", lambda: patched_dsl
+    )  # wrapped in a lambda because dimensions.dsl is a fn that returns a dimcli.Dsl instance
+
+
+def test_query_with_login_retry(mock_dimensions_dsl_query_login_error, caplog):
+    caplog.set_level(logging.DEBUG)
+    pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
+    assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
+    assert num_log_record_matches(
+        caplog.records,
+        logging.DEBUG,
+        "Dimensions query error retry 1 of 5: login error",
     )
 
 

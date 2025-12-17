@@ -138,7 +138,7 @@ def normalize_publication(pub) -> dict:
     return pub
 
 
-@cache  # TODO: maybe the login should expire after some time?
+@cache
 def login():
     """
     Login to Dimensions API and cache the result.
@@ -179,6 +179,11 @@ def query_with_retry(q, retry=5):
                 )
                 raise e
             else:
+                if (
+                    e.response and e.response.status_code == 401
+                ):  # Response could be None
+                    # Likely the token expired, clear cache. login() will be retried on next dsl() call
+                    login.cache_clear()
                 logging.debug(
                     "Dimensions query error retry %s of %s: %s", try_count, retry, e
                 )

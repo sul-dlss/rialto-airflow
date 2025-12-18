@@ -168,10 +168,11 @@ def query_with_retry(q, retry=5):
         try:
             # use query_iterative which will page responses but aggregate them
             # into a complete result set. The maximum number of results is 50,000.
-            # Using the limit param because some recent results are very large and
-            # we get an error if the response exceeds a certain size. 25 was proving
-            # too high for some ORCIDs. Consider raising or removing the limit if the issue is resolved.
-            return dsl().query_iterative(q, show_results=False, limit=15)
+            # Using a limit param set to 15 because some recent results are very large and
+            # we were getting an error if the response exceeds a certain size. 25 was proving
+            # too high for some ORCIDs. Consider raising or removing the limit if the issue is resolved and
+            # removing the force param to view errors.
+            return dsl().query_iterative(q, show_results=False, limit=15, force=True)
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(

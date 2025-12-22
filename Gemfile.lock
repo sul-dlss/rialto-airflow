@@ -36,7 +36,7 @@ GEM
     honeybadger (6.2.0)
       logger
       ostruct
-    i18n (1.14.7)
+    i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     logger (1.7.0)
     net-scp (4.1.0)
@@ -68,4 +68,4 @@ DEPENDENCIES
   rake
 
 BUNDLED WITH
-  4.0.1
+  4.0.2

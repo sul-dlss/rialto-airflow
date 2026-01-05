@@ -88,7 +88,6 @@ def mock_dimensions_dsl_query_error(monkeypatch):
 
 
 def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
-    caplog.set_level(logging.DEBUG)
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
@@ -96,7 +95,7 @@ def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
     assert len(pubs[1].keys()) == 70, "second publication has 70 columns"
     assert num_log_record_matches(
         caplog.records,
-        logging.DEBUG,
+        logging.WARNING,
         "Dimensions query error retry 1 of 5: transient error",
     )
 
@@ -139,12 +138,11 @@ def mock_dimensions_dsl_query_login_error(monkeypatch):
 
 
 def test_query_with_login_retry(mock_dimensions_dsl_query_login_error, caplog):
-    caplog.set_level(logging.DEBUG)
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
     assert num_log_record_matches(
         caplog.records,
-        logging.DEBUG,
+        logging.WARNING,
         "Dimensions query error retry 1 of 5: login error",
     )
 

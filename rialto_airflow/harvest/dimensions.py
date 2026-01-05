@@ -143,6 +143,7 @@ def login():
     """
     Login to Dimensions API and cache the result.
     """
+    logging.info("logging in to Dimensions API")
     dimcli.login(
         key=os.environ.get("AIRFLOW_VAR_DIMENSIONS_API_KEY"),
         endpoint="https://app.dimensions.ai/api/dsl/v2",
@@ -185,7 +186,7 @@ def query_with_retry(q, retry=5):
                 ):  # Response could be None
                     # Likely the token expired, clear cache. login() will be retried on next dsl() call
                     login.cache_clear()
-                logging.debug(
+                logging.warning(
                     "Dimensions query error retry %s of %s: %s", try_count, retry, e
                 )
                 time.sleep(try_count * 10)

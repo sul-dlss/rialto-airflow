@@ -182,7 +182,7 @@ def query_with_retry(q, retry=5):
                 raise e
             else:
                 if (
-                    e.response and e.response.status_code == 401
+                    e.response is not None and e.response.status_code == 401
                 ):  # Response could be None
                     # Likely the token expired, clear cache. login() will be retried on next dsl() call
                     login.cache_clear()

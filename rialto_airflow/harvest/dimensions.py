@@ -186,6 +186,7 @@ def query_with_retry(q, retry=5):
                 ):  # Response could be None
                     # Likely the token expired, clear cache. login() will be retried on next dsl() call
                     login.cache_clear()
+                    login()
                 logging.warning(
                     "Dimensions query error retry %s of %s: %s", try_count, retry, e
                 )

@@ -108,26 +108,21 @@ def publications_from_orcid(orcid: str, batch_size=200):
         yield normalize_publication(pub)
 
 
-@cache
 def publication_fields():
-    """
-    Get a list of all possible fields for publications.
-    """
-    result = dsl().query("describe schema")
-    fields = list(result.data["sources"]["publications"]["fields"].keys())
-
-    # for some reason "researchers" and other large fields can cause 408 errors when harvesting
-    # maybe we can add them back if this is resolved.
-    fields_to_remove = [
-        "researchers",
-        "research_orgs",
-        "referenced_pubs",
-        "concepts",
+    # See Dimensions docs for a description of what is included in the "basics" and "extras" fieldsets:
+    # https://docs.dimensions.ai/dsl/datasource-publications.html#publications-fieldsets
+    return [
+        "basics",
+        "book",
+        "extras",
+        "abstract",
+        "altmetric_id",
+        "issn",
+        "isbn",
+        "publisher",
+        "recent_citations",
+        "supporting_grant_ids",
     ]
-    for field in fields_to_remove:
-        if field in fields:
-            fields.remove(field)
-    return fields
 
 
 def normalize_publication(pub) -> dict:

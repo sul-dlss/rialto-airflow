@@ -108,12 +108,19 @@ def publications_from_orcid(orcid: str, batch_size=200):
 
 
 def publication_fields():
-    # See Dimensions docs for a description of what is included in the basics, book, and extras fieldsets:
+    # See Dimensions docs for a description of what is included in the basics and book fieldsets:
     # https://docs.dimensions.ai/dsl/datasource-publications.html#publications-fieldsets
     return [
         "basics",
         "book",
-        "extras",
+        "altmetric",
+        "date",
+        "doi",
+        "funders",
+        "open_access",
+        "pmcid",
+        "pmid",
+        "times_cited",
         "abstract",
         "altmetric_id",
         "issn",
@@ -125,7 +132,7 @@ def publication_fields():
 
 
 def unpacked_pub_fields():
-    # Response will include fields unpacked from the basics, book, and extras fieldsets requested.
+    # Response will include fields unpacked from the basics and book fieldsets requested.
     return [
         # basics
         "authors",
@@ -141,7 +148,7 @@ def unpacked_pub_fields():
         "book_doi",
         "book_series_title",
         "book_title",
-        # extras
+        # specific fields
         "altmetric",
         "date",
         "doi",
@@ -149,16 +156,7 @@ def unpacked_pub_fields():
         "open_access",
         "pmcid",
         "pmid",
-        "relative_citation_ratio",
-        "research_org_cities",
-        "research_org_countries",
-        "research_org_country_names",
-        "research_org_state_codes",
-        "research_org_state_names",
-        "research_orgs",
-        "researchers",
         "times_cited",
-        # specific fields
         "abstract",
         "altmetric_id",
         "issn",

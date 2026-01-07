@@ -94,13 +94,12 @@ def publications_from_orcid(orcid: str, batch_size=200):
     """
     Get the publications metadata for a given ORCID.
     """
-    logging.debug(f"looking up publications for orcid {orcid}")
     orcid = normalize_orcid(orcid)
     fields = " + ".join(publication_fields())
     logging.info(f"Harvesting publications for ORCID {orcid}")
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"
-        return publications [{fields}]
+        return publications[{fields}]
         """
 
     result = query_with_retry(q, retry=5)
@@ -125,8 +124,52 @@ def publication_fields():
     ]
 
 
+def unpacked_pub_fields():
+    return [
+        # basics
+        "authors",
+        "id",
+        "issue",
+        "journal",
+        "pages",
+        "title",
+        "type",
+        "volume",
+        "year",
+        # book
+        "book_doi",
+        "book_series_title",
+        "book_title",
+        # extras
+        "altmetric",
+        "date",
+        "doi",
+        "funders",
+        "open_access",
+        "pmcid",
+        "pmid",
+        "relative_citation_ratio",
+        "research_org_cities",
+        "research_org_countries",
+        "research_org_country_names",
+        "research_org_state_codes",
+        "research_org_state_names",
+        "research_orgs",
+        "researchers",
+        "times_cited",
+        # specific fields
+        "abstract",
+        "altmetric_id",
+        "issn",
+        "isbn",
+        "publisher",
+        "recent_citations",
+        "supporting_grant_ids",
+    ]
+
+
 def normalize_publication(pub) -> dict:
-    for field in publication_fields():
+    for field in unpacked_pub_fields():
         if field not in pub:
             pub[field] = None
 

@@ -23,9 +23,9 @@ def test_publications_from_dois():
     )
     assert len(pubs) == 2
     assert pubs[0]["doi"] == "10.48550/arxiv.1706.03762"
-    # Some of the "extras" fields are included in one publication but not the other
-    assert len(pubs[0].keys()) == 22, "first publication has 22 columns"
-    assert len(pubs[1].keys()) == 28, "second publication has 28 columns"
+    assert len(pubs[0].keys()) == 35, "first publication has 35 columns"
+    assert "book_title" in pubs[0].keys()
+    assert len(pubs[1].keys()) == 35, "second publication has 35 columns"
 
 
 def test_publication_fields():

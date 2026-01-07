@@ -95,8 +95,8 @@ def publications_from_orcid(orcid: str, batch_size=200):
     Get the publications metadata for a given ORCID.
     """
     orcid = normalize_orcid(orcid)
+    logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
-    logging.info(f"Harvesting publications for ORCID {orcid}")
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"
         return publications[{fields}]
@@ -108,7 +108,7 @@ def publications_from_orcid(orcid: str, batch_size=200):
 
 
 def publication_fields():
-    # See Dimensions docs for a description of what is included in the "basics" and "extras" fieldsets:
+    # See Dimensions docs for a description of what is included in the basics, book, and extras fieldsets:
     # https://docs.dimensions.ai/dsl/datasource-publications.html#publications-fieldsets
     return [
         "basics",
@@ -125,6 +125,7 @@ def publication_fields():
 
 
 def unpacked_pub_fields():
+    # Response will include fields unpacked from the basics, book, and extras fieldsets requested.
     return [
         # basics
         "authors",
@@ -205,13 +206,12 @@ def query_with_retry(q, retry=5):
 
         # dimcli will retry HTTP level errors, but not ones involving the connection
         try:
-            # use query_iterative which will page responses but aggregate them
+            # use query_iterative which will page responses, 1 request per second, but aggregate them
             # into a complete result set. The maximum number of results is 50,000.
-            # Using a limit param set to 15 because some recent results are very large and
-            # we were getting an error if the response exceeds a certain size. 25 was proving
-            # too high for some ORCIDs. Consider raising or removing the limit if the issue is resolved and
+            # Using a limit param set to 30 rather than the default of 1,000 to avoid 408 errors about the size
+            # of a response. Consider raising or removing the limit if the issue is resolved and
             # removing the force param to view errors.
-            return dsl().query_iterative(q, show_results=False, limit=15, force=True)
+            return dsl().query_iterative(q, show_results=False, limit=30, force=True)
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(

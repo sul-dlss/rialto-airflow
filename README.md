@@ -216,6 +216,36 @@ Or there is this mouthful if you want to run it in a running Docker environment:
 docker compose exec -u airflow -ti airflow-worker uv run rialto publications makeller
 ```
 
+This will by default look at the latest snapshot, that may not be complete yet. If you'd like to export data from another snapshot you can list them with:
+
+```
+uv run rialto snapshots
+```
+
+And then use one of them:
+
+```
+uv run rialto publications makeller --db-name rialto_20251207000005
+```
+
+If you would like to connect to a Postgres database running elsewhere (perhaps the production database via a [tunnel](https://github.com/sul-dlss/rialto-airflow/wiki/Connecting-to-rialto%E2%80%90airflow-PostgreSQL-from-developer-laptops-and-external-services)) you can use the `--database-uri` option with all the commands. So if you wanted to get a list of snapshot databases in production you can substitute the `{password-here}` text for the `analyst` user's password:
+
+```
+uv run rialto snapshots --db-uri "postgresql+psycopg2://analyst:{password-here}@localhost:9999"
+```
+
+And list the users:
+
+```
+uv run rialto snapshots --db-uri "postgresql+psycopg2://analyst:{password-here}@localhost:9999"
+```
+
+Or list the publications:
+
+```
+uv run rialto publications --db-uri "postgresql+psycopg2://analyst:{password-here}" @localhost:9999" makeller
+```
+
 ## Deployment
 
 Deployment to https://sul-rialto-airflow-XXXX.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:

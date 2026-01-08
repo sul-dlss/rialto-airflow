@@ -94,13 +94,12 @@ def publications_from_orcid(orcid: str, batch_size=200):
     """
     Get the publications metadata for a given ORCID.
     """
-    logging.debug(f"looking up publications for orcid {orcid}")
     orcid = normalize_orcid(orcid)
+    logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
-    logging.info(f"Harvesting publications for ORCID {orcid}")
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"
-        return publications [{fields}]
+        return publications[{fields}]
         """
 
     result = query_with_retry(q, retry=5)
@@ -108,30 +107,68 @@ def publications_from_orcid(orcid: str, batch_size=200):
         yield normalize_publication(pub)
 
 
-@cache
 def publication_fields():
-    """
-    Get a list of all possible fields for publications.
-    """
-    result = dsl().query("describe schema")
-    fields = list(result.data["sources"]["publications"]["fields"].keys())
-
-    # for some reason "researchers" and other large fields can cause 408 errors when harvesting
-    # maybe we can add them back if this is resolved.
-    fields_to_remove = [
-        "researchers",
-        "research_orgs",
-        "referenced_pubs",
-        "concepts",
+    # See Dimensions docs for a description of what is included in the basics and book fieldsets:
+    # https://docs.dimensions.ai/dsl/datasource-publications.html#publications-fieldsets
+    return [
+        "basics",
+        "book",
+        "altmetric",
+        "date",
+        "doi",
+        "funders",
+        "open_access",
+        "pmcid",
+        "pmid",
+        "times_cited",
+        "abstract",
+        "altmetric_id",
+        "issn",
+        "isbn",
+        "publisher",
+        "recent_citations",
+        "supporting_grant_ids",
     ]
-    for field in fields_to_remove:
-        if field in fields:
-            fields.remove(field)
-    return fields
+
+
+def unpacked_pub_fields():
+    # Response will include fields unpacked from the basics and book fieldsets requested.
+    return [
+        # basics
+        "authors",
+        "id",
+        "issue",
+        "journal",
+        "pages",
+        "title",
+        "type",
+        "volume",
+        "year",
+        # book
+        "book_doi",
+        "book_series_title",
+        "book_title",
+        # specific fields
+        "altmetric",
+        "date",
+        "doi",
+        "funders",
+        "open_access",
+        "pmcid",
+        "pmid",
+        "times_cited",
+        "abstract",
+        "altmetric_id",
+        "issn",
+        "isbn",
+        "publisher",
+        "recent_citations",
+        "supporting_grant_ids",
+    ]
 
 
 def normalize_publication(pub) -> dict:
-    for field in publication_fields():
+    for field in unpacked_pub_fields():
         if field not in pub:
             pub[field] = None
 
@@ -167,13 +204,12 @@ def query_with_retry(q, retry=5):
 
         # dimcli will retry HTTP level errors, but not ones involving the connection
         try:
-            # use query_iterative which will page responses but aggregate them
+            # use query_iterative which will page responses, 1 request per second, but aggregate them
             # into a complete result set. The maximum number of results is 50,000.
-            # Using a limit param set to 15 because some recent results are very large and
-            # we were getting an error if the response exceeds a certain size. 25 was proving
-            # too high for some ORCIDs. Consider raising or removing the limit if the issue is resolved and
+            # Using a limit param set to 25 rather than the default of 1,000 to avoid 408 errors about the size
+            # of a response. Consider raising or removing the limit if the issue is resolved and
             # removing the force param to view errors.
-            return dsl().query_iterative(q, show_results=False, limit=15, force=True)
+            return dsl().query_iterative(q, show_results=False, limit=25, force=True)
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(

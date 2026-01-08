@@ -73,6 +73,10 @@ def test_normalize_doi():
     assert utils.normalize_doi(None) is None
     assert utils.normalize_doi("") is None
     assert utils.normalize_doi("   ") is None
+    assert (
+        utils.normalize_doi("10.1007/978-3-030-46640-4\\_21")
+        == "10.1007/978-3-030-46640-4_21"
+    )
 
 
 def test_normalize_pmid():

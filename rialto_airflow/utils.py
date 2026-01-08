@@ -90,6 +90,7 @@ def normalize_doi(doi):
     context = {"doi_candidate": doi}
 
     doi = doi.lower().replace(" ", "")
+    doi = doi.replace("\\", "")
     doi = normalize_arxiv_id_to_doi(doi)
     doi = doi_candidate_extract(doi)
 

@@ -62,6 +62,7 @@ def doi_known_format_regex_list():
         "^10\\.1021/\\w\\w\\d+$",  # matches e.g. '10.1021/a_1029384756'
         "^10\\.1207/[\\w\\d]+\\&\\d+_\\d+$",  # matches e.g. '10.1207/a12b0z&456_765'
         "^\\b(10[\\.][0-9]{4,}(?:[\\.][0-9]+)*/(?:(?![\"&'<>])\\S)+)\\b$",  # matches e.g. '10.1016.12.31/nature.S0735-1097(98)2000/12/31/34:7-7' (SO post builds to this regex)
+        "^\\d",
     ]
     return [re.compile(p) for p in doi_filter_patterns]
 
@@ -91,6 +92,11 @@ def normalize_doi(doi):
 
     doi = doi.lower().replace(" ", "")
     doi = doi.replace("\\", "")
+    if ("&gt" in doi) or ("&lt" in doi):
+        # the couple of DOIs from OpenAlex with these characters are not easily modified to
+        # resolvable DOIs and cause errors when querying Dimensions
+        return None
+
     doi = normalize_arxiv_id_to_doi(doi)
     doi = doi_candidate_extract(doi)
 

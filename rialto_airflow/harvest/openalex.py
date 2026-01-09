@@ -17,7 +17,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi
+from rialto_airflow.utils import normalize_doi, add_orcid
 
 config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
@@ -78,7 +78,9 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .on_conflict_do_nothing()
                         )
 
-                        jsonl_output.write(json.dumps(openalex_pub) + "\n")
+                        jsonl_output.write(
+                            json.dumps(add_orcid(openalex_pub, author.orcid)) + "\n"
+                        )
 
     return jsonl_file
 
@@ -106,7 +108,7 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
 
 def fill_in(snapshot) -> Path:
     """Harvest OpenAlex data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "openalex.jsonl"
+    jsonl_file = snapshot.path / "openalex-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:

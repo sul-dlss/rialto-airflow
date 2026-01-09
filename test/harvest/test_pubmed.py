@@ -1,4 +1,3 @@
-import json
 import logging
 import pytest
 import re
@@ -56,51 +55,6 @@ def existing_publication(test_session):
         )
         session.add(pub)
         return pub
-
-
-def mock_jsonl(path):
-    """
-    Mock the existing jsonl file for Pubmed
-    """
-    records = [
-        {
-            "MedlineCitation": {
-                "Article": {
-                    "ArticleTitle": "Example Title",
-                },
-            },
-            "PubmedData": {
-                "ArticleIdList": {
-                    "ArticleId": [
-                        {"@IdType": "pubmed", "#text": "36857419"},
-                        {"@IdType": "doi", "#text": "10.1182/bloodadvances.2022008893"},
-                    ]
-                },
-            },
-        },
-        {
-            "MedlineCitation": {
-                "Article": {
-                    "ArticleTitle": "Another Article Title",
-                },
-            },
-            "PubmedData": {
-                "ArticleIdList": {
-                    "ArticleId": [
-                        {"@IdType": "pubmed", "#text": "21302935"},
-                        {"@IdType": "doi", "#text": "10.1021/ac1028984"},
-                    ]
-                },
-            },
-        },
-    ]
-    with open(path, "w") as f:
-        for record in records:
-            f.write(f"{json.dumps(record)}\n")
-
-
-def jsonl_file(path):
-    return path / "pubmed.jsonl"
 
 
 def pubmed_json():
@@ -358,7 +312,7 @@ def test_harvest(
     pubmed.harvest(snapshot)
 
     # the mocked Pubmed api returns the same two publications for both authors
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 4
+    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
 
     # make sure a publication is in the database and linked to the author
     with test_session.begin() as session:
@@ -385,7 +339,7 @@ def test_harvest_limit(
 
     # the mocked Pubmed api returns the same two publications for both authors, but we
     # only process the first
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 1
+    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 1
 
     # make sure a publication is in the database and linked to the author
     with test_session.begin() as session:
@@ -423,7 +377,7 @@ def test_harvest_no_pubmed_results(
     """
     caplog.set_level(logging.DEBUG)
     pubmed.harvest(snapshot)
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 0
+    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 0
     with test_session.begin() as session:
         assert session.query(Publication).count() == 0, (
             "no publications loaded because none found"
@@ -461,7 +415,7 @@ def test_harvest_when_doi_exists(
     pubmed.harvest(snapshot)
 
     # jsonl file is there and has four lines (two pubs for each author)
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 4
+    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
 
     # ensure that the existing publication for the DOI was updated
     with test_session.begin() as session:
@@ -489,10 +443,6 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         "publications_from_pmids",
         lambda *args, **kwargs: [pubmed_json_fill_in_doi()],
     )
-
-    # set up a pre-existing jsonl file
-    mock_jsonl(jsonl_file(snapshot.path))
-
     pubmed.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -504,7 +454,7 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         assert pub.pubmed_json == pubmed_json_fill_in_doi()
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 3
+    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
@@ -515,10 +465,6 @@ def test_fill_in_no_pubmed(
 
     # mock pubmed api to return no records for the doi
     monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: [])
-
-    # set up a pre-existing jsonl file
-    mock_jsonl(jsonl_file(snapshot.path))
-
     pubmed.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -530,7 +476,7 @@ def test_fill_in_no_pubmed(
         assert pub.pubmed_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
+    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
@@ -551,11 +497,6 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
     )
 
     caplog.set_level(logging.INFO)
-
-    # set up a pre-existing jsonl file
-    mock_jsonl(jsonl_file(snapshot.path))
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
-
     pubmed.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -567,7 +508,7 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
         assert pub.pubmed_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(jsonl_file(snapshot.path)) == 2
+    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 

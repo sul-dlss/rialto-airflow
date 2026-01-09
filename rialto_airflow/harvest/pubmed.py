@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import requests
 import xmltodict
@@ -18,7 +19,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi
+from rialto_airflow.utils import normalize_doi, add_orcid
 
 Params = Dict[str, Union[int, str]]
 
@@ -87,14 +88,16 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .on_conflict_do_nothing()
                         )
 
-                        jsonl_output.write(json.dumps(pubmed_pub) + "\n")
+                        jsonl_output.write(
+                            json.dumps(add_orcid(pubmed_pub, author.orcid)) + "\n"
+                        )
 
     return jsonl_file
 
 
 def fill_in(snapshot: Snapshot):
     """Harvest Pubmed data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "pubmed.jsonl"
+    jsonl_file = snapshot.path / "pubmed-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
@@ -173,7 +176,7 @@ def pmids_from_dois(dois: list[str]) -> list[str]:
     return _pubmed_search_api(batch_query)
 
 
-def publications_from_pmids(pmids: list[str]) -> list[str]:
+def publications_from_pmids(pmids: list[str]) -> list[dict[Any, Any]]:
     """
     Returns full pubmed records given a list of PMIDs.
     """

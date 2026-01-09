@@ -200,5 +200,5 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         }
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "crossref.jsonl") == 1
+    assert num_jsonl_objects(snapshot.path / "crossref-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text

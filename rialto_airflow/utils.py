@@ -2,7 +2,7 @@ import re
 import logging
 from functools import cache
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 
 def rialto_authors_file(data_dir):
@@ -164,3 +164,11 @@ def join_keys(d: dict, *keys):
             values.append(value)
 
     return " ".join(values)
+
+
+def add_orcid(data: dict[Any, Any], orcid: str):
+    """
+    Envelope the provided dictionary inside another dictionary with the addition
+    of an orcid key.
+    """
+    return {"orcid": orcid, "data": data}

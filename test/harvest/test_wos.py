@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import re
@@ -103,27 +102,6 @@ def mock_wos_doi(monkeypatch):
         }
 
     monkeypatch.setattr(wos, "publications_from_dois", f)
-
-
-def mock_jsonl(path):
-    """
-    Mock the existing jsonl file for Web of Science
-    """
-    records = [
-        {
-            "doi": "10.1515/9781503624150",
-            "title": "An example title",
-            "publication_year": 1891,
-        },
-        {
-            "doi": "10.1515/9781503624151",
-            "title": "Another example title",
-            "publication_year": 1892,
-        },
-    ]
-    with open(path, "w") as f:
-        for record in records:
-            f.write(f"{json.dumps(record)}\n")
 
 
 @pytest.mark.skipif(wos_key is None, reason="no Web of Science key")
@@ -370,10 +348,6 @@ def test_get_doi(caplog):
 
 def test_fill_in(snapshot, test_session, mock_no_wos_publication, mock_wos_doi, caplog):
     caplog.set_level(logging.INFO)
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "wos.jsonl"
-    mock_jsonl(jsonl_file)
-
     wos.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -390,7 +364,7 @@ def test_fill_in(snapshot, test_session, mock_no_wos_publication, mock_wos_doi, 
         }
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 3
+    assert num_jsonl_objects(snapshot.path / "wos-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
@@ -406,13 +380,8 @@ def test_fill_in_no_wos(
 
     # make it look like wos returns no publications by DOI
     monkeypatch.setattr(wos, "publications_from_dois", lambda *args, **kwargs: [])
-
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "wos.jsonl"
-    mock_jsonl(jsonl_file)
-    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
-
     wos.fill_in(snapshot)
+
     with test_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -422,7 +391,7 @@ def test_fill_in_no_wos(
         assert pub.wos_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "wos-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 

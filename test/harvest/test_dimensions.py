@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import pytest
@@ -250,27 +249,6 @@ def test_log_message(snapshot, mock_authors, mock_many_dimensions, caplog):
     assert "Reached limit of 50 publications stopping" in caplog.text
 
 
-def mock_jsonl(path):
-    """
-    Mock the existing jsonl file for Dimensions
-    """
-    records = [
-        {
-            "doi": "10.1515/9781503624150",
-            "title": "An example title",
-            "publication_year": 1891,
-        },
-        {
-            "doi": "10.1515/9781503624151",
-            "title": "Another example title",
-            "publication_year": 1892,
-        },
-    ]
-    with open(path, "w") as f:
-        for record in records:
-            f.write(f"{json.dumps(record)}\n")
-
-
 @pytest.fixture
 def mock_no_dim_publication(test_session):
     with test_session.begin() as session:
@@ -304,10 +282,6 @@ def test_fill_in(
     snapshot, test_session, mock_no_dim_publication, mock_dimensions_doi, caplog
 ):
     caplog.set_level(logging.INFO)
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "dimensions.jsonl"
-    mock_jsonl(jsonl_file)
-
     dimensions.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -324,7 +298,7 @@ def test_fill_in(
         }
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 3
+    assert num_jsonl_objects(snapshot.path / "dimensions-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
@@ -343,11 +317,6 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "dimensions.jsonl"
-    mock_jsonl(jsonl_file)
-    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
-
     dimensions.fill_in(snapshot)
     with test_session.begin() as session:
         pub = (
@@ -358,7 +327,7 @@ def test_fill_in_no_dimensions(
         assert pub.dim_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "dimensions-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
@@ -409,12 +378,6 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "dimensions.jsonl"
-    mock_jsonl(jsonl_file)
-    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
-
     dimensions.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -426,6 +389,6 @@ def test_fill_in_no_doi(
         assert pub.dim_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "dimensions.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "dimensions-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text

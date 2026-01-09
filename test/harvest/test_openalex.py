@@ -1,5 +1,4 @@
 import dotenv
-import json
 import logging
 import pytest
 
@@ -139,27 +138,6 @@ def test_log_message(snapshot, mock_authors, mock_many_openalex, caplog):
     assert "Reached limit of 50 publications stopping" in caplog.text
 
 
-def mock_jsonl(path):
-    """
-    Mock the existing jsonl file for OpenAlex.
-    """
-    records = [
-        {
-            "doi": "10.1515/9781503624150",
-            "title": "An example title",
-            "publication_year": 1891,
-        },
-        {
-            "doi": "10.1515/9781503624151",
-            "title": "Another example title",
-            "publication_year": 1892,
-        },
-    ]
-    with open(path, "w") as f:
-        for record in records:
-            f.write(f"{json.dumps(record)}\n")
-
-
 class MockWorks:
     def __init__(self, records):
         # create a
@@ -185,11 +163,6 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         }
     ]
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks(records))
-
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "openalex.jsonl"
-    mock_jsonl(jsonl_file)
-
     openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -205,7 +178,7 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         }
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 3
+    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
@@ -216,11 +189,6 @@ def test_fill_in_no_openalex(
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([]))
-
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "openalex.jsonl"
-    mock_jsonl(jsonl_file)
-
     openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -232,7 +200,7 @@ def test_fill_in_no_openalex(
         assert pub.openalex_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
@@ -245,11 +213,6 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"title": "example"}]))
-
-    # set up a pre-existing jsonl file
-    jsonl_file = snapshot.path / "openalex.jsonl"
-    mock_jsonl(jsonl_file)
-
     openalex.fill_in(snapshot)
 
     with test_session.begin() as session:
@@ -261,7 +224,7 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
         assert pub.openalex_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 

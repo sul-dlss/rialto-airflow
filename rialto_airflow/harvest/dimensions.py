@@ -18,7 +18,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi, normalize_orcid
+from rialto_airflow.utils import normalize_doi, normalize_orcid, add_orcid
 
 
 def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
@@ -66,7 +66,10 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                             .on_conflict_do_nothing()
                         )
 
-                        jsonl_output.write(json.dumps(dimensions_pub_json) + "\n")
+                        jsonl_output.write(
+                            json.dumps(add_orcid(dimensions_pub_json, author.orcid))
+                            + "\n"
+                        )
 
     return jsonl_file
 
@@ -230,7 +233,7 @@ def query_with_retry(q, retry=5):
 
 def fill_in(snapshot: Snapshot):
     """Harvest Dimensions data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "dimensions.jsonl"
+    jsonl_file = snapshot.path / "dimensions-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:

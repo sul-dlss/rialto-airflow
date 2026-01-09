@@ -23,7 +23,7 @@ RIALTO_EMAIL = os.environ.get(
 
 def fill_in(snapshot: Snapshot) -> Path:
     """Harvest Crossref data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "crossref.jsonl"
+    jsonl_file = snapshot.path / "crossref-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:

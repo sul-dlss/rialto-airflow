@@ -156,7 +156,7 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
     for doi_batch in batched(dois, n=50):
         try:
             yield from _wos_api(
-                f"DO=({' '.join(doi_batch)})",
+                f"DO=({' '.join(f'"{doi}"' for doi in doi_batch)})",
                 should_raise_for_status=True,
                 timeout=(6.05, 60),
             )
@@ -166,10 +166,10 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
             )
             for doi in doi_batch:
                 try:
-                    yield from _wos_api(f"DO=({doi})", timeout=(6.05, 15))
+                    yield from _wos_api(f'DO=("{doi}")', timeout=(6.05, 15))
                 except Exception as e:
                     logging.error(
-                        f"Unexpected error querying for single DOI from larger batch.  DOI={doi} -- error={e}"
+                        f'Unexpected error querying for single DOI from larger batch.  DOI="{doi}" -- error={e}'
                     )
 
 

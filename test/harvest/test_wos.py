@@ -443,7 +443,7 @@ def test_publications_from_doi_batch_with_error_doi(mock_wos_api, caplog):
         caplog.text,
     )
     assert (
-        "Unexpected error querying for single DOI from larger batch.  DOI=10.1337/my.unretrievable.D01"
+        'Unexpected error querying for single DOI from larger batch.  DOI="10.1337/my.unretrievable.D01"'
         in caplog.text
     )
 

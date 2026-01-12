@@ -413,14 +413,17 @@ def test_get_list_of_publications_from_dois():
     """
 
     dois = [
-        "10.1061/(asce)0733-9429(1997)123:9(828)",
+        "10.1061/(asce)0733-9429(1997)123:9(828)",  # DOI with a parens
         "10.1002/adma.202103646",
         "10.1001/jamacardio.2021.6059",
+        "10.1021/ef'7003333",  # DOI with a single quote
+        "doi_not_found",  # not found DOI, not really a DOI
+        '10.1021/ef"7003333',  # DOI with a double quote
     ]
 
     pubs = list(wos.publications_from_dois(dois))
 
-    assert len(pubs) == 3, "returns all three publications"
+    assert len(pubs) == 3, "returns all three publications that are actually found"
 
 
 @pytest.fixture

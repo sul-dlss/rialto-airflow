@@ -395,6 +395,7 @@ def test_fill_in_no_wos(
     assert "filled in 0 publications" in caplog.text
 
 
+@pytest.mark.skipif(wos_key is None, reason="no Web of Science key")
 def test_publications_from_dois():
     # there are 231 DOIs in this list and publications_from_dois look them up in batches of 50
     dois = list(pandas.read_csv("test/data/dois.csv").doi)
@@ -403,6 +404,26 @@ def test_publications_from_dois():
 
     # the number of pubs we get back should exceed the batch size if the paging is working
     assert len(pubs) > 50
+
+
+@pytest.mark.skipif(wos_key is None, reason="no Web of Science key")
+def test_get_list_of_publications_from_dois():
+    """
+    This is a live test of WoS API to ensure we can query by DOI even if it includes a parens in it
+    """
+
+    dois = [
+        "10.1061/(asce)0733-9429(1997)123:9(828)",  # DOI with a parens
+        "10.1002/adma.202103646",
+        "10.1001/jamacardio.2021.6059",
+        "10.1021/ef'7003333",  # DOI with a single quote
+        "doi_not_found",  # not found DOI, not really a DOI
+        '10.1021/ef"7003333',  # DOI with a double quote
+    ]
+
+    pubs = list(wos.publications_from_dois(dois))
+
+    assert len(pubs) == 3, "returns all three publications that are actually found"
 
 
 @pytest.fixture
@@ -443,7 +464,7 @@ def test_publications_from_doi_batch_with_error_doi(mock_wos_api, caplog):
         caplog.text,
     )
     assert (
-        "Unexpected error querying for single DOI from larger batch.  DOI=10.1337/my.unretrievable.D01"
+        'Unexpected error querying for single DOI from larger batch.  DOI="10.1337/my.unretrievable.D01"'
         in caplog.text
     )
 

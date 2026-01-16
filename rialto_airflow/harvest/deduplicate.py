@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.harvest import Publication, pub_author_association
 from rialto_airflow.snapshot import Snapshot
+from rialto_airflow.distiller import natural_key
 
 
 def remove_duplicates(snapshot: Snapshot) -> int:
@@ -113,6 +114,45 @@ def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
         logging.info(f"Deleted {count_deleted} publication rows from sulpub.")
+    return num_dupes
+
+
+def remove_natural_key_duplicates(snapshot: Snapshot) -> int:
+    logging.debug("Removing any duplicate publications using natural key.")
+
+    # create a dictionary that maps the natural key to publication_ids
+    key_pubs: dict[str, list] = {}
+
+    with get_session(snapshot.database_name).begin() as session:
+        stmt = (
+            select(Publication)
+            .where(Publication.doi.is_(None))
+            .execution_options(yield_per=100)
+        )
+
+        for pub in session.execute(stmt).scalars():
+            nat_key = natural_key(pub)
+            if nat_key is None:
+                continue
+            elif nat_key in key_pubs:
+                key_pubs[nat_key].append(pub.id)
+            else:
+                key_pubs[nat_key] = [pub.id]
+
+        num_dupes = len(key_pubs)
+
+        count_deleted = 0
+        for pub_ids in key_pubs.values():
+            pubs = (
+                session.execute(select(Publication).where(Publication.id.in_(pub_ids)))
+                .scalars()
+                .all()
+            )
+
+            deleted = merge_pubs(pubs=pubs, session=session)
+            count_deleted += deleted
+        logging.info(f"Deleted {count_deleted} publication rows from sulpub.")
+
     return num_dupes
 
 

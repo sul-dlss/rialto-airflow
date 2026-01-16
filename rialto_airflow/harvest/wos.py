@@ -153,7 +153,7 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
     lookups is much more aggressive at 15 seconds, because we switched to batches due to long runs
     as a result of individual DOI lookups.
     """
-    for doi_batch in batched(dois, n=50):
+    for doi_batch in batched(dois, n=10):
         try:
             yield from _wos_api(
                 f"DO=({' '.join(f'"{doi}"' for doi in doi_batch)})",

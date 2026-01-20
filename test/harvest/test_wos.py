@@ -95,10 +95,18 @@ def mock_wos_doi(monkeypatch):
 
     def f(*args, **kwargs):
         yield {
-            "doi": "10.1515/9781503624199",
             "title": "An example title",
             "type": "article",
             "publication_year": 1891,
+            "dynamic_data": {
+                "cluster_related": {
+                    "identifiers": {
+                        "identifier": [
+                            {"type": "doi", "value": "10.1515/9781503624199"}
+                        ]
+                    }
+                }
+            },
         }
 
     monkeypatch.setattr(wos, "publications_from_dois", f)
@@ -357,10 +365,18 @@ def test_fill_in(snapshot, test_session, mock_no_wos_publication, mock_wos_doi, 
             .first()
         )
         assert pub.wos_json == {
-            "doi": "10.1515/9781503624199",
             "title": "An example title",
             "type": "article",
             "publication_year": 1891,
+            "dynamic_data": {
+                "cluster_related": {
+                    "identifiers": {
+                        "identifier": [
+                            {"type": "doi", "value": "10.1515/9781503624199"}
+                        ]
+                    }
+                }
+            },
         }
 
     # adds 1 publication to the jsonl file

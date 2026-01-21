@@ -103,7 +103,7 @@ def fill_in(snapshot: Snapshot):
 
                 logging.debug(f"looking up DOIs {dois}")
                 for wos_pub in publications_from_dois(dois):
-                    doi = normalize_doi(wos_pub.get("doi"))
+                    doi = normalize_doi(get_doi(wos_pub))
                     if doi is None:
                         continue
 
@@ -178,13 +178,11 @@ def _wos_api_retry() -> Retry:
     # indicates we're being rate limited.
     # Retry up to 10 times on status code errors.
     #
+    # For each try the time to sleep will be set using:
     # {backoff_factor} * (2 ** ({number of previous retries})) + random.uniform(0, {backoff_jitter})
-    #
-    # For our configuration that means there's an immediate retry; then:
-    # * wait another 6 seconds before trying again (then 12s, then 24s, ..., 25m 36s).
-    #  * Additionally, add up to one minute of wait time to each retry, regardless of which iteration it is.
-    #  * This could total up to just under an hour of waiting for retries for each occurrence.
-    return Retry(status=10, status_forcelist=[429], backoff_factor=3, backoff_jitter=60)
+    return Retry(
+        status=10, status_forcelist=[429], backoff_factor=0.3, backoff_jitter=5
+    )
 
 
 def _wos_api(

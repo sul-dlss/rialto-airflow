@@ -30,6 +30,7 @@ dependencies = [
     "dominate>=2.9.1",
     "sqlalchemy-utils==0.41.2", # see: https://github.com/kvesteri/sqlalchemy-utils/issues/791
     "typer>=0.20.0",
+    "bs4>=0.0.2",
 ]
 
 [project.scripts]

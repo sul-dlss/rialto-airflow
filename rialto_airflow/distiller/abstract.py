@@ -1,4 +1,5 @@
 from .utils import JsonPathRule, FuncRule, first, json_path
+from bs4 import BeautifulSoup
 
 
 def abstract(row):
@@ -11,7 +12,7 @@ def abstract(row):
             FuncRule("openalex_json", _rebuild_abstract),
             JsonPathRule("dim_json", "abstract"),
             FuncRule("pubmed_json", _pubmed_abstract),
-            JsonPathRule("crossref_json", "abstract"),
+            FuncRule("crossref_json", _crossref_abstract),
         ],
     )
 
@@ -41,6 +42,23 @@ def _pubmed_abstract(pubmed_json: dict) -> str | None:
         ]
         return " ".join(full_abstract)
     return None
+
+
+def _crossref_abstract(crossref_json: dict) -> str | None:
+    """
+    Get the abstract from crossref JSON and strip out any html/xml tags
+    """
+    if crossref_json is None:
+        return None
+
+    abstract_text = crossref_json.get("abstract")
+    if abstract_text is None:
+        return None
+
+    # strip all of the tags from abstract (gets rid of the <jats> tags, <p> tags, and remove
+    # any <jats:title> tag at the beginning)
+    soup = BeautifulSoup(abstract_text.split("title>")[-1])
+    return soup.get_text(strip=False).strip()
 
 
 def _rebuild_abstract(openalex_json: dict) -> str | None:

@@ -81,6 +81,7 @@ def test_normalize_doi():
         utils.normalize_doi("10.1562/0031-8655(2004)79&lt;76:aocrtt&gt;2.0.co;2")
         is None
     )
+    assert utils.normalize_doi('10.1562/0031-8655(2004)"79') is None
 
 
 def test_normalize_pmid():

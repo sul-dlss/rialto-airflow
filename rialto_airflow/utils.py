@@ -88,6 +88,9 @@ def normalize_doi(doi):
     if doi is None or doi.strip() == "":
         return None
 
+    if '"' in doi:
+        return None
+
     context = {"doi_candidate": doi}
 
     doi = doi.lower().replace(" ", "")

@@ -81,7 +81,7 @@ def publications_from_dois(dois: list, batch_size=200):
     fields = " + ".join(publication_fields())
     for doi_batch in batched(dois, batch_size):
         doi_list = ",".join(['"{}"'.format(doi) for doi in doi_batch])
-        logging.info(f"looking up: {doi_list}")
+        logging.debug(f"looking up: {doi_list}")
 
         q = f"""
             search publications where doi in [{doi_list}]
@@ -98,7 +98,7 @@ def publications_from_orcid(orcid: str, batch_size=200):
     Get the publications metadata for a given ORCID.
     """
     orcid = normalize_orcid(orcid)
-    logging.info(f"looking up publications for orcid {orcid}")
+    logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"

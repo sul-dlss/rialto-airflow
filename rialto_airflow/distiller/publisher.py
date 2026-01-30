@@ -27,5 +27,8 @@ def _publisher_by_issn(row) -> str | None:
     # look up publisher in OpenAlex by ISSN
     """
     issn = journal_issn(row)
+    if issn is None or issn == "":
+        return None
+
     source = source_by_issn(issn)
     return source.get("host_organization_name") if source else None

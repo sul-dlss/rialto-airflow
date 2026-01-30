@@ -275,3 +275,23 @@ def test_invalid_issn():
 
     # no valid ISSNs
     assert journal_issn(pub) == "1234-0000"
+
+
+def test_empty_issn():
+    """
+    Test that source_by_issn is not called with empty ISSN values.
+    """
+    pub = Publication(
+        doi="10.1515/9781503624153",
+        sulpub_json={
+            "journal_issn": "",
+        },
+        dim_json={
+            "issn": 1,
+        },
+        crossref_json={
+            "ISSN": [""],
+        },
+    )
+    assert publisher(pub) is None
+    assert journal_issn(pub) is None

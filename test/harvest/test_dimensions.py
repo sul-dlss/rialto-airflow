@@ -22,14 +22,14 @@ def test_publications_from_dois():
     )
     assert len(pubs) == 2
     assert pubs[0]["doi"] == "10.48550/arxiv.1706.03762"
-    assert len(pubs[0].keys()) == 27, "first publication has 27 columns"
+    assert len(pubs[0].keys()) == 28, "first publication has 28 columns"
     assert "book_title" in pubs[0].keys()
-    assert len(pubs[1].keys()) == 27, "second publication has 27 columns"
+    assert len(pubs[1].keys()) == 28, "second publication has 28 columns"
 
 
 def test_publication_fields():
     fields = dimensions.publication_fields()
-    assert len(fields) == 17
+    assert len(fields) == 18
     assert "basics" in fields
     assert "book" in fields
 

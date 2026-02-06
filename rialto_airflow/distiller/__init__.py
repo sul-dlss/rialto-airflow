@@ -15,6 +15,7 @@ from .volume import volume
 from .citation_count import citation_count
 from .author_names import author_list_names, first_author_name, last_author_name
 from .author_orcids import author_list_orcids, first_author_orcid, last_author_orcid
+from .natural_key import natural_key
 
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "JsonPathRule",
     "last_author_name",
     "last_author_orcid",
+    "natural_key",
     "open_access",
     "pages",
     "pub_year",

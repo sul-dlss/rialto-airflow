@@ -131,6 +131,7 @@ def publication_fields():
         "publisher",
         "recent_citations",
         "supporting_grant_ids",
+        "concepts",
     ]
 
 
@@ -153,6 +154,7 @@ def unpacked_pub_fields():
         "book_title",
         # specific fields
         "altmetric",
+        "concepts",
         "date",
         "doi",
         "funders",

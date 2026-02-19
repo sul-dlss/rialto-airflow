@@ -61,14 +61,22 @@ desc 'Check for running Airflow DAG'
 task :check_running_airflow_dag do
   on roles(fetch(:build_roles)) do
     within current_path do
+      container_name = 'airflow-worker'
+      # Check if airflow-worker container is running
+      worker_status = capture(:docker, 'compose', 'ps', container_name, '--status', 'running', '--format', 'json')
+      if worker_status.strip.empty?
+        info "#{container_name} container is not running. Skipping DAG check."
+        next
+      end
+
       # get a list of all DAGs
-      dags = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c',
+      dags = capture(:docker, 'compose', 'exec', '-it', container_name, '/bin/bash', '-c',
                      '"airflow dags list --columns dag_id -o json"')
       dag_list = JSON.parse(dags.split("\n").last) # the last line of the output is the list of dags we need to parse
       dag_list.each do |dag|
         command = "airflow dags list-runs -d #{dag['dag_id']} --state running"
         # Check if the DAG is running
-        output = capture(:docker, 'compose', 'exec', '-it', 'airflow-worker', '/bin/bash', '-c', "\"#{command}\"")
+        output = capture(:docker, 'compose', 'exec', '-it', container_name, '/bin/bash', '-c', "\"#{command}\"")
         # if the output of the above command is anything other than "No data found"
         # then the DAG is running and the deploy should exit
         next if output.include? 'No data found'

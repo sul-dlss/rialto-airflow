@@ -94,7 +94,7 @@ def test_pubmed_publisher_journal(pubmed_json):
     assert journal_issn(pub) == "1873-2054"
     # will do live lookup in OpenAlex Sources API
     assert journal_name(pub) == "Health & Place"
-    assert publisher(pub) == "Elsevier"
+    assert publisher(pub) == "Elsevier BV"
 
 
 def test_dimensions_publisher_journal():
@@ -112,7 +112,7 @@ def test_dimensions_publisher_journal():
 
     assert journal_issn(pub) == "1476-4687"
     # will do live lookup in OpenAlex Sources API
-    assert publisher(pub) == "Springer Nature"
+    assert publisher(pub) == "Nature Portfolio"
     assert journal_name(pub) == "Nature"
 
 

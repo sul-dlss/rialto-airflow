@@ -423,6 +423,9 @@ def test_publications_from_dois():
 
 
 @pytest.mark.skipif(wos_key is None, reason="no Web of Science key")
+@pytest.mark.skip(
+    reason="API unexpectedly dropping result for 10.1061/(asce)0733-9429(1997)123:9(828)"
+)  # https://github.com/sul-dlss/rialto-airflow/issues/800
 def test_get_list_of_publications_from_dois():
     """
     This is a live test of WoS API to ensure we can query by DOI even if it includes a parens in it

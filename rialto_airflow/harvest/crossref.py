@@ -16,9 +16,7 @@ from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi
 
-RIALTO_EMAIL = os.environ.get(
-    "AIRFLOW_VAR_OPENALEX_EMAIL"
-)  # use the same email address
+RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
 
 
 def fill_in(snapshot: Snapshot) -> Path:

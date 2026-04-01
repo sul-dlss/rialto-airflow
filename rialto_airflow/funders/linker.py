@@ -17,7 +17,6 @@ from rialto_airflow.schema.harvest import (
 from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id
 from rialto_airflow.funders.ror_grid_dataset import convert_ror_to_grid
 
-config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
 config.retry_http_codes = [429, 500, 503]

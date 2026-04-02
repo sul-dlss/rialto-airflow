@@ -4,7 +4,7 @@ from rialto_airflow.harvest.distill import open_access
 
 def test_dimensions(dim_json):
     """
-    open_access should come from dimensions if unavailable in openalex
+    open_access should come from dimensions
     """
     pub = Publication(doi="10.1515/9781503624153", dim_json=dim_json)
 
@@ -49,3 +49,16 @@ def test_fallback_to_openalex(openalex_json, wos_json, sulpub_json):
         wos_json=wos_json,
     )
     assert open_access(pub) == "gold", "fell back to openalex"
+
+
+def test_no_open_alex_or_dimensions():
+    """
+    open_access should be empty if no info is available in dimensions or openalex
+    """
+    pub = Publication(
+        doi="10.1515/9781503624153",
+        openalex_json={"open_access": []},
+        dim_json={"open_access": []},
+    )
+
+    assert open_access(pub) is None

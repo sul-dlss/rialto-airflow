@@ -8,8 +8,8 @@ def open_access(pub):
     return first(
         pub,
         rules=[
-            JsonPathRule("openalex_json", "open_access.oa_status"),
             FuncRule("dim_json", _dimensions),
+            JsonPathRule("openalex_json", "open_access.oa_status"),
         ],
     )
 

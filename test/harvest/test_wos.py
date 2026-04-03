@@ -237,7 +237,7 @@ def test_not_found_error(test_session, tmp_path, caplog, mock_authors, requests_
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
     assert (
-        "404 Client Error: Not Found for url: https://wos-api.clarivate.com/api/wos?databaseId=WOS&usrQuery=AI"
+        "404 Client Error: Not Found for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
         in caplog.text
     )
 
@@ -258,7 +258,7 @@ def test_server_error(test_session, tmp_path, caplog, mock_authors, requests_moc
     wos.harvest(snapshot, limit=50)
     assert test_session().query(Publication).count() == 0, "no publications loaded"
     assert (
-        "500 Server Error: Internal Server Error for url: https://wos-api.clarivate.com/api/wos?databaseId=WOS&usrQuery=AI"
+        "500 Server Error: Internal Server Error for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
         in caplog.text
     )
     assert " -- shrug" in caplog.text

@@ -219,7 +219,7 @@ def _wos_api(
     count = 100
 
     params: Params = {
-        "databaseId": "WOS",
+        "databaseId": "WOK",
         "usrQuery": query,
         "count": count,
         "firstRecord": 1,

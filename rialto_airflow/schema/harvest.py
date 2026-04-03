@@ -1,8 +1,11 @@
+from typing import List, Optional
+
 from sqlalchemy import Table, Boolean, Column, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import (  # type: ignore
-    RelationshipProperty,
+from sqlalchemy.orm import (
+    Mapped,
     declarative_base,
+    mapped_column,
     relationship,
 )
 from sqlalchemy.types import DateTime
@@ -32,35 +35,39 @@ pub_funder_association = Table(
 )
 
 
-class Publication(HarvestSchemaBase):  # type: ignore
+class Publication(HarvestSchemaBase):
     __tablename__ = "publication"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    doi = Column(String, unique=True)
-    title = Column(String)
-    pub_year = Column(Integer)
-    open_access = Column(String)
-    apc = Column(Integer)
-    dim_json = Column(JSONB(none_as_null=True))
-    openalex_json = Column(JSONB(none_as_null=True))
-    sulpub_json = Column(JSONB(none_as_null=True))
-    wos_json = Column(JSONB(none_as_null=True))
-    pubmed_json = Column(JSONB(none_as_null=True))
-    crossref_json = Column(JSONB(none_as_null=True))
-    created_at = Column(DateTime, server_default=utcnow())
-    updated_at = Column(DateTime, onupdate=utcnow())
-    types = Column(ARRAY(String))
-    publisher = Column(String)
-    journal_name = Column(String)
-    academic_council_authored = Column(Boolean, default=False)
-    faculty_authored = Column(Boolean, default=False)
-    authors: RelationshipProperty = relationship(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    doi: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    title: Mapped[Optional[str]] = mapped_column(String)
+    pub_year: Mapped[Optional[int]] = mapped_column(Integer)
+    open_access: Mapped[Optional[str]] = mapped_column(String)
+    apc: Mapped[Optional[int]] = mapped_column(Integer)
+    dim_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    openalex_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    sulpub_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    wos_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    pubmed_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    crossref_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    created_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    types: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
+    publisher: Mapped[Optional[str]] = mapped_column(String)
+    journal_name: Mapped[Optional[str]] = mapped_column(String)
+    academic_council_authored: Mapped[Optional[bool]] = mapped_column(
+        Boolean, default=False
+    )
+    faculty_authored: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    authors: Mapped[List["Author"]] = relationship(
         "Author",
         secondary=pub_author_association,
         back_populates="publications",
         cascade="all, delete",
     )
-    funders: RelationshipProperty = relationship(
+    funders: Mapped[List["Funder"]] = relationship(
         "Funder", secondary=pub_funder_association, back_populates="publications"
     )
 
@@ -72,41 +79,45 @@ class Publication(HarvestSchemaBase):  # type: ignore
     )
 
 
-class Author(HarvestSchemaBase):  # type: ignore
+class Author(HarvestSchemaBase):
     __tablename__ = "author"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    sunet = Column(String, unique=True)
-    cap_profile_id = Column(String, unique=True)
-    orcid = Column(String, unique=True)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    status = Column(Boolean)
-    academic_council = Column(Boolean)
-    role = Column(String)
-    schools = Column(ARRAY(String))
-    departments = Column(ARRAY(String))
-    primary_school = Column(String)
-    primary_dept = Column(String)
-    primary_division = Column(String)
-    created_at = Column(DateTime, server_default=utcnow())
-    updated_at = Column(DateTime, onupdate=utcnow())
-    publications: RelationshipProperty = relationship(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sunet: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    cap_profile_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    orcid: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    first_name: Mapped[str] = mapped_column(String, nullable=False)
+    last_name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[Optional[bool]] = mapped_column(Boolean)
+    academic_council: Mapped[Optional[bool]] = mapped_column(Boolean)
+    role: Mapped[Optional[str]] = mapped_column(String)
+    schools: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
+    departments: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
+    primary_school: Mapped[Optional[str]] = mapped_column(String)
+    primary_dept: Mapped[Optional[str]] = mapped_column(String)
+    primary_division: Mapped[Optional[str]] = mapped_column(String)
+    created_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"
     )
 
 
-class Funder(HarvestSchemaBase):  # type: ignore
+class Funder(HarvestSchemaBase):
     __tablename__ = "funder"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    grid_id = Column(String, unique=True)
-    ror_id = Column(String, unique=True)
-    openalex_id = Column(String, unique=True)
-    federal = Column(Boolean, default=False)
-    created_at = Column(DateTime, server_default=utcnow())
-    updated_at = Column(DateTime, onupdate=utcnow())
-    publications: RelationshipProperty = relationship(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    grid_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    ror_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    openalex_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    federal: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_funder_association, back_populates="funders"
     )

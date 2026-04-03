@@ -1,6 +1,7 @@
 import csv
 import logging
 
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
@@ -27,7 +28,7 @@ def export_author_orcids(data_dir):
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
             insert_session.connection().execute(
-                f"TRUNCATE {AuthorOrcids.__tablename__}"
+                text(f"TRUNCATE {AuthorOrcids.__tablename__}")
             )
 
             for row in csv_reader:

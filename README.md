@@ -209,14 +209,14 @@ In addition to the terminal display of a summary of the test coverage percentage
 To see if there are any type mismatches:
 
 ```
-uv run mypy .
+uv run ty check .
 ```
 
 ### Run all the checks
 
 One line for running the linter, the type checker, and the test suite (failing fast if there are errors):
 ```
-uv run ruff format --diff . && uv run ruff check && uv run mypy . && uv run pytest
+uv run ruff format --diff . && uv run ruff check && uv run ty check . && uv run pytest
 ```
 
 ### Troubleshooting

@@ -1,6 +1,7 @@
 import logging
 import os
 import pytest
+import requests
 
 import dotenv
 import dimcli
@@ -68,7 +69,9 @@ def mock_dimensions_dsl_query_error(monkeypatch):
             exception = dimensions.requests.exceptions.RequestException(
                 "transient error"
             )
-            exception.response = type("MockResponse", (), {"status_code": 429})()
+            response = requests.Response()
+            response.status_code = 429
+            exception.response = response
             raise exception
 
     monkeypatch.setattr(
@@ -116,7 +119,9 @@ def mock_dimensions_dsl_query_login_error(monkeypatch):
             return original_query_iterative(*args, **kwargs)
         else:
             exception = dimensions.requests.exceptions.RequestException("login error")
-            exception.response = type("MockResponse", (), {"status_code": 401})()
+            response = requests.Response()
+            response.status_code = 401
+            exception.response = response
             raise exception
 
     monkeypatch.setattr(

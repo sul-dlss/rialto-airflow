@@ -2,7 +2,7 @@ import datetime
 import logging
 
 from airflow.models import Variable
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.cleanup import (
     cleanup_author_files,

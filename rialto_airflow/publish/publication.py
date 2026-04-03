@@ -1,7 +1,7 @@
 import logging
 import zipfile
 import os
-from sqlalchemy import func, select, types
+from sqlalchemy import func, select, types, text
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import create_engine, db_uri, get_session
@@ -54,19 +54,19 @@ def export_publications(snapshot) -> int:
         # aggregate functions we need to group by the Publication.id.
 
         stmt = (
-            select(  # type: ignore
-                Publication.doi,  # type: ignore
-                Publication.pub_year,  # type: ignore
-                Publication.apc,  # type: ignore
+            select(
+                Publication.doi,
+                Publication.pub_year,
+                Publication.apc,
                 Publication.open_access,
                 Publication.types,
                 Publication.academic_council_authored,
-                Publication.publisher,  # type: ignore
-                Publication.journal_name,  # type: ignore
-                Publication.faculty_authored,  # type: ignore
+                Publication.publisher,
+                Publication.journal_name,
+                Publication.faculty_authored,
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
-            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .join(Funder, Publication.funders, isouter=True)
             .group_by(Publication.id)
             .execution_options(yield_per=10_000)
         )
@@ -75,7 +75,7 @@ def export_publications(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {Publications.__tablename__}")
+            conn.execute(text(f"TRUNCATE {Publications.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -109,20 +109,20 @@ def export_publications_by_school(snapshot) -> int:
 
     with get_session(snapshot.database_name).begin() as select_session:
         stmt = (
-            select(  # type: ignore
-                Publication.apc,  # type: ignore
-                Publication.doi,  # type: ignore
-                Publication.open_access,  # type: ignore
+            select(
+                Publication.apc,
+                Publication.doi,
+                Publication.open_access,
                 Author.primary_school,
-                Publication.pub_year,  # type: ignore
+                Publication.pub_year,
                 Publication.types,
-                Publication.academic_council_authored,  # type: ignore
-                Publication.faculty_authored,  # type: ignore
+                Publication.academic_council_authored,
+                Publication.faculty_authored,
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
-            .join(Author, Publication.authors)  # type: ignore
-            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .join(Author, Publication.authors)
+            .join(Funder, Publication.funders, isouter=True)
             .group_by(Author.primary_school, Publication.id)
             .execution_options(yield_per=100)
         )
@@ -131,7 +131,7 @@ def export_publications_by_school(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsBySchool.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsBySchool.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -166,21 +166,21 @@ def export_publications_by_department(snapshot) -> int:
 
     with get_session(snapshot.database_name).begin() as select_session:
         stmt = (
-            select(  # type: ignore
-                Publication.apc,  # type: ignore
-                Publication.doi,  # type: ignore
-                Publication.open_access,  # type: ignore
+            select(
+                Publication.apc,
+                Publication.doi,
+                Publication.open_access,
                 Author.primary_school,
                 Author.primary_dept,
-                Publication.pub_year,  # type: ignore
-                Publication.types,  # type: ignore
-                Publication.academic_council_authored,  # type: ignore
-                Publication.faculty_authored,  # type: ignore
+                Publication.pub_year,
+                Publication.types,
+                Publication.academic_council_authored,
+                Publication.faculty_authored,
                 # for federally_funded
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
-            .join(Author, Publication.authors)  # type: ignore
-            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .join(Author, Publication.authors)
+            .join(Funder, Publication.funders, isouter=True)
             .group_by(Author.primary_school, Author.primary_dept, Publication.id)
             .execution_options(yield_per=100)
         )
@@ -189,7 +189,7 @@ def export_publications_by_department(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsByDepartment.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsByDepartment.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -226,21 +226,21 @@ def export_publications_by_author(snapshot) -> int:
     with get_session(snapshot.database_name).begin() as select_session:
         stmt = (
             select(
-                Publication.apc,  # type: ignore
+                Publication.apc,
                 Publication.doi,
-                Publication.open_access,  # type: ignore
-                Publication.title,  # type: ignore
+                Publication.open_access,
+                Publication.title,
                 Author.orcid,
                 Author.primary_school,
-                Author.primary_dept,  # type: ignore
-                Author.role,  # type: ignore
-                Author.sunet,  # type: ignore
-                Author.academic_council,  # type: ignore
-                Publication.pub_year,  # type: ignore
-                Publication.publisher,  # type: ignore
-                Publication.journal_name,  # type: ignore
-                Publication.types,  # type: ignore
-                Publication.openalex_json,  # type: ignore
+                Author.primary_dept,
+                Author.role,
+                Author.sunet,
+                Author.academic_council,
+                Publication.pub_year,
+                Publication.publisher,
+                Publication.journal_name,
+                Publication.types,
+                Publication.openalex_json,
                 Publication.dim_json,
                 Publication.pubmed_json,
                 Publication.sulpub_json,
@@ -249,8 +249,8 @@ def export_publications_by_author(snapshot) -> int:
                 Publication.wos_json,
                 func.jsonb_agg_strict(Funder.federal).label("federal"),
             )
-            .join(Author, Publication.authors)  # type: ignore
-            .join(Funder, Publication.funders, isouter=True)  # type: ignore
+            .join(Author, Publication.authors)
+            .join(Funder, Publication.funders, isouter=True)
             .group_by(Publication.id, Author.id)
             .execution_options(yield_per=100)
         )
@@ -259,7 +259,7 @@ def export_publications_by_author(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsByAuthor.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsByAuthor.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -358,7 +358,7 @@ def _get_table_columns(table_class) -> list[str]:
     """
     Get all column names for a table.
     """
-    return [column.name for column in table_class.__table__.columns]  # type: ignore
+    return [column.name for column in table_class.__table__.columns]
 
 
 def _get_boolean_columns(table_class) -> list[str]:

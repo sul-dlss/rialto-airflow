@@ -25,7 +25,7 @@ def distill(snapshot: Snapshot) -> int:
     with get_session(snapshot.database_name).begin() as select_session:
         # iterate through publictions 100 at a time
         count = 0
-        stmt = select(Publication).execution_options(yield_per=100)  # type: ignore
+        stmt = select(Publication).execution_options(yield_per=100)
 
         for row in select_session.execute(stmt):
             count += 1
@@ -52,9 +52,7 @@ def distill(snapshot: Snapshot) -> int:
             # update the publication with the new columns
             with get_session(snapshot.database_name).begin() as update_session:
                 update_stmt = (
-                    update(Publication)  # type: ignore
-                    .where(Publication.id == pub.id)
-                    .values(cols)
+                    update(Publication).where(Publication.id == pub.id).values(cols)
                 )
                 update_session.execute(update_stmt)
 

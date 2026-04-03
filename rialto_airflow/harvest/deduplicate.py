@@ -134,6 +134,6 @@ def merge_pubs(*, pubs, session) -> int:
             )
 
         # Delete the duplicate
-        session.execute(delete(Publication).where(Publication.id == pub.id))  # type: ignore
+        session.execute(delete(Publication).where(Publication.id == pub.id))
         count_deleted += 1
     return count_deleted

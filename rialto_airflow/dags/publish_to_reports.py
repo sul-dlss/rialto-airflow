@@ -1,7 +1,7 @@
 import datetime
 from pathlib import Path
 
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 from airflow.models import Variable
 from airflow.timetables.trigger import CronTriggerTimetable
 

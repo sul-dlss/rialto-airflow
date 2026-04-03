@@ -1,6 +1,9 @@
+from typing import List
+
 from sqlalchemy import Table, Boolean, Column, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import (  # type: ignore
+    Mapped,
     RelationshipProperty,
     declarative_base,
     relationship,
@@ -54,14 +57,14 @@ class Publication(HarvestSchemaBase):  # type: ignore
     journal_name = Column(String)
     academic_council_authored = Column(Boolean, default=False)
     faculty_authored = Column(Boolean, default=False)
-    authors: RelationshipProperty = relationship(
-        "Author",
+    authors: Mapped[List["Author"]] = relationship(
         secondary=pub_author_association,
         back_populates="publications",
         cascade="all, delete",
     )
-    funders: RelationshipProperty = relationship(
-        "Funder", secondary=pub_funder_association, back_populates="publications"
+    funders: Mapped[List["Funder"]] = relationship(
+        secondary=pub_funder_association,
+        back_populates="publications"
     )
 
     __table_args__ = (
@@ -91,8 +94,8 @@ class Author(HarvestSchemaBase):  # type: ignore
     primary_division = Column(String)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-    publications: RelationshipProperty = relationship(
-        "Publication", secondary=pub_author_association, back_populates="authors"
+    publications: Mapped[List["Publication"]] = relationship(
+        secondary=pub_author_association, back_populates="authors"
     )
 
 
@@ -107,6 +110,6 @@ class Funder(HarvestSchemaBase):  # type: ignore
     federal = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-    publications: RelationshipProperty = relationship(
-        "Publication", secondary=pub_funder_association, back_populates="funders"
+    publications: Mapped[List["Publication"]] = relationship(
+        secondary=pub_funder_association, back_populates="funders"
     )

@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import shutil
 
-from airflow.decorators import dag, task, task_group
+from airflow.sdk import dag, task, task_group
 from airflow.models import Variable
 
 from rialto_airflow import funders

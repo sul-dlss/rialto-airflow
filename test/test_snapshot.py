@@ -1,11 +1,12 @@
-import io
-import pickle
 import pytest
 import re
 import time
 
 from pathlib import Path
+from types import SimpleNamespace
+
 from rialto_airflow.snapshot import Snapshot
+from rialto_airflow.xcom import RialtoXCom
 
 
 def test_create(tmp_path):
@@ -65,15 +66,13 @@ def test_not_snapshot(tmp_path):
 
 def test_serialize(tmp_path):
     """
-    Make sure that Snapshot is serializable as a pickle file since we want to be
-    able to use it in XComs with AIRFLOW__CORE__ENABLE_XCOM_PICKLING set.
-    Otherwise the Snapshot would need to be JSON serializable.
+    Make sure that Snapshot serializes to a dict and deserializes back correctly.
+    This is needed to serialize the Path object in Airflow 3 which no longer has
+    pickle serialization.
     """
     s1 = Snapshot.create(tmp_path)
 
-    out = io.BytesIO()
-    pickle.dump(s1, out)
+    serialized = RialtoXCom.serialize_value(s1)
+    s2 = RialtoXCom.deserialize_value(SimpleNamespace(value=serialized))
 
-    out.seek(0)
-    s2 = pickle.load(out)
     assert s1 == s2

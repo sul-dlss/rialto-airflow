@@ -1,7 +1,7 @@
 import logging
 import zipfile
 import os
-from sqlalchemy import func, select, types
+from sqlalchemy import func, select, types, text
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import create_engine, db_uri, get_session
@@ -75,7 +75,7 @@ def export_publications(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {Publications.__tablename__}")
+            conn.execute(text(f"TRUNCATE {Publications.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -131,7 +131,7 @@ def export_publications_by_school(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsBySchool.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsBySchool.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -189,7 +189,7 @@ def export_publications_by_department(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsByDepartment.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsByDepartment.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {
@@ -259,7 +259,7 @@ def export_publications_by_author(snapshot) -> int:
             conn = insert_session.connection(
                 execution_options={"isolation_level": "SERIALIZABLE"}
             )
-            conn.execute(f"TRUNCATE {PublicationsByAuthor.__tablename__}")
+            conn.execute(text(f"TRUNCATE {PublicationsByAuthor.__tablename__}"))
 
             for count, row in enumerate(select_session.execute(stmt), start=1):
                 row_values = {

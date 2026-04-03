@@ -24,7 +24,7 @@ dependencies = [
     "python-dotenv",
     "requests",
     "requests_oauthlib",
-    "sqlalchemy>=1.4.36,<2.0", # airflow still incompatible with 2.x, see https://github.com/apache/airflow/issues/28723
+    # "sqlalchemy>=1.4.36,<2.0", # airflow still incompatible with 2.x, see https://github.com/apache/airflow/issues/28723
     "xmltodict>=0.14.2",
     "types-xmltodict>=0.14.0.20241009",
     "dominate>=2.9.1",
@@ -62,7 +62,7 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "apache-airflow[google]==2.10.4", # aligned with base Docker image
+    "apache-airflow==3.1.8", # aligned with base Docker image
     "mypy>=1.15.0",
     "pytest>=8.3.4",
     "pytest-alembic>=0.12.1",
@@ -72,7 +72,7 @@ dev = [
     "ruff>=0.9.4",
     # packages with type info, for mypy
     "pandas-stubs",
-    "sqlalchemy-stubs>=0.4", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible
+    # "sqlalchemy-stubs>=0.4", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible
     "types-requests",
 ]
 

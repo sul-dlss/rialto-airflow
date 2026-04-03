@@ -19,7 +19,6 @@ from rialto_airflow.schema.harvest import (
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi, add_orcid
 
-config.email = os.environ.get("AIRFLOW_VAR_OPENALEX_EMAIL")
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
 config.retry_http_codes = [429, 500, 503, 520]

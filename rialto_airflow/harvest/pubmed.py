@@ -46,7 +46,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
         with get_session(snapshot.database_name).begin() as select_session:
             # get all authors that have an ORCID
             for author in (
-                select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
+                select_session.query(Author).where(Author.orcid.is_not(None)).all() # type: ignore
             ):
                 if stop is True:
                     logging.warning(f"Reached limit of {limit} publications stopping")

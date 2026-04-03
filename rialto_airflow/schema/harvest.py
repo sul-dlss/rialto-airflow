@@ -4,7 +4,6 @@ from sqlalchemy import Table, Boolean, Column, ForeignKey, Index, Integer, Strin
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import (  # type: ignore
     Mapped,
-    RelationshipProperty,
     declarative_base,
     relationship,
 )
@@ -52,19 +51,19 @@ class Publication(HarvestSchemaBase):  # type: ignore
     crossref_json = Column(JSONB(none_as_null=True))
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
-    types = Column(ARRAY(String))
+    types: Column[List[str]] = Column(ARRAY(String))
     publisher = Column(String)
     journal_name = Column(String)
     academic_council_authored = Column(Boolean, default=False)
     faculty_authored = Column(Boolean, default=False)
     authors: Mapped[List["Author"]] = relationship(
+        "Author",
         secondary=pub_author_association,
         back_populates="publications",
         cascade="all, delete",
     )
     funders: Mapped[List["Funder"]] = relationship(
-        secondary=pub_funder_association,
-        back_populates="publications"
+        "Funder", secondary=pub_funder_association, back_populates="publications"
     )
 
     __table_args__ = (
@@ -87,15 +86,15 @@ class Author(HarvestSchemaBase):  # type: ignore
     status = Column(Boolean)
     academic_council = Column(Boolean)
     role = Column(String)
-    schools = Column(ARRAY(String))
-    departments = Column(ARRAY(String))
+    schools: Column[List[str]] = Column(ARRAY(String))
+    departments: Column[List[str]] = Column(ARRAY(String))
     primary_school = Column(String)
     primary_dept = Column(String)
     primary_division = Column(String)
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     publications: Mapped[List["Publication"]] = relationship(
-        secondary=pub_author_association, back_populates="authors"
+        "Publication", secondary=pub_author_association, back_populates="authors"
     )
 
 
@@ -111,5 +110,5 @@ class Funder(HarvestSchemaBase):  # type: ignore
     created_at = Column(DateTime, server_default=utcnow())
     updated_at = Column(DateTime, onupdate=utcnow())
     publications: Mapped[List["Publication"]] = relationship(
-        secondary=pub_funder_association, back_populates="funders"
+        "Publication", secondary=pub_funder_association, back_populates="funders"
     )

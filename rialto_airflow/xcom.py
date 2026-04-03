@@ -6,7 +6,6 @@ from rialto_airflow.snapshot import Snapshot
 
 
 class RialtoXCom(BaseXCom):
-
     @staticmethod
     def serialize_value(value, **kwargs):
         if isinstance(value, Snapshot):

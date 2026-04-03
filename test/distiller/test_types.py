@@ -1,4 +1,5 @@
 import pytest
+from typing import Any
 
 from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.distiller.types import types, _normalize_type
@@ -39,27 +40,29 @@ def test_types(caplog):
         },
     )
 
+    empty: dict[str, Any] = {}
+
     # dimensions takes priority
     assert types(pub) == ["Book"]
 
     # openalex next
-    pub.dim_json = {}
+    pub.dim_json = empty
     assert types(pub) == ["Chapter"]
 
     # pubmed next
-    pub.openalex_json = {}
+    pub.openalex_json = empty
     assert types(pub) == ["Article", "Preprint"]
 
     # web of science next
-    pub.pubmed_json = {}
+    pub.pubmed_json = empty
     assert types(pub) == ["Article"]
 
     # crossref next
-    pub.wos_json = {}
+    pub.wos_json = empty
     assert types(pub) == ["Dataset"]
 
     # sulpub next
-    pub.crossref_json = {}
+    pub.crossref_json = empty
     assert types(pub) == ["Dissertation"]
 
     # unepected json shouldn't cause a problem

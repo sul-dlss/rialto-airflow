@@ -40,7 +40,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
             # that's what's going on with our client-side buffering connection
             # and there aren't that many of them?
             for author in (
-                select_session.query(Author).where(Author.orcid.is_not(None)).all()  # type: ignore
+                select_session.query(Author).where(Author.orcid.is_not(None)).all()
             ):
                 if stop is True:
                     logging.warning(f"Reached limit of {limit} publications stopping")
@@ -91,8 +91,8 @@ def fill_in(snapshot: Snapshot):
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
             stmt = (
-                select(Publication.doi)  # type: ignore
-                .where(Publication.doi.is_not(None))  # type: ignore
+                select(Publication.doi)
+                .where(Publication.doi.is_not(None))
                 .where(Publication.wos_json.is_(None))
                 .execution_options(yield_per=50)
             )
@@ -109,7 +109,7 @@ def fill_in(snapshot: Snapshot):
 
                     with get_session(snapshot.database_name).begin() as update_session:
                         update_stmt = (
-                            update(Publication)  # type: ignore
+                            update(Publication)
                             .where(Publication.doi == doi)
                             .values(wos_json=wos_pub)
                         )

@@ -4,7 +4,7 @@ from functools import cache
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from jsonpath_ng.ext import parse  # type: ignore
+from jsonpath_ng.ext import parse
 
 
 """

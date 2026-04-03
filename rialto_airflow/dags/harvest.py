@@ -107,9 +107,7 @@ def harvest():
         """
         Fetch the data by ORCID from Pubmed.
         """
-        jsonl_file = pubmed.harvest(snapshot, limit=harvest_limit)
-
-        return jsonl_file
+        pubmed.harvest(snapshot, limit=harvest_limit)
 
     @task_group()
     def harvest_pubs(snapshot):

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from airflow.sdk.bases.xcom import BaseXCom
 
@@ -18,12 +19,12 @@ class RialtoXCom(BaseXCom):
         return BaseXCom.serialize_value(value, **kwargs)
 
     @staticmethod
-    def deserialize_value(xcom):
-        result = BaseXCom.deserialize_value(xcom)
-        if isinstance(result, dict) and result.get("__snapshot__"):
+    def deserialize_value(result) -> Any:
+        value = BaseXCom.deserialize_value(result)
+        if isinstance(value, dict) and value.get("__snapshot__"):
             return Snapshot(
-                path=Path(result["path"]),
-                timestamp=result["timestamp"],
-                database_name=result["database_name"],
+                path=Path(value["path"]),
+                timestamp=value["timestamp"],
+                database_name=value["database_name"],
             )
-        return result
+        return value

@@ -61,8 +61,7 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "apache-airflow==3.1.8", # aligned with base Docker image
-    "mypy>=1.15.0",
+    "apache-airflow==3.1.8",
     "pytest>=8.3.4",
     "pytest-alembic>=0.12.1",
     "pytest-cov>=6.0.0",
@@ -70,9 +69,9 @@ dev = [
     "requests-mock>=1.12.1",
     "ruff>=0.9.4",
     # packages with type info, for mypy
-    "pandas-stubs",
-    "sqlalchemy-stubs>=0.4", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible
+    "pandas-stubs", # when airflow allows SQLAlchemy >= 2.x, see if this is still needed/compatible
     "types-requests",
+    "ty>=0.0.28",
 ]
 
 [build-system]

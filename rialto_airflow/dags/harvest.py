@@ -114,7 +114,8 @@ def harvest():
     @task_group()
     def harvest_pubs(snapshot):
         dimensions_harvest(snapshot)
-        openalex_harvest(snapshot)
+        # No longer use OpenAlex for harvesting publications by ORCID
+        # openalex_harvest(snapshot)
         wos_harvest(snapshot)
         sulpub_harvest(snapshot)
         pubmed_harvest(snapshot)

@@ -2,15 +2,17 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+from urllib3.util import Retry
 
 import requests
 import xmltodict
-
-from typing import Optional, Dict, Union
+from requests.adapters import HTTPAdapter
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
+from xml.parsers.expat import ExpatError
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.harvest import (
@@ -19,19 +21,40 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi, add_orcid
+from rialto_airflow.utils import add_orcid, normalize_doi
 
-Params = Dict[str, Union[int, str]]
 
+PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov"
-MAX_RESULTS = 1000  # the maximum number of pubmed IDs we will get for the query
-SEARCH_PATH = f"/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax={MAX_RESULTS}"  # this endpoint supports json
-FETCH_PATH = f"/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&retmax={MAX_RESULTS}"  # only xml is supported by this endpoint
+
+BASE_PARAMS = {
+    "db": "pubmed",
+    "retmax": 1000,
+    "api_key": PUBMED_KEY,
+}
+
 HEADERS = {"User-Agent": "stanford-library-rialto", "Accept": "application/json"}
 
+SEARCH_URL = f"{BASE_URL}/entrez/eutils/esearch.fcgi"
+FETCH_URL = f"{BASE_URL}/entrez/eutils/efetch.fcgi"
 
-def pubmed_key():
-    return os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
+# create an http session that will retry any 429 statuses to stay within rate limits
+# will retry ten times, backing off with each requests, the last of which is 102.4 seconds
+# see: https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
+
+http = requests.Session()
+http.mount(
+    "https://",
+    HTTPAdapter(
+        max_retries=Retry(
+            status=10,
+            status_forcelist=[429, 500],
+            backoff_factor=0.1,
+            backoff_jitter=2,
+            allowed_methods=["GET", "POST"],
+        )
+    ),
+)
 
 
 def harvest(snapshot: Snapshot, limit=None) -> Path:
@@ -176,35 +199,48 @@ def pmids_from_dois(dois: list[str]) -> list[str]:
     return _pubmed_search_api(batch_query)
 
 
-def publications_from_pmids(pmids: list[str]) -> list[dict[Any, Any]]:
+def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]]:
     """
-    Returns full pubmed records given a list of PMIDs.
+    Returns full pubmed records given a list of PMIDs. The retries behavior
+    controls how many times to retry if we get back bad XML (XML that won't
+    parse).
     """
     if len(pmids) == 0:
         return []
 
-    query = "id=" + "&id=".join(pmids)
+    logging.debug(f"fetching full records from pubmed for {pmids}")
 
-    full_url = f"{BASE_URL}{FETCH_PATH}&api_key={pubmed_key()}"
-    logging.debug(f"fetching full records from pubmed with {query}")
+    data = {
+        **BASE_PARAMS,
+        "id": pmids,
+        "retmode": "xml",
+    }
+
+    response = http.post(FETCH_URL, data=data, headers=HEADERS)
+    response.raise_for_status()
+
     try:
-        response = requests.post(full_url, params=query, headers=HEADERS)
-        response.raise_for_status()
+        xml_results = response.content
+        json_results = xmltodict.parse(xml_results)
+    except ExpatError as e:
+        time.sleep(1)
 
-        results = response.content
-
-        json_results = xmltodict.parse(results)
-        pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")
-        if pubs is None:
-            return []
-        if not isinstance(pubs, list):
-            # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
-            return [pubs]
+        if retries > 0:
+            logging.warn(f"retrying a response with bad xml {response.text}")
+            return publications_from_pmids(pmids, retries=retries - 1)
         else:
-            return pubs
-    except requests.exceptions.RequestException as e:  # Catch all requests exceptions
-        logging.error(f"Error fetching full pubmed records {query}: {e}")
+            logging.warn(f"too many retries with bad xml {response.text}")
+            raise e
+
+    pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")
+
+    if pubs is None:
         return []
+    if not isinstance(pubs, list):
+        # if there is only one record, it will not be in a list, but we want to be in one so we can iterate over it
+        return [pubs]
+    else:
+        return pubs
 
 
 def _pubmed_search_api(query) -> list:
@@ -212,12 +248,10 @@ def _pubmed_search_api(query) -> list:
     Return a list of pmids given a general search query.
     """
 
-    params: Params = {"term": query}
-
-    full_url = f"{BASE_URL}{SEARCH_PATH}&api_key={pubmed_key()}"
+    params = {**BASE_PARAMS, "retmode": "json", "term": query}
     logging.debug(f"searching pubmed with {params}")
 
-    response = requests.get(full_url, params=params, headers=HEADERS)
+    response = http.get(SEARCH_URL, params=params, headers=HEADERS)
     response.raise_for_status()
     results = response.json()
 

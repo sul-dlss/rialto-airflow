@@ -1,13 +1,12 @@
 import logging
-import pytest
 import re
-import dotenv
 
-from rialto_airflow.schema.harvest import Publication
+import pytest
+from xml.parsers.expat import ExpatError
+
 from rialto_airflow.harvest import pubmed
-from test.utils import num_jsonl_objects, load_jsonl_file, num_log_record_matches
-
-dotenv.load_dotenv()
+from rialto_airflow.schema.harvest import Publication
+from test.utils import load_jsonl_file, num_jsonl_objects, num_log_record_matches
 
 
 @pytest.fixture
@@ -55,6 +54,35 @@ def existing_publication(test_session):
         )
         session.add(pub)
         return pub
+
+
+@pytest.fixture
+def pubmed_book_xml():
+    return """<?xml version="1.0" ?>
+        <!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
+        <PubmedArticleSet>
+            <PubmedBookArticle>
+                <BookDocument>
+                    <PMID Version="1">38478703</PMID>
+                    <ArticleIdList><ArticleId IdType="bookaccession">NBK601514</ArticleId><ArticleId IdType="doi">10.25302/01.2021.ME.150731469</ArticleId></ArticleIdList>
+                    <Book>
+                    <Publisher><PublisherName>Patient-Centered Outcomes Research Institute (PCORI)</PublisherName><PublisherLocation>Washington (DC)</PublisherLocation></Publisher>
+                    <BookTitle book="pcori12021me15073146">Comparing Preferences for Depression and Diabetes Treatment among Adults of Different Racial and Ethnic Groups Who Reported Discrimination in Health Care</BookTitle>
+                    <PubDate><Year>2021</Year><Month>01</Month></PubDate>
+                    <CollectionTitle book="pcoricollect">PCORI Final Research Reports</CollectionTitle>
+                    <ELocationID EIdType="doi">10.25302/01.2021.ME.150731469</ELocationID>
+                    <PublicationType UI="D016454">Review</PublicationType>
+                    <Abstract><AbstractText Label="BACKGROUND">The abstract.</AbstractText></Abstract>
+                    </Book>
+                </BookDocument>
+                <PubmedBookData>
+                    <ArticleIdList>
+                        <ArticleId IdType="pubmed">38478703</ArticleId>
+                    </ArticleIdList>
+                </PubmedBookData>
+            </PubmedBookArticle>
+        </PubmedArticleSet>
+        """
 
 
 def pubmed_json():
@@ -274,25 +302,6 @@ def test_pubmed_fetch_missing_publications():
         "first publication is json"
     )  # check that we got a dict back
     assert "PubmedData" in pubs[0], "found the PubmedData key in the first publication"
-
-
-def test_pubmed_fetch_handles_500(requests_mock, caplog):
-    """
-    This is a test of the Pubmed Fetch API to ensures we don't crash with a 500 response.
-    """
-    caplog.set_level(logging.INFO)
-
-    requests_mock.post(
-        re.compile(".*"),
-        json={},
-        status_code=500,
-        headers={"Content-Type": "application/json"},
-    )
-    result = pubmed.publications_from_pmids(["12345"])
-    assert result == []
-    assert (
-        "Error fetching full pubmed records id=12345: 500 Server Error" in caplog.text
-    )
 
 
 def test_pubmed_fetch_publications_expects_list():
@@ -591,25 +600,74 @@ def test_pubs_from_pmids_no_articles(requests_mock, pubmed_book_xml):
     assert pubs == []
 
 
-@pytest.fixture
-def pubmed_book_xml():
-    return """<?xml version="1.0" ?>
-        <!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
-        <PubmedArticleSet><PubmedBookArticle>
-        <BookDocument>
-            <PMID Version="1">38478703</PMID>
-            <ArticleIdList><ArticleId IdType="bookaccession">NBK601514</ArticleId><ArticleId IdType="doi">10.25302/01.2021.ME.150731469</ArticleId></ArticleIdList>
-            <Book>
-            <Publisher><PublisherName>Patient-Centered Outcomes Research Institute (PCORI)</PublisherName><PublisherLocation>Washington (DC)</PublisherLocation></Publisher>
-            <BookTitle book="pcori12021me15073146">Comparing Preferences for Depression and Diabetes Treatment among Adults of Different Racial and Ethnic Groups Who Reported Discrimination in Health Care</BookTitle>
-            <PubDate><Year>2021</Year><Month>01</Month></PubDate>
-            <CollectionTitle book="pcoricollect">PCORI Final Research Reports</CollectionTitle>
-            <ELocationID EIdType="doi">10.25302/01.2021.ME.150731469</ELocationID>
-            <PublicationType UI="D016454">Review</PublicationType>
-            <Abstract><AbstractText Label="BACKGROUND">The abstract.</AbstractText></Abstract>
-            </Book>
-        </BookDocument>
-        <PubmedBookData>
-            <ArticleIdList><ArticleId IdType="pubmed">38478703</ArticleId></ArticleIdList></PubmedBookData>
-        </PubmedBookArticle></PubmedArticleSet>
-        """
+def test_http_session_retries():
+    """
+    Verify the http session is configured to retry 429 responses on both GET and POST
+    requests. requests_mock bypasses urllib3 entirely so cannot exercise this, but we
+    can inspect the adapter's Retry configuration directly.
+
+    get_adapter() returns BaseAdapter in the type stubs, but at runtime it returns
+    HTTPAdapter which does have max_retries.
+    """
+    adapter = pubmed.http.get_adapter("https://")
+    retry = adapter.max_retries  # type: ignore
+    assert 429 in retry.status_forcelist
+    assert 500 in retry.status_forcelist
+    assert "POST" in retry.allowed_methods
+    assert "GET" in retry.allowed_methods
+
+
+def test_retry_bad_xml(requests_mock, caplog, pubmed_book_xml):
+    """
+    PubMed API can sometimes return invalid XML, which then works on retry. This
+    tests that these get retried.
+    """
+    caplog.set_level(logging.DEBUG)
+
+    requests_mock.register_uri(
+        "POST",
+        pubmed.FETCH_URL,
+        # a list of mocked http responses: first returns bad xml, second returns good xml
+        [
+            {"status_code": 200, "text": "this ain't xml"},
+            {
+                "status_code": 200,
+                "text": pubmed_book_xml,
+            },
+        ],
+    )
+
+    assert pubmed.publications_from_pmids(["123456"]) == []
+    assert "retrying a response with bad xml" in caplog.text
+
+
+def test_too_many_bad_xml(requests_mock, caplog, pubmed_book_xml):
+    """
+    PubMed API can sometimes return invalid XML, which then works on retry. This
+    tests that these get retried, and that we give up after 10 retries.
+    """
+    caplog.set_level(logging.DEBUG)
+
+    requests_mock.register_uri(
+        "POST",
+        pubmed.FETCH_URL,
+        # 10 failures in a row should cause publications_from_pmids to fail
+        [
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+            {"status_code": 200, "text": "this ain't xml"},
+        ],
+    )
+
+    with pytest.raises(ExpatError):
+        pubmed.publications_from_pmids(["123456"]) == []
+
+    assert "too many retries with bad xml" in caplog.text

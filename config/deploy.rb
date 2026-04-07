@@ -74,7 +74,7 @@ task :check_running_airflow_dag do
                      '"airflow dags list --columns dag_id -o json"')
       dag_list = JSON.parse(dags.split("\n").last) # the last line of the output is the list of dags we need to parse
       dag_list.each do |dag|
-        command = "airflow dags list-runs -d #{dag['dag_id']} --state running"
+        command = "airflow dags list-runs #{dag['dag_id']} --state running"
         # Check if the DAG is running
         output = capture(:docker, 'compose', 'exec', '-it', container_name, '/bin/bash', '-c', "\"#{command}\"")
         # if the output of the above command is anything other than "No data found"

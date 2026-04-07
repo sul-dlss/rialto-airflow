@@ -1,3 +1,4 @@
+import dotenv
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker
@@ -15,6 +16,9 @@ from rialto_airflow.schema.harvest import (
 from rialto_airflow.schema.reports import ReportsSchemaBase
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
+
+
+dotenv.load_dotenv()
 
 
 @pytest.fixture

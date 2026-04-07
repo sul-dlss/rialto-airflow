@@ -61,7 +61,10 @@ def rialto_reports_db_name(monkeypatch):
     monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
 
 
-def test_generate_download_files(tmp_path, rialto_reports_db_name):
+def test_generate_download_files(tmp_path, test_reports_session, snapshot, dataset):
+    # create the reports database
+    publication.export_publications(snapshot)
+
     # generate the download files
     downloads_dir = tmp_path / "downloads"
     downloads_dir.mkdir()
@@ -103,6 +106,6 @@ def test_generate_download_files(tmp_path, rialto_reports_db_name):
         assert "true,true,true" in lines[1]
 
 
-def test_no_downloads_dir(snapshot, tmp_path):
+def test_no_downloads_dir(snapshot, tmp_path, test_reports_session):
     with pytest.raises(Exception, match="downloads directory missing at"):
         publication.generate_download_files(tmp_path)

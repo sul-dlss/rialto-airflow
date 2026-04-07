@@ -15,7 +15,7 @@ def journal_issn(pub) -> str | None:
         JsonPathRule("crossref_json", "ISSN"),  # list
         FuncRule("pubmed_json", _pubmed_issn),
     ]
-    all_issns = all(pub, rules=rules)  # type: ignore
+    all_issns = all(pub, rules=rules)
 
     flat_issns = []
     for issn in all_issns:

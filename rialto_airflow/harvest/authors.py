@@ -27,7 +27,7 @@ def load_authors_table(snapshot) -> None:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             try:
-                with Session.begin() as session:  # type: ignore
+                with Session.begin() as session:
                     author = Author(
                         sunet=row["sunetid"],
                         cap_profile_id=row["cap_profile_id"] or None,

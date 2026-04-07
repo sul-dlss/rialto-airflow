@@ -2,10 +2,9 @@ import datetime
 import logging
 from functools import cache
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
-from jsonpath_ng.ext import parse  # type: ignore
-from sqlalchemy.engine.row import Row  # type: ignore
+from jsonpath_ng.ext import parse
 
 
 """
@@ -94,7 +93,7 @@ Rule = JsonPathRule | FuncRule
 RuleMatch = Optional[str | int | list]
 
 
-def first(pub: Row, rules: list[Rule]) -> Optional[str | list]:
+def first(pub: Any, rules: list[Rule]) -> Optional[str | list]:
     """
     Examines a Publication row using a list of rules and returns the result of
     the first rule that matches. A rule could potentially return a list of
@@ -104,7 +103,7 @@ def first(pub: Row, rules: list[Rule]) -> Optional[str | list]:
     return results[0] if len(results) > 0 else None
 
 
-def all(pub: Row, rules: list[Rule]) -> list:
+def all(pub: Any, rules: list[Rule]) -> list:
     """
     Examines a Publication row using a list of rules and returns the result of
     all rule matches.

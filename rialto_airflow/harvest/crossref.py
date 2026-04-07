@@ -26,8 +26,8 @@ def fill_in(snapshot: Snapshot) -> Path:
     with jsonl_file.open("a") as jsonl_output:
         with get_session(snapshot.database_name).begin() as select_session:
             stmt = (
-                select(Publication.doi)  # type: ignore
-                .where(Publication.doi.is_not(None))  # type: ignore
+                select(Publication.doi)
+                .where(Publication.doi.is_not(None))
                 .where(Publication.crossref_json.is_(None))
                 .execution_options(yield_per=1000)
             )
@@ -39,7 +39,7 @@ def fill_in(snapshot: Snapshot) -> Path:
 
                     with get_session(snapshot.database_name).begin() as update_session:
                         update_stmt = (
-                            update(Publication)  # type: ignore
+                            update(Publication)
                             .where(Publication.doi == doi)
                             .values(crossref_json=crossref_pub)
                         )
@@ -96,7 +96,7 @@ def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
         # prevent us getting ban from public use
         time.sleep(1)
 
-        resp = requests.get(  # type: ignore
+        resp = requests.get(
             "https://api.crossref.org/works/",
             params=params,
             headers={

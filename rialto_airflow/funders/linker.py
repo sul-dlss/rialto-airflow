@@ -38,7 +38,7 @@ def link_dim_publications(snapshot) -> int:
     with get_session(snapshot.database_name).begin() as session:
         stmt = (
             select(Publication)
-            .where(Publication.dim_json.is_not(None))  # type: ignore
+            .where(Publication.dim_json.is_not(None))
             .execution_options(yield_per=100)
         )
 
@@ -73,7 +73,7 @@ def link_openalex_publications(snapshot) -> int:
     with get_session(snapshot.database_name).begin() as session:
         stmt = (
             select(Publication)
-            .where(Publication.openalex_json.is_not(None))  # type: ignore
+            .where(Publication.openalex_json.is_not(None))
             .execution_options(yield_per=100)
         )
 

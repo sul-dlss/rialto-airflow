@@ -74,8 +74,8 @@ x-airflow-common:
     AIRFLOW__SMTP__SMTP_HOST: ${AIRFLOW__SMTP__SMTP_HOST}
     AIRFLOW__SMTP__SMTP_PASSWORD: ''
     AIRFLOW__SMTP__SMTP_MAIL_FROM: ${AIRFLOW__SMTP__SMTP_MAIL_FROM}
-    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
-    AIRFLOW__WEBSERVER__BASE_URL: "https://${HOSTNAME}.stanford.edu/"
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW__API__SECRET_KEY}
+    AIRFLOW__API__BASE_URL: ${AIRFLOW__API__BASE_URL}
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server

@@ -261,3 +261,63 @@ def test_remove_duplicates(test_session, dataset2, snapshot):
     """
     total_dupes = deduplicate.remove_duplicates(snapshot)
     assert total_dupes == 2, "two duplicates have been removed"
+
+
+def test_natural_key_deduplicate(test_session, snapshot, caplog):
+    """
+    This fixture will create two publications that are duplicates and lack DOIs.
+    """
+    with test_session.begin() as session:
+        pub1 = Publication(
+            doi=None,
+            openalex_json={
+                "title": "My Life",
+                "publication_year": 1880,
+                "authorships": [{"author": {"display_name": "Jane Stanford"}}],
+            },
+        )
+
+        pub2 = Publication(
+            doi=None,
+            dim_json={
+                "title": "My: Life",
+                "year": 1880,
+                "authors": [{"first_name": "Jane", "last_name": "Stanford"}],
+            },
+        )
+
+        author1 = Author(
+            first_name="Jane",
+            last_name="Stanford",
+            sunet="janes",
+        )
+
+        author2 = Author(
+            first_name="Leland",
+            last_name="Stanford",
+            sunet="lelands",
+        )
+
+        pub1.authors.append(author1)
+        pub1.authors.append(author2)
+
+        pub2.authors.append(author1)
+        pub2.authors.append(author2)
+
+        session.add(pub1)
+        session.add(pub2)
+
+    dupes = deduplicate.remove_natural_key_duplicates(snapshot)
+    assert dupes == 1
+
+    with test_session.begin() as session:
+        # only one publication remains and dupe has been deleted
+        assert session.query(Publication).count() == 1
+
+        pub = session.query(Publication).first()
+        assert len(pub.authors) == 2
+        assert pub.dim_json is not None
+        assert pub.openalex_json is not None
+
+        assert "Found 1 publications with duplicates." in caplog.text
+        assert "Deleted 1 publication rows." in caplog.text

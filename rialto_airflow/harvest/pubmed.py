@@ -10,6 +10,7 @@ from urllib3.util import Retry
 import requests
 import xmltodict
 from requests.adapters import HTTPAdapter
+from requests.exceptions import ChunkedEncodingError
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from xml.parsers.expat import ExpatError
@@ -216,20 +217,19 @@ def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]
         "retmode": "xml",
     }
 
-    response = http.post(FETCH_URL, data=data, headers=HEADERS)
-    response.raise_for_status()
-
     try:
+        response = http.post(FETCH_URL, data=data, headers=HEADERS)
+        response.raise_for_status()
         xml_results = response.content
         json_results = xmltodict.parse(xml_results)
-    except ExpatError as e:
+    except (ExpatError, ChunkedEncodingError) as e:
         time.sleep(1)
 
         if retries > 0:
-            logging.warning(f"retrying a response with bad xml {response.text}")
+            logging.warning(f"retrying after error: {type(e)} {e}")
             return publications_from_pmids(pmids, retries=retries - 1)
         else:
-            logging.warning(f"too many retries with bad xml {response.text}")
+            logging.warning(f"too many retries: {type(e)} {e}")
             raise e
 
     pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")

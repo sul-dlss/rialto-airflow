@@ -214,7 +214,9 @@ def query_with_retry(q, retry=5):
             # Using a limit param set to 25 rather than the default of 1,000 to avoid 408 errors about the size
             # of a response. Consider raising or removing the limit if the issue is resolved and
             # removing the force param to view errors.
-            return dsl().query_iterative(q, show_results=False, limit=25, force=True)
+            return dsl().query_iterative(
+                q, show_results=False, limit=25, force=True, retry=5
+            )
         except requests.exceptions.RequestException as e:
             if try_count > retry:
                 logging.error(

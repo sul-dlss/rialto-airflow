@@ -14,7 +14,8 @@ package-mode = false
 
 dependencies = [
     "alembic>=1.16.5",
-    "dimcli",
+    # TODO: remove when https://github.com/digital-science/dimcli/issues/95 is resolved
+    "dimcli @ git+https://github.com/edsu/dimcli@handle-202",
     "jsonpath-ng>=1.7.0",
     "honeybadger>=0.21",
     "more-itertools",
@@ -79,6 +80,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["rialto_airflow"]
+
+[tool.hatch.metadata]
+# TODO: remove when there are no github branches as dependencies
+allow-direct-references = true
 
 [tool.alembic]
 

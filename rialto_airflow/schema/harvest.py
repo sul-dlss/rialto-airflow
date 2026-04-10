@@ -50,6 +50,8 @@ class Publication(HarvestSchemaBase):
     wos_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
     pubmed_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
     crossref_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
+    wos_id: Mapped[Optional[str]] = mapped_column(String)
+    pubmed_id: Mapped[Optional[str]] = mapped_column(String)
     created_at: Mapped[Optional[DateTime]] = mapped_column(
         DateTime, server_default=utcnow()
     )
@@ -76,6 +78,8 @@ class Publication(HarvestSchemaBase):
         Index("idx_wos_id", text("(wos_json->>'UID')")),
         Index("idx_sulpub_id", text("(sulpub_json->>'sulpubid')")),
         Index("idx_dim_id", text("(dim_json->>'id')")),
+        Index("idx_pub_wos_id", "wos_id"),
+        Index("idx_pub_pubmed_id", "pubmed_id"),
     )
 
 

@@ -21,7 +21,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import add_orcid, normalize_doi
+from rialto_airflow.utils import add_orcid, normalize_doi, normalize_pmid
 
 
 PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
@@ -87,6 +87,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                         break
 
                     doi = normalize_doi(get_doi(pubmed_pub))
+                    pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
 
                     with get_session(snapshot.database_name).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
@@ -95,10 +96,11 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .values(
                                 doi=doi,
                                 pubmed_json=pubmed_pub,
+                                pubmed_id=pubmed_id,
                             )
                             .on_conflict_do_update(
                                 constraint="publication_doi_key",
-                                set_=dict(pubmed_json=pubmed_pub),
+                                set_=dict(pubmed_json=pubmed_pub, pubmed_id=pubmed_id),
                             )
                             .returning(Publication.id)
                         ).scalar_one()
@@ -155,10 +157,11 @@ def fill_in(snapshot: Snapshot):
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:
+                        pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)
-                            .values(pubmed_json=pubmed_pub)
+                            .values(pubmed_json=pubmed_pub, pubmed_id=pubmed_id)
                         )
                         update_session.execute(update_stmt)
 

@@ -22,6 +22,8 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            wos_id="000123456789",
+            pubmed_id="36857419",
         )
 
         pub2 = Publication(
@@ -35,6 +37,8 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
             wos_json=wos_json,
             sulpub_json=sulpub_json,
             pubmed_json=pubmed_json,
+            wos_id="000123456789",
+            pubmed_id="36857419",
         )
 
         author1 = Author(
@@ -124,6 +128,30 @@ def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 
+def test_pubmed_deduplicate(test_session, dataset, snapshot, caplog):
+    """
+    Test that publications with a duplicate pubmed_id are found and merged.
+    Authors should be moved to the remaining record.
+    """
+    caplog.set_level(logging.INFO)
+    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot)
+    assert dupes == 1
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, (
+            "only one publication remains in table"
+        )
+        remaining_pub = (
+            session.query(Publication).where(Publication.pubmed_id == "36857419").one()
+        )
+        assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        author2 = session.query(Author).where(Author.orcid == "02980983434").one()
+        assert len(author2.publications) == 1, (
+            "second author exists and is linked to the remaining publication"
+        )
+        assert "Found 1 publications with duplicate pubmed_id." in caplog.text
+        assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
+
+
 def test_sulpub_deduplicate(test_session, dataset, snapshot, caplog):
     """
     Test that the publication with an sulpub duplicate is found and the duplicates removed.
@@ -149,6 +177,46 @@ def test_sulpub_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from sulpub." in caplog.text
 
 
+def test_wos_id_deduplicate(test_session, dataset, snapshot, caplog):
+    """
+    Test that publications with a duplicate wos_id are found and merged.
+    Authors should be moved to the remaining record.
+    """
+    caplog.set_level(logging.INFO)
+    dupes = deduplicate.remove_wos_id_duplicates(snapshot)
+    assert dupes == 1
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, (
+            "only one publication remains in table"
+        )
+        remaining_pub = (
+            session.query(Publication).where(Publication.wos_id == "000123456789").one()
+        )
+        assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        assert "Found 1 publications with duplicate wos_id." in caplog.text
+        assert "Deleted 1 publication rows with duplicate wos_id." in caplog.text
+
+
+def test_pubmed_id_deduplicate(test_session, dataset, snapshot, caplog):
+    """
+    Test that publications with a duplicate pubmed_id are found and merged.
+    Authors should be moved to the remaining record.
+    """
+    caplog.set_level(logging.INFO)
+    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot)
+    assert dupes == 1
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, (
+            "only one publication remains in table"
+        )
+        remaining_pub = (
+            session.query(Publication).where(Publication.pubmed_id == "36857419").one()
+        )
+        assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        assert "Found 1 publications with duplicate pubmed_id." in caplog.text
+        assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
+
+
 def test_merge_pubs(test_session, dataset):
     """
     Test that merge_pubs merges authors and deletes duplicates.
@@ -172,7 +240,7 @@ def test_merge_pubs(test_session, dataset):
 @pytest.fixture
 def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
     """
-    This fixture will create two publications that are duplicates within different platfordmsand lack DOIs.
+    This fixture will create two publications that are duplicates within different platforms and lack DOIs.
     """
     with test_session.begin() as session:
         pub = Publication(

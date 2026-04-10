@@ -16,7 +16,11 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
     sulpub_dupes = remove_sulpub_duplicates(snapshot)
-    total_deleted = wos_dupes + openalex_dupes + sulpub_dupes
+    wos_id_dupes = remove_wos_id_duplicates(snapshot)
+    pubmed_id_dupes = remove_pubmed_id_duplicates(snapshot)
+    total_deleted = (
+        wos_dupes + openalex_dupes + sulpub_dupes + wos_id_dupes + pubmed_id_dupes
+    )
     logging.info(
         f"Deleted a total of {total_deleted} duplicate publication rows from all sources."
     )
@@ -113,6 +117,62 @@ def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
         logging.info(f"Deleted {count_deleted} publication rows from sulpub.")
+    return num_dupes
+
+
+def remove_wos_id_duplicates(snapshot: Snapshot) -> int:
+    logging.debug("Removing any publications with duplicate wos_id.")
+    with get_session(snapshot.database_name).begin() as session:
+        duplicates = session.execute(
+            select(func.count(), Publication.wos_id)
+            .where(Publication.doi.is_(None))
+            .where(Publication.wos_id.is_not(None))
+            .group_by(Publication.wos_id)
+            .having(func.count() > 1)
+        ).all()
+        num_dupes = len(duplicates)
+        logging.info(f"Found {num_dupes} publications with duplicate wos_id.")
+        count_deleted = 0
+        wos_ids = [row[1] for row in duplicates]
+        for wos_id in wos_ids:
+            pubs = (
+                session.execute(select(Publication).where(Publication.wos_id == wos_id))
+                .scalars()
+                .all()
+            )
+            deleted = merge_pubs(pubs=pubs, session=session)
+            count_deleted += deleted
+        logging.info(f"Deleted {count_deleted} publication rows with duplicate wos_id.")
+    return num_dupes
+
+
+def remove_pubmed_id_duplicates(snapshot: Snapshot) -> int:
+    logging.debug("Removing any publications with duplicate pubmed_id.")
+    with get_session(snapshot.database_name).begin() as session:
+        duplicates = session.execute(
+            select(func.count(), Publication.pubmed_id)
+            .where(Publication.doi.is_(None))
+            .where(Publication.pubmed_id.is_not(None))
+            .group_by(Publication.pubmed_id)
+            .having(func.count() > 1)
+        ).all()
+        num_dupes = len(duplicates)
+        logging.info(f"Found {num_dupes} publications with duplicate pubmed_id.")
+        count_deleted = 0
+        pubmed_ids = [row[1] for row in duplicates]
+        for pubmed_id in pubmed_ids:
+            pubs = (
+                session.execute(
+                    select(Publication).where(Publication.pubmed_id == pubmed_id)
+                )
+                .scalars()
+                .all()
+            )
+            deleted = merge_pubs(pubs=pubs, session=session)
+            count_deleted += deleted
+        logging.info(
+            f"Deleted {count_deleted} publication rows with duplicate pubmed_id."
+        )
     return num_dupes
 
 

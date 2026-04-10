@@ -583,7 +583,7 @@ wheels = [
 [[package]]
 name = "dimcli"
 version = "1.7"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/edsu/dimcli?rev=handle-202#225b3b1304f6d4f45ece6a2eab1473a21ec0cefa" }
 dependencies = [
     { name = "click" },
     { name = "ipython" },
@@ -596,10 +596,6 @@ dependencies = [
     { name = "requests" },
     { name = "tabulate" },
     { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/fb/8048fb9c3673402f8d4ce0fd3d2ec05cc5942e7c7b8a5900e4884b527eb6/dimcli-1.7.tar.gz", hash = "sha256:f92c96861ed3314827967dce1050b807836ec8a0c648d015a60b8610a015718c", size = 218400, upload-time = "2026-03-27T13:13:12.665Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/91/5f264724140a5305d4f1ccf5aa79e58e052964fc10d2bca354410859a352/dimcli-1.7-py2.py3-none-any.whl", hash = "sha256:331a082eb390b7a1c1a722bc6a3bdaad7374e0e9d9d0c253e0835c72d6a48506", size = 251522, upload-time = "2026-03-27T13:13:11.357Z" },
 ]
 
 [[package]]
@@ -1792,7 +1788,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16.5" },
     { name = "bs4", specifier = ">=0.0.2" },
-    { name = "dimcli" },
+    { name = "dimcli", git = "https://github.com/edsu/dimcli?rev=handle-202" },
     { name = "dominate", specifier = ">=2.9.1" },
     { name = "honeybadger", specifier = ">=0.21" },
     { name = "jsonpath-ng", specifier = ">=1.7.0" },

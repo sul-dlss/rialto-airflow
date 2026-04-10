@@ -47,7 +47,7 @@ jobs:
           AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@localhost"
 
       - name: Run type checking
-        run: uv run ty check .
+        run: uv run ty check --error-on-warning .
 
       - name: Run tests
         run: uv run pytest --cov-branch --cov-report=xml

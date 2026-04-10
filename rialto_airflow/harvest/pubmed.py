@@ -226,10 +226,10 @@ def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]
         time.sleep(1)
 
         if retries > 0:
-            logging.warn(f"retrying a response with bad xml {response.text}")
+            logging.warning(f"retrying a response with bad xml {response.text}")
             return publications_from_pmids(pmids, retries=retries - 1)
         else:
-            logging.warn(f"too many retries with bad xml {response.text}")
+            logging.warning(f"too many retries with bad xml {response.text}")
             raise e
 
     pubs = json_results.get("PubmedArticleSet", {}).get("PubmedArticle")

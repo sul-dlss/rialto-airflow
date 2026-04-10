@@ -24,6 +24,7 @@ This repository contains an Airflow setup for harvesting and analyzing Stanford 
     * Web of Science
     * PubMed
     * Crossref
+    * Altmetric
 7. *Deduplicate* publications, using their platform specific identifiers, currently just Web of Science and OpenAlex.
 8. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
 9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.

@@ -122,6 +122,7 @@ def test_create_rialto_schema(mock_rialto_postgres, monkeypatch, teardown_databa
                 "sulpub_json",
                 "wos_json",
                 "pubmed_json",
+                "altmetric_json",
                 "wos_id",
                 "pubmed_id",
                 "openalex_harvested",

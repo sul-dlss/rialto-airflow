@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import dotenv
 import pytest
@@ -19,6 +20,8 @@ from rialto_airflow.schema import rialto as rialto_schema  # noqa: E402
 from rialto_airflow.schema import reports as reports_schema  # noqa: E402
 
 dotenv.load_dotenv()
+
+logging.basicConfig(filename="test.log", level=logging.DEBUG)
 
 
 @pytest.fixture

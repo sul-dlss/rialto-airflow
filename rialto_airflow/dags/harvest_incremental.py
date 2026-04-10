@@ -7,6 +7,7 @@ from airflow.sdk import dag, task, task_group, get_current_context
 
 from rialto_airflow import funders
 from rialto_airflow.harvest_incremental import (
+    altmetric,
     authors,
     crossref,
     deduplicate,
@@ -160,6 +161,13 @@ def harvest_incremental():
         """
         crossref.fill_in(harvest_id)
 
+    @task()
+    def fill_in_altmetric(harvest_id):
+        """
+        Fill in Altmetric data for all DOIs.
+        """
+        altmetric.fill_in(harvest_id)
+
     @task_group()
     def fill_in(harvest_id):
         fill_in_openalex(harvest_id)
@@ -167,6 +175,7 @@ def harvest_incremental():
         fill_in_wos(harvest_id)
         fill_in_crossref(harvest_id)
         fill_in_pubmed(harvest_id)
+        fill_in_altmetric(harvest_id)
 
     @task()
     def remove_duplicates(harvest_id):

@@ -215,7 +215,7 @@ def query_with_retry(q, retry=5):
             # of a response. Consider raising or removing the limit if the issue is resolved and
             # removing the force param to view errors.
             return dsl().query_iterative(
-                q, show_results=False, limit=25, force=True, retry=5
+                q, show_results=False, limit=25, force=True, retry=20
             )
         except requests.exceptions.RequestException as e:
             if try_count > retry:

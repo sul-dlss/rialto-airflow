@@ -139,9 +139,7 @@ def extract_wos_uid(pub):
 
     for id in pub.get("identifier", []):
         id_type = id.get("type", "")
-        if id_type == "WosUID":
-            return normalize_wos_id(id.get("id"))
-        if id_type in ("WoSItemID", "WosItemID"):
+        if id_type in ("WoSItemID", "WosItemID", "WosUID"):
             # These are bare accession numbers without the WOS: prefix
             return normalize_wos_id(id.get("id"))
     return None

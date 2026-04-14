@@ -194,3 +194,48 @@ def test_harvest_when_author_exists(
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].cap_profile_id == "12345"
         assert pub.authors[1].cap_profile_id == "123456"
+
+
+def test_extract_wos_uid_from_top_level():
+    pub = {"wos_uid": "WOS:001008232900698"}
+    assert sul_pub.extract_wos_uid(pub) == "001008232900698"
+
+
+def test_extract_wos_uid_from_identifier_wos_uid_type():
+    pub = {"identifier": [{"type": "WosUID", "id": "WOS:001008232900698"}]}
+    assert sul_pub.extract_wos_uid(pub) == "001008232900698"
+
+
+def test_extract_wos_uid_from_identifier_wos_item_id_type():
+    pub = {"identifier": [{"type": "WoSItemID", "id": "001008232900698"}]}
+    assert sul_pub.extract_wos_uid(pub) == "001008232900698"
+
+
+def test_extract_wos_uid_from_identifier_alternate_wos_item_id_type():
+    pub = {"identifier": [{"type": "WosItemID", "id": "001008232900698"}]}
+    assert sul_pub.extract_wos_uid(pub) == "001008232900698"
+
+
+def test_extract_wos_uid_returns_none_when_absent():
+    pub = {"identifier": [{"type": "doi", "id": "10.1000/xyz123"}]}
+    assert sul_pub.extract_wos_uid(pub) is None
+
+
+def test_extract_pmid_from_top_level():
+    pub = {"pmid": 29780978}
+    assert sul_pub.extract_pmid(pub) == "29780978"
+
+
+def test_extract_pmid_from_identifier():
+    pub = {"identifier": [{"type": "pmid", "id": "29780978"}]}
+    assert sul_pub.extract_pmid(pub) == "29780978"
+
+
+def test_extract_pmid_from_identifier_uppercase_type():
+    pub = {"identifier": [{"type": "PMID", "id": "29780978"}]}
+    assert sul_pub.extract_pmid(pub) == "29780978"
+
+
+def test_extract_pmid_returns_none_when_absent():
+    pub = {"identifier": [{"type": "doi", "id": "10.1000/xyz123"}]}
+    assert sul_pub.extract_pmid(pub) is None

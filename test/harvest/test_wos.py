@@ -539,3 +539,51 @@ def test_check_status_should_raise_false(mock_response_500, mock_response_200, c
     )
 
     assert num_log_record_matches(caplog.records, logging.ERROR, "🤮") == 1
+
+
+def test_get_pmid_from_identifier_list():
+    pub = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {
+                    "identifier": [
+                        {"type": "issn", "value": "1234-5678"},
+                        {"type": "pmid", "value": "29780978"},
+                    ]
+                }
+            }
+        }
+    }
+    assert wos.get_pmid(pub) == "29780978"
+
+
+def test_get_pmid_from_single_identifier_dict():
+    pub = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {"identifier": {"type": "pmid", "value": "29780978"}}
+            }
+        }
+    }
+    assert wos.get_pmid(pub) == "29780978"
+
+
+def test_get_pmid_returns_none_when_no_pmid():
+    pub = {
+        "dynamic_data": {
+            "cluster_related": {
+                "identifiers": {"identifier": [{"type": "issn", "value": "1234-5678"}]}
+            }
+        }
+    }
+    assert wos.get_pmid(pub) is None
+
+
+def test_get_pmid_returns_none_when_identifiers_not_dict():
+    pub = {"dynamic_data": {"cluster_related": {"identifiers": "some_string"}}}
+    assert wos.get_pmid(pub) is None
+
+
+def test_get_pmid_returns_none_on_attribute_error():
+    pub = {"dynamic_data": {"cluster_related": None}}
+    assert wos.get_pmid(pub) is None

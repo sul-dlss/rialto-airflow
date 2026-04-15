@@ -32,6 +32,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 123
+        assert db_rows[0].author_list_names == "Jane Stanford|Leland Stanford"
         assert db_rows[0].types == "Article|Preprint"
         assert db_rows[0].open_access == "gold"
         assert db_rows[0].publisher == "Science Publisher Inc."
@@ -39,6 +40,7 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
             db_rows[0].journal_name
             == "Proceedings of the National Academy of Sciences of the United States of America"
         )
+        assert db_rows[0].title == "My Life"
         assert bool(db_rows[0].academic_council_authored) is True
         assert bool(db_rows[0].faculty_authored) is True
 
@@ -47,8 +49,10 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         db_rows = list(q.all())
         assert len(db_rows) == 1
         assert db_rows[0].apc == 500
+        assert db_rows[0].author_list_names == "Jane Stanford|Leland Stanford"
         assert db_rows[0].types == "Article|Preprint"
         assert db_rows[0].open_access == "green"
+        assert db_rows[0].title == "My Life Part 2"
         assert bool(db_rows[0].academic_council_authored) is True
         assert bool(db_rows[0].faculty_authored) is True
 
@@ -104,6 +108,14 @@ def test_generate_download_files(tmp_path, test_reports_session, snapshot, datas
         lines = f.readlines()
         assert len(lines) >= 2
         assert "true,true,true" in lines[1]
+
+    with open(dictionary_file, "r") as f:
+        dictionary = f.read()
+        assert (
+            'author_list_names,String,"Pipe-delimited list of all authors.'
+            in dictionary
+        )
+        assert "title,String,Title of the publication" in dictionary
 
 
 def test_no_downloads_dir(snapshot, tmp_path, test_reports_session):

@@ -638,7 +638,10 @@ def test_retry_bad_xml(requests_mock, caplog, pubmed_book_xml):
     )
 
     assert pubmed.publications_from_pmids(["123456"]) == []
-    assert "retrying a response with bad xml" in caplog.text
+    assert (
+        "retrying after error: <class 'xml.parsers.expat.ExpatError'> syntax error: line 1, column 0"
+        in caplog.text
+    )
 
 
 def test_too_many_bad_xml(requests_mock, caplog, pubmed_book_xml):
@@ -670,4 +673,55 @@ def test_too_many_bad_xml(requests_mock, caplog, pubmed_book_xml):
     with pytest.raises(ExpatError):
         pubmed.publications_from_pmids(["123456"]) == []
 
-    assert "too many retries with bad xml" in caplog.text
+    assert (
+        "too many retries: <class 'xml.parsers.expat.ExpatError'> syntax error: line 1, column 0"
+        in caplog.text
+    )
+
+
+def test_retry_chunked_encoding_error(requests_mock, caplog, pubmed_book_xml):
+    """
+    PubMed API can sometimes drop the connection mid-response. This tests
+    that ChunkedEncodingError is retried.
+    """
+    from requests.exceptions import ChunkedEncodingError
+
+    caplog.set_level(logging.DEBUG)
+
+    requests_mock.register_uri(
+        "POST",
+        pubmed.FETCH_URL,
+        [
+            {"exc": ChunkedEncodingError()},
+            {"status_code": 200, "text": pubmed_book_xml},
+        ],
+    )
+
+    assert pubmed.publications_from_pmids(["123456"]) == []
+    assert (
+        "retrying after error: <class 'requests.exceptions.ChunkedEncodingError'>"
+        in caplog.text
+    )
+
+
+def test_too_many_chunked_encoding_errors(requests_mock, caplog):
+    """
+    If ChunkedEncodingError persists beyond the retry limit, the exception is raised.
+    """
+    from requests.exceptions import ChunkedEncodingError
+
+    caplog.set_level(logging.DEBUG)
+
+    requests_mock.register_uri(
+        "POST",
+        pubmed.FETCH_URL,
+        [{"exc": ChunkedEncodingError()}] * 11,
+    )
+
+    with pytest.raises(ChunkedEncodingError):
+        pubmed.publications_from_pmids(["123456"])
+
+    assert (
+        "too many retries: <class 'requests.exceptions.ChunkedEncodingError'>"
+        in caplog.text
+    )

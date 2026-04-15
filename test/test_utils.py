@@ -112,3 +112,15 @@ def test_normalize_orcid():
 def test_piped():
     assert utils.piped(["a", "b", "c"]) == "a|b|c"
     assert utils.piped(["a", None, "c", None, "d"]) == "a|c|d"  # type: ignore
+
+
+def test_normalize_wos_id():
+    assert utils.normalize_wos_id(None) is None
+    assert utils.normalize_wos_id("") is None
+    assert utils.normalize_wos_id("   ") is None
+    assert utils.normalize_wos_id("MEDLINE:29780978") is None
+    assert utils.normalize_wos_id("medline:29780978") is None
+    assert utils.normalize_wos_id("WOS:001008232900698") == "001008232900698"
+    assert utils.normalize_wos_id("wos:001008232900698") == "001008232900698"
+    assert utils.normalize_wos_id("001008232900698") == "001008232900698"
+    assert utils.normalize_wos_id("RC:29780978") == "RC:29780978"

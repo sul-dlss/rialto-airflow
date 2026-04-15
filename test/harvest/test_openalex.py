@@ -38,6 +38,7 @@ def mock_openalex(monkeypatch):
             "doi": "https://doi.org/10.1515/9781503624153",
             "title": "An example title",
             "publication_year": 1891,
+            "ids": {"pmid": "https://pubmed.ncbi.nlm.nih.gov/36857419"},
         }
 
     monkeypatch.setattr(openalex, "orcid_publications", f)
@@ -56,6 +57,7 @@ def test_harvest(snapshot, test_session, mock_authors, mock_openalex):
 
         pub = session.query(Publication).first()
         assert pub.doi == "10.1515/9781503624153", "doi was normalized"
+        assert pub.pubmed_id == "36857419", "pubmed_id populated from ids.pmid"
 
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
@@ -78,6 +80,7 @@ def test_harvest_when_doi_exists(
 
         assert pub.openalex_json
         assert pub.openalex_json["title"] == "An example title", "openalex json updated"
+        assert pub.pubmed_id == "36857419", "pubmed_id populated from ids.pmid"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
 
@@ -107,6 +110,7 @@ def test_harvest_when_author_exists(
 
         assert pub.openalex_json
         assert pub.openalex_json["title"] == "An example title", "openalex json updated"
+        assert pub.pubmed_id == "36857419", "pubmed_id populated from ids.pmid"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
 
@@ -160,6 +164,7 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
             "doi": "10.1515/9781503624153",
             "title": "A sample title",
             "publication_year": 1891,
+            "ids": {"pmid": "https://pubmed.ncbi.nlm.nih.gov/36857419"},
         }
     ]
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks(records))
@@ -175,7 +180,9 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
             "doi": "10.1515/9781503624153",
             "title": "A sample title",
             "publication_year": 1891,
+            "ids": {"pmid": "https://pubmed.ncbi.nlm.nih.gov/36857419"},
         }
+        assert pub.pubmed_id == "36857419", "pubmed_id populated from ids.pmid"
 
     # adds 1 publication to the jsonl file
     assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 1

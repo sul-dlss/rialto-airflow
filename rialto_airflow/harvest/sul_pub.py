@@ -13,7 +13,7 @@ from rialto_airflow.schema.harvest import (
     Publication,
     pub_author_association,
 )
-from rialto_airflow.utils import normalize_doi
+from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
 
 def harvest(snapshot, host, key, per_page=1000, limit=None):
@@ -27,14 +27,25 @@ def harvest(snapshot, host, key, per_page=1000, limit=None):
 
                 # only write approved publications to the database
                 if approved(sulpub_pub):
+                    wos_id = extract_wos_uid(sulpub_pub)
+                    pubmed_id = extract_pmid(sulpub_pub)
                     # if when inserting the row we get a constraint violation
                     # on the DOI then we have to do an update
                     pub_id = session.execute(
                         insert(Publication)
-                        .values(doi=doi, sulpub_json=sulpub_pub)
+                        .values(
+                            doi=doi,
+                            sulpub_json=sulpub_pub,
+                            wos_id=wos_id,
+                            pubmed_id=pubmed_id,
+                        )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
-                            set_=dict(sulpub_json=sulpub_pub),
+                            set_=dict(
+                                sulpub_json=sulpub_pub,
+                                wos_id=wos_id,
+                                pubmed_id=pubmed_id,
+                            ),
                         )
                         .returning(Publication.id)
                     ).scalar_one()
@@ -114,6 +125,37 @@ def extract_doi(pub):
                 f"doi was not available in top level for sulpub id {pub.get('sulpubid')} but found in identifier block"
             )
             return normalize_doi(id["id"])
+    return None
+
+
+def extract_wos_uid(pub) -> str | None:
+    """
+    Extract and normalize the WOS UID from a sulpub record.
+    Checks top-level 'wos_uid' first, then the identifier list for type 'WosUID',
+    'WoSItemID', or 'WosItemID'.
+    """
+    if pub.get("wos_uid"):
+        return normalize_wos_id(pub["wos_uid"])
+
+    for id in pub.get("identifier", []):
+        id_type = id.get("type", "")
+        if id_type in ("WoSItemID", "WosItemID", "WosUID"):
+            # These are bare accession numbers without the WOS: prefix
+            return normalize_wos_id(id.get("id"))
+    return None
+
+
+def extract_pmid(pub) -> str | None:
+    """
+    Extract and normalize the PubMed ID from a sulpub record.
+    Checks top-level 'pmid' first, then the identifier list for type 'pmid' or 'PMID'.
+    """
+    if pub.get("pmid"):
+        return normalize_pmid(str(pub["pmid"]))
+
+    for id in pub.get("identifier", []):
+        if id.get("type", "").lower() == "pmid":
+            return normalize_pmid(id.get("id"))
     return None
 
 

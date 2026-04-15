@@ -18,7 +18,12 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi, normalize_orcid, add_orcid
+from rialto_airflow.utils import (
+    normalize_doi,
+    normalize_orcid,
+    normalize_pmid,
+    add_orcid,
+)
 
 
 def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
@@ -46,14 +51,25 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                         break
 
                     doi = normalize_doi(dimensions_pub_json.get("doi", None))
+                    pubmed_id = (
+                        normalize_pmid(dimensions_pub_json.get("pmid"))
+                        if dimensions_pub_json.get("pmid") is not None
+                        else None
+                    )
                     with get_session(snapshot.database_name).begin() as insert_session:
                         # if there's a DOI constraint violation, update the existing row's JSON
                         pub_id = insert_session.execute(
                             insert(Publication)
-                            .values(doi=doi, dim_json=dimensions_pub_json)
+                            .values(
+                                doi=doi,
+                                dim_json=dimensions_pub_json,
+                                pubmed_id=pubmed_id,
+                            )
                             .on_conflict_do_update(
                                 constraint="publication_doi_key",
-                                set_=dict(dim_json=dimensions_pub_json),
+                                set_=dict(
+                                    dim_json=dimensions_pub_json, pubmed_id=pubmed_id
+                                ),
                             )
                             .returning(Publication.id)
                         ).scalar_one()
@@ -262,10 +278,15 @@ def fill_in(snapshot: Snapshot):
                         continue
 
                     with get_session(snapshot.database_name).begin() as update_session:
+                        pubmed_id = (
+                            normalize_pmid(str(dimensions_pub["pmid"]))
+                            if dimensions_pub.get("pmid") is not None
+                            else None
+                        )
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)
-                            .values(dim_json=dimensions_pub)
+                            .values(dim_json=dimensions_pub, pubmed_id=pubmed_id)
                         )
                         update_session.execute(update_stmt)
 

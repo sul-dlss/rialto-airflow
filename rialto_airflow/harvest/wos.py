@@ -20,7 +20,12 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi, add_orcid
+from rialto_airflow.utils import (
+    normalize_doi,
+    normalize_pmid,
+    normalize_wos_id,
+    add_orcid,
+)
 
 Params = Dict[str, Union[int, str]]
 
@@ -53,6 +58,8 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                         break
 
                     doi = get_doi(wos_pub)
+                    wos_id = normalize_wos_id(wos_pub.get("UID"))
+                    pubmed_id = get_pmid(wos_pub)
 
                     with get_session(snapshot.database_name).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
@@ -61,10 +68,14 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .values(
                                 doi=doi,
                                 wos_json=wos_pub,
+                                wos_id=wos_id,
+                                pubmed_id=pubmed_id,
                             )
                             .on_conflict_do_update(
                                 constraint="publication_doi_key",
-                                set_=dict(wos_json=wos_pub),
+                                set_=dict(
+                                    wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
+                                ),
                             )
                             .returning(Publication.id)
                         ).scalar_one()
@@ -107,11 +118,15 @@ def fill_in(snapshot: Snapshot):
                     if doi is None:
                         continue
 
+                    wos_id = normalize_wos_id(wos_pub.get("UID"))
+                    pubmed_id = get_pmid(wos_pub)
                     with get_session(snapshot.database_name).begin() as update_session:
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)
-                            .values(wos_json=wos_pub)
+                            .values(
+                                wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
+                            )
                         )
                         update_session.execute(update_stmt)
 
@@ -300,6 +315,26 @@ def check_status(resp: requests.Response, should_raise_for_status: bool) -> bool
             return False
 
     return True
+
+
+def get_pmid(pub) -> Optional[str]:
+    """Extract and normalize the PubMed ID from a WOS record's identifiers list."""
+    try:
+        identifiers_field = (
+            pub.get("dynamic_data", {})
+            .get("cluster_related", {})
+            .get("identifiers", {})
+        )
+        if not isinstance(identifiers_field, dict):
+            return None
+        ids = identifiers_field.get("identifier", [])
+        ids = [ids] if isinstance(ids, dict) else ids
+        for id in ids:
+            if id.get("type") == "pmid":
+                return normalize_pmid(str(id["value"]))
+    except AttributeError:
+        pass
+    return None
 
 
 def get_doi(pub) -> Optional[str]:

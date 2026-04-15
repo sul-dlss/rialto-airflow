@@ -17,7 +17,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import normalize_doi, add_orcid
+from rialto_airflow.utils import normalize_doi, normalize_pmid, add_orcid
 
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
@@ -54,6 +54,8 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
 
                     doi = normalize_doi(openalex_pub.get("doi", None))
 
+                    pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
+
                     with get_session(snapshot.database_name).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
                         pub_id = insert_session.execute(
@@ -61,10 +63,14 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                             .values(
                                 doi=doi,
                                 openalex_json=openalex_pub,
+                                pubmed_id=pubmed_id,
                             )
                             .on_conflict_do_update(
                                 constraint="publication_doi_key",
-                                set_=dict(openalex_json=openalex_pub),
+                                set_=dict(
+                                    openalex_json=openalex_pub,
+                                    pubmed_id=pubmed_id,
+                                ),
                             )
                             .returning(Publication.id)
                         ).scalar_one()
@@ -137,11 +143,16 @@ def fill_in(snapshot) -> Path:
                         )
                         continue
 
+                    pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
+
                     with get_session(snapshot.database_name).begin() as update_session:
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)
-                            .values(openalex_json=openalex_pub)
+                            .values(
+                                openalex_json=openalex_pub,
+                                pubmed_id=pubmed_id,
+                            )
                         )
                         update_session.execute(update_stmt)
 

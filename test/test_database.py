@@ -128,6 +128,8 @@ def test_create_schema(
                 "sulpub_json",
                 "wos_json",
                 "pubmed_json",
+                "wos_id",
+                "pubmed_id",
                 "created_at",
                 "updated_at",
                 "types",

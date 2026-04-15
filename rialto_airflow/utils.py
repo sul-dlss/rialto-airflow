@@ -132,6 +132,33 @@ def normalize_pmid(pmid):
     return pmid
 
 
+def normalize_wos_id(wos_id):
+    """
+    Normalize a WOS UID to a bare accession number by stripping the "WOS:" prefix.
+    Returns None for MEDLINE:-prefixed UIDs (those encode PMIDs, not WOS UIDs)
+    and for None/blank inputs.
+    Examples:
+        "WOS:001008232900698" -> "001008232900698"
+        "001008232900698"     -> "001008232900698"
+        "MEDLINE:29780978"    -> None
+    """
+    if wos_id is None:
+        return None
+
+    wos_id = wos_id.strip()
+    if wos_id == "":
+        return None
+
+    upper = wos_id.upper()
+    if upper.startswith("MEDLINE:"):
+        return None
+
+    if upper.startswith("WOS:"):
+        return wos_id[4:]
+
+    return wos_id
+
+
 def normalize_orcid(orcid):
     orcid = orcid.strip().lower()
     orcid = orcid.replace("https://orcid.org/", "").replace(

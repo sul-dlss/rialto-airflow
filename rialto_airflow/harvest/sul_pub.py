@@ -128,7 +128,7 @@ def extract_doi(pub):
     return None
 
 
-def extract_wos_uid(pub):
+def extract_wos_uid(pub) -> str | None:
     """
     Extract and normalize the WOS UID from a sulpub record.
     Checks top-level 'wos_uid' first, then the identifier list for type 'WosUID',
@@ -145,7 +145,7 @@ def extract_wos_uid(pub):
     return None
 
 
-def extract_pmid(pub):
+def extract_pmid(pub) -> str | None:
     """
     Extract and normalize the PubMed ID from a sulpub record.
     Checks top-level 'pmid' first, then the identifier list for type 'pmid' or 'PMID'.

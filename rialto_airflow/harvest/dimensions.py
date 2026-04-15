@@ -52,7 +52,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
 
                     doi = normalize_doi(dimensions_pub_json.get("doi", None))
                     pubmed_id = (
-                        normalize_pmid(str(dimensions_pub_json["pmid"]))
+                        normalize_pmid(dimensions_pub_json.get("pmid"))
                         if dimensions_pub_json.get("pmid") is not None
                         else None
                     )

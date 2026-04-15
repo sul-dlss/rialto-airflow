@@ -146,7 +146,7 @@ def normalize_wos_id(wos_id):
         return None
 
     wos_id = wos_id.strip()
-    if not wos_id:
+    if wos_id == "":
         return None
 
     upper = wos_id.upper()

@@ -128,6 +128,31 @@ def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 
+def test_dimensions_deduplicate(test_session, dataset, snapshot, caplog):
+    """
+    Test that the publication with a Dimensions duplicate is found and the duplicates removed.
+    Authors should be moved to the remaining record.
+    """
+    caplog.set_level(logging.INFO)
+    dupes = deduplicate.remove_dimensions_duplicates(snapshot)
+    assert dupes == 1
+    with test_session.begin() as session:
+        assert session.query(Publication).count() == 1, (
+            "only one publication remains in table"
+        )
+        pubs = session.query(Publication).where(
+            Publication.dim_json["id"].astext == "pub.1000000001"
+        )
+        assert pubs.count() == 1, "remaining publication has the Dimensions ID"
+        assert len(pubs.one().authors) == 2, "remaining publication has both authors"
+        author2 = session.query(Author).where(Author.orcid == "02980983434").one()
+        assert len(author2.publications) == 1, (
+            "second author exists and is linked to the remaining publication"
+        )
+        assert "Found 1 Dimensions publications with duplicates." in caplog.text
+        assert "Deleted 1 publication rows from Dimensions." in caplog.text
+
+
 def test_pubmed_deduplicate(test_session, dataset, snapshot, caplog):
     """
     Test that publications with a duplicate pubmed_id are found and merged.

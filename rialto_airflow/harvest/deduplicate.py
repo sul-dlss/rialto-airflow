@@ -15,17 +15,17 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing duplicate publications from each source.")
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
+    dimensions_dupes = remove_dimensions_duplicates(snapshot)
     sulpub_dupes = remove_sulpub_duplicates(snapshot)
     wos_id_dupes = remove_wos_id_duplicates(snapshot)
     pubmed_id_dupes = remove_pubmed_id_duplicates(snapshot)
-    dimensions_dupes = remove_dimensions_duplicates(snapshot)
     total_deleted = (
         wos_dupes
         + openalex_dupes
+        + dimensions_dupes
         + sulpub_dupes
         + wos_id_dupes
         + pubmed_id_dupes
-        + dimensions_dupes
     )
     logging.info(
         f"Deleted a total of {total_deleted} duplicate publication rows from all sources."

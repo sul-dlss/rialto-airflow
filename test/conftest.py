@@ -170,6 +170,7 @@ def test_reports_session(test_reports_engine, monkeypatch):
 @pytest.fixture
 def dim_json():
     return {
+        "id": "pub.1000000001",
         "type": "article",
         "doi": "10.000/000001",
         "journal": {"title": "Delicious Limes Journal of Science"},

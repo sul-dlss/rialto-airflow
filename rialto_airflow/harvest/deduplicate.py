@@ -15,11 +15,17 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing duplicate publications from each source.")
     wos_dupes = remove_wos_duplicates(snapshot)
     openalex_dupes = remove_openalex_duplicates(snapshot)
+    dimensions_dupes = remove_dimensions_duplicates(snapshot)
     sulpub_dupes = remove_sulpub_duplicates(snapshot)
     wos_id_dupes = remove_wos_id_duplicates(snapshot)
     pubmed_id_dupes = remove_pubmed_id_duplicates(snapshot)
     total_deleted = (
-        wos_dupes + openalex_dupes + sulpub_dupes + wos_id_dupes + pubmed_id_dupes
+        wos_dupes
+        + openalex_dupes
+        + dimensions_dupes
+        + sulpub_dupes
+        + wos_id_dupes
+        + pubmed_id_dupes
     )
     logging.info(
         f"Deleted a total of {total_deleted} duplicate publication rows from all sources."
@@ -86,6 +92,37 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
             deleted = merge_pubs(pubs=pubs, session=session)
             count_deleted += deleted
         logging.info(f"Deleted {count_deleted} publication rows from OpenAlex.")
+    return num_dupes
+
+
+def remove_dimensions_duplicates(snapshot: Snapshot) -> int:
+    logging.debug("Removing any duplicate Dimensions publications.")
+    with get_session(snapshot.database_name).begin() as session:
+        # Find all duplicate Dimensions publications in the snapshot
+        duplicates = session.execute(
+            select(func.count(), Publication.dim_json["id"])
+            .where(Publication.doi.is_(None))
+            .where(Publication.dim_json["id"].is_not(None))
+            .group_by(Publication.dim_json["id"])
+            .having(func.count() > 1)
+        ).all()
+        num_dupes = len(duplicates)
+        logging.info(f"Found {num_dupes} Dimensions publications with duplicates.")
+        count_deleted = 0
+        dim_ids = [row[1] for row in duplicates]
+        for dim_id in dim_ids:
+            pubs = (
+                session.execute(
+                    select(Publication).where(
+                        Publication.dim_json["id"].astext == dim_id
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            deleted = merge_pubs(pubs=pubs, session=session)
+            count_deleted += deleted
+        logging.info(f"Deleted {count_deleted} publication rows from Dimensions.")
     return num_dupes
 
 

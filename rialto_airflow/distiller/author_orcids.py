@@ -54,10 +54,10 @@ def first_author_orcid(row) -> str | None:
         ],
     )
 
-    if orcid is not None:
-        orcid = normalize_orcid(orcid)
-
-    return orcid
+    if orcid is not None and isinstance(orcid, str):
+        return normalize_orcid(orcid)
+    else:
+        return None
 
 
 def last_author_orcid(row) -> str | None:
@@ -73,10 +73,10 @@ def last_author_orcid(row) -> str | None:
         ],
     )
 
-    if orcid is not None:
-        orcid = normalize_orcid(orcid)
-
-    return orcid
+    if orcid is not None and isinstance(orcid, str):
+        return normalize_orcid(orcid)
+    else:
+        return None
 
 
 def _pubmed_orcids(row):

@@ -2,7 +2,7 @@ import re
 import logging
 from functools import cache
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 
 
 def rialto_authors_file(data_dir):
@@ -36,20 +36,20 @@ def downloads_dir(data_dir):
 
 
 @cache
-def doi_candidate_regex():
+def _doi_candidate_regex() -> re.Pattern:
     """
     One of the few things we can truly rely on when it comes to DOI format is that it will start with '10.'
     """
     return re.compile("10\\..+")
 
 
-def doi_candidate_extract(possible_doi_with_junk: str):
-    m = doi_candidate_regex().search(possible_doi_with_junk)
+def _doi_candidate_extract(possible_doi_with_junk: str) -> str | None:
+    m = _doi_candidate_regex().search(possible_doi_with_junk)
     return m.group(0) if m else None
 
 
 @cache
-def doi_known_format_regex_list():
+def _doi_known_format_regex_list() -> list[re.Pattern]:
     """
     filter patterns are adapted from suggestions from these sources (mostly from the Crossref blog post):
     * https://stackoverflow.com/a/10324802
@@ -67,8 +67,8 @@ def doi_known_format_regex_list():
     return [re.compile(p) for p in doi_filter_patterns]
 
 
-def matches_known_doi_format(possible_doi: str):
-    return len([r for r in doi_known_format_regex_list() if r.match(possible_doi)]) > 0
+def _matches_known_doi_format(possible_doi: str) -> bool:
+    return len([r for r in _doi_known_format_regex_list() if r.match(possible_doi)]) > 0
 
 
 @cache
@@ -84,7 +84,7 @@ def normalize_arxiv_id_to_doi(possible_arxiv_doi: str):
     return re.sub("^arxiv:", "10.48550/arxiv.", possible_arxiv_doi, flags=re.IGNORECASE)
 
 
-def normalize_doi(doi):
+def normalize_doi(doi: str | None) -> str | None:
     if doi is None or doi.strip() == "":
         return None
 
@@ -101,7 +101,7 @@ def normalize_doi(doi):
         return None
 
     doi = normalize_arxiv_id_to_doi(doi)
-    doi = doi_candidate_extract(doi)
+    doi = _doi_candidate_extract(doi)
 
     if doi is None:
         _data_quality_warning(
@@ -109,7 +109,7 @@ def normalize_doi(doi):
         )
         return None
 
-    if not matches_known_doi_format(doi):
+    if not _matches_known_doi_format(doi):
         _data_quality_warning(
             "DOI-like string starts with 10. but doesn't fit more specific DOI pattern",
             context=context,
@@ -122,7 +122,7 @@ def _data_quality_warning(base_error_message: str, context: dict = {}):
     logging.warning(f"[DATA QUALITY ISSUE] {base_error_message} -- {context}")
 
 
-def normalize_pmid(pmid):
+def normalize_pmid(pmid: str | None) -> str | None:
     if pmid is None:
         return None
 
@@ -132,7 +132,7 @@ def normalize_pmid(pmid):
     return pmid
 
 
-def normalize_wos_id(wos_id):
+def normalize_wos_id(wos_id: str | None) -> str | None:
     """
     Normalize a WOS UID to a bare accession number by stripping the "WOS:" prefix.
     Returns None for MEDLINE:-prefixed UIDs (those encode PMIDs, not WOS UIDs)
@@ -159,7 +159,7 @@ def normalize_wos_id(wos_id):
     return wos_id
 
 
-def normalize_orcid(orcid):
+def normalize_orcid(orcid: str) -> str:
     orcid = orcid.strip().lower()
     orcid = orcid.replace("https://orcid.org/", "").replace(
         "https://sandbox.orcid.org/", ""
@@ -168,7 +168,7 @@ def normalize_orcid(orcid):
     return orcid
 
 
-def piped(lst: list[str] | None) -> Optional[str]:
+def piped(lst: list[str] | None) -> str | None:
     """
     Return a list as pipe delimited or None if None is passed in.
     """
@@ -181,7 +181,7 @@ def piped(lst: list[str] | None) -> Optional[str]:
     return "|".join(lst)
 
 
-def join_keys(d: dict, *keys):
+def join_keys(d: dict, *keys) -> str:
     """
     Join the values in a dictionary, removing any missing values. It is assumed
     that the dictionary values are all strings.

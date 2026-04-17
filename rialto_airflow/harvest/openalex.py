@@ -164,7 +164,7 @@ def fill_in(snapshot) -> Path:
     return jsonl_file
 
 
-def _clean_dois_for_query(dois: list[str]) -> list[str]:
+def _clean_dois_for_query(dois: list[str | None]) -> list[str]:
     """
     Commas are a reserved character in openalex filter queries, so until there is
     a way to escape them we will need to drop them
@@ -185,6 +185,8 @@ def _clean_dois_for_query(dois: list[str]) -> list[str]:
     unqueryable_dois: list[str] = []
 
     for doi in dois:
+        if doi is None:
+            continue
         if "," in doi:
             unqueryable_dois.append(doi)
             _doi_log_message(doi)

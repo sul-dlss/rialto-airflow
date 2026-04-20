@@ -53,12 +53,14 @@ def fill_in(snapshot: Snapshot) -> Path:
     return jsonl_file
 
 
-def get_dois(dois: Iterable[str], tries=5) -> Iterable[dict]:
+def get_dois(dois: Iterable[str | None], tries=5) -> Iterable[dict]:
     # the API only allows looking up 49 DOIs at a time in a batch
     for doi_batch in batched(dois, 40):
         prefixed_dois = []
         ignored_dois = []
         for doi in doi_batch:
+            if doi is None:
+                continue  # skip None DOIs
             doi = doi.replace(",", "")  # commas are used to join DOIs in the filter
 
             # DOIs need to have a prefix in the API works filter call, but we don't store them that way

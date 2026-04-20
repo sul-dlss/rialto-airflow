@@ -236,6 +236,28 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
     assert "filled in 0 publications" in caplog.text
 
 
+def test_fill_in_none_doi(
+    test_session, mock_publication, snapshot, caplog, monkeypatch
+):
+    """
+    Test that publications with a None DOI are not used to do lookups.
+    """
+    caplog.set_level(logging.INFO)
+
+    # set up Works to return no records
+    monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"doi": None}]))
+    openalex.fill_in(snapshot)
+
+    with test_session.begin() as session:
+        pub = session.query(Publication).where(Publication.doi is None).first()
+        assert pub is None
+
+    # adds 0 publications to the jsonl file
+    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
+    assert "unable to determine what DOI to update" in caplog.text
+    assert "filled in 0 publications" in caplog.text
+
+
 def test_comma():
     """
     The OpenAlex API doesn't allow you to look up DOIs with commas in them. If

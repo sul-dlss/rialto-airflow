@@ -137,6 +137,8 @@ def fill_in(snapshot: Snapshot):
             for rows in select_session.execute(stmt).partitions():
                 # use a batch size of 50 DOIs at a time
                 dois = [normalize_doi(row.doi) for row in rows]
+                # remove any None DOIs since we don't want to include them in the Pubmed
+                dois = [doi for doi in dois if doi is not None]
 
                 logging.debug(f"looking up DOIs {dois}")
 

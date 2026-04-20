@@ -2,7 +2,7 @@ import csv
 import logging
 import pytest
 from rialto_airflow.schema.harvest import Author
-from rialto_airflow.harvest.authors import load_authors_table
+from rialto_airflow.harvest_incremental.authors import load_authors_table
 from test.utils import num_log_record_matches
 
 

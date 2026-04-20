@@ -37,6 +37,24 @@ def test_get_dois_missing():
     assert len(list(results)) == 0
 
 
+def test_none_get_dois(caplog):
+    """
+    Test that things work when looking up None DOIs.
+    """
+    caplog.set_level(logging.DEBUG)
+
+    results = crossref.get_dois([None, "10.1002/adma.202103646"])
+    assert len(list(results)) == 1, "Only a results for the valid DOI"
+    assert (
+        num_log_record_matches(
+            caplog.records,
+            logging.DEBUG,
+            "Looking up DOIS ['doi:10.1002/adma.202103646']",
+        )
+        == 1
+    )
+
+
 def test_invalid_doi_prefix(caplog):
     """
     Test lookup with invalid DOI format. According to the API docs a DOI must

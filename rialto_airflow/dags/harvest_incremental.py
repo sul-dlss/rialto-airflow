@@ -48,7 +48,7 @@ else:
 
 
 @dag(
-    schedule="@weekly",
+    # schedule="@weekly",
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,

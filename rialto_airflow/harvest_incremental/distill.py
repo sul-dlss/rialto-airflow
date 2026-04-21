@@ -13,7 +13,7 @@ from rialto_airflow.distiller import (
     journal_name,
     apc,
 )
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.snapshot import Snapshot
 
 
@@ -22,7 +22,7 @@ def distill(snapshot: Snapshot) -> int:
     Walk through all publications in the database and set the title, pub_year,
     open_access columns using the harvested metadata.
     """
-    with get_session(snapshot.database_name).begin() as select_session:
+    with get_session().begin() as select_session:
         # iterate through publictions 100 at a time
         count = 0
         stmt = select(Publication).execution_options(yield_per=100)
@@ -50,7 +50,7 @@ def distill(snapshot: Snapshot) -> int:
             cols["apc"] = apc(pub, cols)
 
             # update the publication with the new columns
-            with get_session(snapshot.database_name).begin() as update_session:
+            with get_session().begin() as update_session:
                 update_stmt = (
                     update(Publication).where(Publication.id == pub.id).values(cols)
                 )

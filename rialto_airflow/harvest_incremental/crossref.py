@@ -12,7 +12,7 @@ import requests
 from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi
 
@@ -24,7 +24,7 @@ def fill_in(snapshot: Snapshot) -> Path:
     jsonl_file = snapshot.path / "crossref-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
-        with get_session(snapshot.database_name).begin() as select_session:
+        with get_session().begin() as select_session:
             stmt = (
                 select(Publication.doi)
                 .where(Publication.doi.is_not(None))
@@ -37,7 +37,7 @@ def fill_in(snapshot: Snapshot) -> Path:
                 for crossref_pub in get_dois(dois):
                     doi = normalize_doi(crossref_pub.get("DOI"))
 
-                    with get_session(snapshot.database_name).begin() as update_session:
+                    with get_session().begin() as update_session:
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)

@@ -6,8 +6,8 @@ from rialto_airflow.database import (
     database_exists,
 )
 
-
-PERMANENT_DATABASES: list[str] = [RIALTO_REPORTS_DB_NAME]
+# "rialto" is the database updated by the harvest_incremental DAG
+PERMANENT_DATABASES: list[str] = [RIALTO_REPORTS_DB_NAME, "rialto"]
 
 
 def init_permanent_databases() -> None:

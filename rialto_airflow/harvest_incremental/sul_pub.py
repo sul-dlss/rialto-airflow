@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from urllib3.util import Retry
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
     Author,
     Publication,
     pub_author_association,
@@ -22,7 +22,7 @@ def harvest(snapshot, host, key, per_page=1000, limit=None):
 
     with jsonl_file.open("w") as jsonl_output:
         for sulpub_pub in publications(host, key, per_page, limit):
-            with get_session(snapshot.database_name).begin() as session:
+            with get_session().begin() as session:
                 doi = extract_doi(sulpub_pub)
 
                 # only write approved publications to the database

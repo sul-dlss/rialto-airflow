@@ -27,8 +27,12 @@ def get_engine(database_name: str, echo=False):
     return engine_setup(database_name, pool_pre_ping=True, echo=echo)
 
 
-def get_session(database_name: str):
-    return sessionmaker(engine_setup(database_name))
+def get_session(database_name: str | None = None):
+    if database_name is None:
+        # create session for the "rialto" incremental harvest database by default
+        return sessionmaker(engine_setup("rialto"))
+    else:
+        return sessionmaker(engine_setup(database_name))
 
 
 def create_database(database_name: str) -> str:

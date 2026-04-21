@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from rialto_airflow.database import get_engine
-from rialto_airflow.schema.harvest import Author
+from rialto_airflow.schema.rialto import Author
 from rialto_airflow.utils import rialto_authors_file
 
 

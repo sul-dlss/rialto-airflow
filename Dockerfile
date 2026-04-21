@@ -9,6 +9,7 @@ USER airflow
 
 COPY rialto_airflow ./rialto_airflow
 COPY alembic ./alembic
+COPY alembic_rialto ./alembic_rialto
 COPY bin ./bin
 COPY README.md uv.lock pyproject.toml alembic.ini .
 

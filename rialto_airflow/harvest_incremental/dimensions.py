@@ -35,7 +35,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
     stop = False
 
     with jsonl_file.open("w") as jsonl_output:
-        with get_session(snapshot.database_name).begin() as select_session:
+        with get_session().begin() as select_session:
             # get all authors that have an ORCID
             for author in (
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()
@@ -56,7 +56,7 @@ def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
                         if dimensions_pub_json.get("pmid") is not None
                         else None
                     )
-                    with get_session(snapshot.database_name).begin() as insert_session:
+                    with get_session().begin() as insert_session:
                         # if there's a DOI constraint violation, update the existing row's JSON
                         pub_id = insert_session.execute(
                             insert(Publication)
@@ -256,7 +256,7 @@ def fill_in(snapshot: Snapshot):
     jsonl_file = snapshot.path / "dimensions-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
-        with get_session(snapshot.database_name).begin() as select_session:
+        with get_session().begin() as select_session:
             stmt = (
                 select(Publication.doi)
                 .where(Publication.doi.is_not(None))
@@ -277,7 +277,7 @@ def fill_in(snapshot: Snapshot):
                         )
                         continue
 
-                    with get_session(snapshot.database_name).begin() as update_session:
+                    with get_session().begin() as update_session:
                         pubmed_id = (
                             normalize_pmid(str(dimensions_pub["pmid"]))
                             if dimensions_pub.get("pmid") is not None

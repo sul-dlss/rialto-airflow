@@ -14,6 +14,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.schema.reports import ReportsSchemaBase
+from rialto_airflow.schema.rialto import RialtoSchemaBase
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
 
@@ -128,6 +129,48 @@ def mock_association(test_session, mock_publication, mock_authors):
 @pytest.fixture
 def snapshot(tmp_path):
     return Snapshot.create(data_dir=tmp_path, database_name="rialto_test")
+
+
+@pytest.fixture
+def snapshot_incremental(tmp_path):
+    return Snapshot.create(data_dir=tmp_path)
+
+
+@pytest.fixture
+def test_incremental_engine(monkeypatch):
+    """
+    This pytest fixture will ensure that the rialto_incremental_test database exists and has
+    the database schema configured. If the database exists it will be dropped
+    and readded.
+    """
+    db_host = "postgresql+psycopg2://airflow:airflow@localhost:5432"
+    monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
+
+    db_name = "rialto_incremental_test"
+    db_uri = f"{db_host}/{db_name}"
+
+    if database_exists(db_uri):
+        drop_database(db_uri)
+
+    create_database(db_uri)
+
+    # note: rialto_airflow.database.create_schema wants the database name not uri
+    create_schema(db_name, RialtoSchemaBase)
+
+    # it's handy seeing SQL statements in the log when testing
+    return engine_setup(db_name, echo=True)
+
+
+@pytest.fixture
+def test_incremental_session(test_incremental_engine, monkeypatch):
+    """
+    Returns a sqlalchemy session for the test database.
+    """
+    # monkeypatch.setattr(publication, "RIALTO_INCREMENTAL_DB_NAME", "rialto_incremental_test")
+    try:
+        yield sessionmaker(engine_setup("rialto_incremental_test", echo=True))
+    finally:
+        close_all_sessions()
 
 
 @pytest.fixture

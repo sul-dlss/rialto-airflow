@@ -161,6 +161,10 @@ pip3 install --upgrade uv # in stage and prod, will install to ~/.local/bin/uv (
 
 # create the database(s) for which Alembic manages migrations -- this must happen before migrations run
 uv run python bin/create_databases.py
+
+uv run dotenv alembic upgrade head # run the migrations to get to the current DB schema for the deployment
+uv run dotenv alembic current # show the current migration revision for this env
+uv run dotenv alembic history --verbose # show the history of migrations that have been run in this env
 ```
 
 For the harvest that stores incrementally harvested data in the `rialto` databse, specify the name of the database:

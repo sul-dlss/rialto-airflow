@@ -5,8 +5,13 @@ import pytest
 from xml.parsers.expat import ExpatError
 
 from rialto_airflow.harvest_incremental import pubmed
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from test.utils import load_jsonl_file, num_jsonl_objects, num_log_record_matches
+
+
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(pubmed, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 @pytest.fixture
@@ -46,8 +51,8 @@ def mock_pubmed_search_no_results(monkeypatch):
 
 
 @pytest.fixture
-def existing_publication(test_session):
-    with test_session.begin() as session:
+def existing_publication(test_incremental_session):
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.1182/bloodadvances.2022008893",
             sulpub_json={"sulpub": "data"},
@@ -311,20 +316,25 @@ def test_pubmed_fetch_publications_expects_list():
 
 
 def test_harvest(
-    snapshot, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    mock_pubmed_fetch,
+    mock_pubmed_search,
 ):
     """
     With some authors loaded and a mocked Pubmed API, make sure that
     publications are matched up to the authors using the ORCID.
     """
     # harvest from Pubmed
-    pubmed.harvest(snapshot)
+    pubmed.harvest(snapshot_incremental)
 
     # the mocked Pubmed api returns the same two publications for both authors
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 4
 
     # make sure a publication is in the database and linked to the author
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 2, "two publications loaded"
 
         pubs = session.query(Publication).all()
@@ -337,21 +347,27 @@ def test_harvest(
 
 
 def test_harvest_limit(
-    snapshot, test_session, mock_authors, mock_pubmed_fetch, mock_pubmed_search, caplog
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    mock_pubmed_fetch,
+    mock_pubmed_search,
+    caplog,
 ):
     """
     With some authors loaded and a mocked Pubmed API and an artificially low
     harvest limit, confirm that processing stops as expected and logs appropriately.
     """
     # harvest from Pubmed with a limit of one publication
-    pubmed.harvest(snapshot, 1)
+    pubmed.harvest(snapshot_incremental, 1)
 
     # the mocked Pubmed api returns the same two publications for both authors, but we
     # only process the first
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 1
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 1
 
     # make sure a publication is in the database and linked to the author
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, "only one publication loaded"
 
         pubs = session.query(Publication).all()
@@ -373,9 +389,10 @@ def test_harvest_limit(
 
 
 def test_harvest_no_pubmed_results(
-    snapshot,
-    test_session,
-    mock_authors,
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search_no_results,
     caplog,
@@ -385,9 +402,9 @@ def test_harvest_no_pubmed_results(
     log the unsuccessful searches appropriately.
     """
     caplog.set_level(logging.DEBUG)
-    pubmed.harvest(snapshot)
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 0
-    with test_session.begin() as session:
+    pubmed.harvest(snapshot_incremental)
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 0
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, (
             "no publications loaded because none found"
         )
@@ -410,10 +427,11 @@ def test_harvest_no_pubmed_results(
 
 
 def test_harvest_when_doi_exists(
-    snapshot,
-    test_session,
+    snapshot_incremental,
+    test_incremental_session,
     existing_publication,
-    mock_authors,
+    mock_incremental_authors,
+    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
 ):
@@ -421,13 +439,13 @@ def test_harvest_when_doi_exists(
     When a publication and its authors already exist in the database make sure that the pubmed_json is updated.
     """
     # harvest from Pubmed
-    pubmed.harvest(snapshot)
+    pubmed.harvest(snapshot_incremental)
 
     # jsonl file is there and has four lines (two pubs for each author)
-    assert num_jsonl_objects(snapshot.path / "pubmed.jsonl") == 4
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 4
 
     # ensure that the existing publication for the DOI was updated
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 2, "two publications loaded"
         pub = session.query(Publication).first()
 
@@ -440,7 +458,14 @@ def test_harvest_when_doi_exists(
         assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
-def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
+def test_fill_in(
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
     caplog.set_level(logging.INFO)
 
     # mock pubmed api to return a PMID for the fake DOI
@@ -452,9 +477,9 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         "publications_from_pmids",
         lambda *args, **kwargs: [pubmed_json_fill_in_doi()],
     )
-    pubmed.fill_in(snapshot)
+    pubmed.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -463,20 +488,25 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         assert pub.pubmed_json == pubmed_json_fill_in_doi()
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 1
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
 def test_fill_in_no_pubmed(
-    test_session, mock_publication, snapshot, caplog, monkeypatch
+    test_incremental_session,
+    mock_incremental_publication,
+    snapshot_incremental,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
 ):
     caplog.set_level(logging.INFO)
 
     # mock pubmed api to return no records for the doi
     monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: [])
-    pubmed.fill_in(snapshot)
+    pubmed.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -485,11 +515,18 @@ def test_fill_in_no_pubmed(
         assert pub.pubmed_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 0
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
-def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkeypatch):
+def test_fill_in_no_doi(
+    test_incremental_session,
+    mock_incremental_publication,
+    snapshot_incremental,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
     """
     Test that a publication coming back from Pubmed without DOI doesn't
     cause an exception.
@@ -506,9 +543,9 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
     )
 
     caplog.set_level(logging.INFO)
-    pubmed.fill_in(snapshot)
+    pubmed.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -517,7 +554,7 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
         assert pub.pubmed_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "pubmed-fillin.jsonl") == 0
+    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 

@@ -2,12 +2,19 @@ import os
 import logging
 
 import dotenv
+import pytest
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import sul_pub
 from rialto_airflow.snapshot import Snapshot
 
 from test.utils import num_jsonl_objects, num_log_record_matches
+
+
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test")
+
 
 dotenv.load_dotenv()
 
@@ -52,21 +59,28 @@ response = {
 }
 
 
-def test_harvest(tmp_path, test_session, mock_authors, caplog, requests_mock):
+def test_harvest(
+    tmp_path,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    requests_mock,
+):
     caplog.set_level(logging.DEBUG)
 
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # make sure the jsonl file looks good
     assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # make sure there are publications in the database
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 2, "two publications loaded"
 
         # Fetch all publications in a deterministic order
@@ -92,7 +106,14 @@ def test_harvest(tmp_path, test_session, mock_authors, caplog, requests_mock):
         )
 
 
-def test_harvest_limit(tmp_path, test_session, mock_authors, caplog, requests_mock):
+def test_harvest_limit(
+    tmp_path,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    requests_mock,
+):
     """
     Confirm that the harvest limit we use in test envs is observed, and that a warning is
     logged when the limit is hit.
@@ -103,14 +124,14 @@ def test_harvest_limit(tmp_path, test_session, mock_authors, caplog, requests_mo
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub with a limit of one publication
-    snapshot = Snapshot.create(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=1)
 
     # make sure the jsonl file looks good
     assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
 
     # make sure a publication is in the database and linked to the authors
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, "one publications loaded"
 
         pubs = session.query(Publication).all()
@@ -132,20 +153,25 @@ def test_harvest_limit(tmp_path, test_session, mock_authors, caplog, requests_mo
 
 
 def test_harvest_when_doi_exists(
-    tmp_path, test_session, mock_publication, mock_authors, requests_mock
+    tmp_path,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    requests_mock,
 ):
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
     assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # ensure that the existing publication for the DOI was updated
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 2, "two publications loaded"
         pub = session.query(Publication).order_by(Publication.id).first()
 
@@ -163,24 +189,25 @@ def test_harvest_when_doi_exists(
 
 def test_harvest_when_author_exists(
     tmp_path,
-    test_session,
-    mock_publication,
-    mock_authors,
-    mock_association,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_incremental_authors,
+    mock_incremental_association,
+    mock_rialto_db_name,
     requests_mock,
 ):
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_test")
+    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
     sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
 
     # jsonl file is there and ok
     assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
 
     # ensure that the existing publication for the DOI was updated
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 2, "two publications loaded"
         pub = session.query(Publication).order_by(Publication.id).first()
 

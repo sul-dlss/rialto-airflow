@@ -3,7 +3,11 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.rialto import Publication, pub_author_association
+from rialto_airflow.schema.rialto import (
+    Publication,
+    pub_author_association,
+    RIALTO_DB_NAME,
+)
 from rialto_airflow.snapshot import Snapshot
 
 
@@ -40,7 +44,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
 
 def remove_openalex_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing any duplicate OpenAlex publications.")
-    with get_session().begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate OpenAlex publications in the snapshot
         duplicates = session.execute(
             select(func.count(), Publication.openalex_json["id"])
@@ -71,7 +75,7 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
 
 def remove_dimensions_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing any duplicate Dimensions publications.")
-    with get_session().begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate Dimensions publications in the snapshot
         duplicates = session.execute(
             select(func.count(), Publication.dim_json["id"])
@@ -102,7 +106,7 @@ def remove_dimensions_duplicates(snapshot: Snapshot) -> int:
 
 def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing any duplicate sulpub publications.")
-    with get_session().begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate sulpub publications in the snapshot
         duplicates = session.execute(
             select(func.count(), Publication.sulpub_json["sulpubid"])
@@ -133,7 +137,7 @@ def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
 
 def remove_wos_id_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing any publications with duplicate wos_id.")
-    with get_session().begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         duplicates = session.execute(
             select(func.count(), Publication.wos_id)
             .where(Publication.doi.is_(None))
@@ -159,7 +163,7 @@ def remove_wos_id_duplicates(snapshot: Snapshot) -> int:
 
 def remove_pubmed_id_duplicates(snapshot: Snapshot) -> int:
     logging.debug("Removing any publications with duplicate pubmed_id.")
-    with get_session().begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         duplicates = session.execute(
             select(func.count(), Publication.pubmed_id)
             .where(Publication.doi.is_(None))

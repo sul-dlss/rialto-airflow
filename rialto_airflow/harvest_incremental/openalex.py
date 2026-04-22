@@ -15,6 +15,7 @@ from rialto_airflow.schema.rialto import (
     Author,
     Publication,
     pub_author_association,
+    RIALTO_DB_NAME,
 )
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi, normalize_pmid, add_orcid
@@ -34,7 +35,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     stop = False
 
     with jsonl_file.open("w") as jsonl_output:
-        with get_session().begin() as select_session:
+        with get_session(RIALTO_DB_NAME).begin() as select_session:
             # get all authors that have an ORCID
             # TODO: should we just pull the relevant bits back into memory since
             # that's what's going on with our client-side buffering connection
@@ -56,7 +57,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
 
                     pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
 
-                    with get_session().begin() as insert_session:
+                    with get_session(RIALTO_DB_NAME).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
                         pub_id = insert_session.execute(
                             insert(Publication)
@@ -116,7 +117,7 @@ def fill_in(snapshot) -> Path:
     jsonl_file = snapshot.path / "openalex-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
-        with get_session().begin() as select_session:
+        with get_session(RIALTO_DB_NAME).begin() as select_session:
             stmt = (
                 select(Publication.doi)
                 .where(Publication.doi.is_not(None))
@@ -145,7 +146,7 @@ def fill_in(snapshot) -> Path:
 
                     pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
 
-                    with get_session().begin() as update_session:
+                    with get_session(RIALTO_DB_NAME).begin() as update_session:
                         update_stmt = (
                             update(Publication)
                             .where(Publication.doi == doi)

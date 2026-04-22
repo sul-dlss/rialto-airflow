@@ -12,6 +12,7 @@ from rialto_airflow.schema.rialto import (
     Author,
     Publication,
     pub_author_association,
+    RIALTO_DB_NAME,
 )
 from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
@@ -22,7 +23,7 @@ def harvest(snapshot, host, key, per_page=1000, limit=None):
 
     with jsonl_file.open("w") as jsonl_output:
         for sulpub_pub in publications(host, key, per_page, limit):
-            with get_session().begin() as session:
+            with get_session(RIALTO_DB_NAME).begin() as session:
                 doi = extract_doi(sulpub_pub)
 
                 # only write approved publications to the database

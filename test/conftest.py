@@ -15,6 +15,11 @@ from rialto_airflow.schema.harvest import (
 )
 from rialto_airflow.schema.reports import ReportsSchemaBase
 from rialto_airflow.schema.rialto import RialtoSchemaBase
+from rialto_airflow.schema.rialto import Author as RialtoAuthor
+from rialto_airflow.schema.rialto import Publication as RialtoPublication
+from rialto_airflow.schema.rialto import (
+    pub_author_association as rialto_pub_author_association,
+)
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
 
@@ -102,6 +107,67 @@ def mock_authors(test_session):
 
 
 @pytest.fixture
+def mock_incremental_authors(test_incremental_session):
+    with test_incremental_session.begin() as session:
+        session.bulk_save_objects(
+            [
+                RialtoAuthor(
+                    sunet="janes",
+                    cap_profile_id="12345",
+                    orcid="https://orcid.org/0000-0000-0000-0001",
+                    first_name="Jane",
+                    last_name="Stanford",
+                    status=True,
+                ),
+                RialtoAuthor(
+                    sunet="lelands",
+                    cap_profile_id="123456",
+                    orcid="https://orcid.org/0000-0000-0000-0002",
+                    first_name="Leland",
+                    last_name="Stanford",
+                    status=True,
+                ),
+                # this user intentionally lacks an ORCID to help test code that
+                # ignores harvesting for users that lack an ORCID
+                RialtoAuthor(
+                    sunet="lelelandjr",
+                    cap_profile_id="1234567",
+                    orcid=None,
+                    first_name="Leland",
+                    last_name="Stanford",
+                    status=True,
+                ),
+            ]
+        )
+
+
+@pytest.fixture
+def mock_incremental_publication(test_incremental_session):
+    with test_incremental_session.begin() as session:
+        pub = RialtoPublication(
+            doi="10.1515/9781503624153",
+            sulpub_json={"sulpub": "data"},
+            wos_json={"wos": "data"},
+            dim_json={"dimensions": "data"},
+        )
+        session.add(pub)
+        return pub
+
+
+@pytest.fixture
+def mock_incremental_association(
+    test_incremental_session, mock_incremental_publication, mock_incremental_authors
+):
+    with test_incremental_session.begin() as session:
+        session.execute(
+            insert(rialto_pub_author_association).values(
+                publication_id=1,
+                author_id=1,
+            )
+        )
+
+
+@pytest.fixture
 def mock_publication(test_session):
     with test_session.begin() as session:
         pub = Publication(
@@ -133,7 +199,7 @@ def snapshot(tmp_path):
 
 @pytest.fixture
 def snapshot_incremental(tmp_path):
-    return Snapshot.create(data_dir=tmp_path)
+    return Snapshot.create(data_dir=tmp_path, database_name="rialto_incremental_test")
 
 
 @pytest.fixture
@@ -166,7 +232,7 @@ def test_incremental_session(test_incremental_engine, monkeypatch):
     """
     Returns a sqlalchemy session for the test database.
     """
-    # monkeypatch.setattr(publication, "RIALTO_INCREMENTAL_DB_NAME", "rialto_incremental_test")
+    # monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
     try:
         yield sessionmaker(engine_setup("rialto_incremental_test", echo=True))
     finally:
@@ -608,3 +674,75 @@ def dataset(
 
         session.add(pub)
         session.add(pub2)
+
+
+@pytest.fixture
+def dataset_incremental(
+    test_incremental_session,
+    dim_json,
+    openalex_json,
+    wos_json,
+    sulpub_json,
+    pubmed_json,
+    crossref_json,
+):
+    """
+    This fixture mirrors 'dataset' but creates data in the rialto incremental DB
+    using the rialto schema models.
+    """
+    with test_incremental_session.begin() as session:
+        pub = RialtoPublication(
+            doi="10.000/000001",
+            title="My Life",
+            apc=123,
+            open_access="gold",
+            pub_year=2023,
+            dim_json=dim_json,
+            openalex_json=openalex_json,
+            wos_json=wos_json,
+            sulpub_json=sulpub_json,
+            pubmed_json=pubmed_json,
+            crossref_json=crossref_json,
+            types=["Article", "Preprint"],
+            publisher="Science Publisher Inc.",
+            academic_council_authored=True,
+            faculty_authored=True,
+            journal_name="Proceedings of the National Academy of Sciences of the United States of America",
+        )
+
+        author1 = RialtoAuthor(
+            first_name="Jane",
+            last_name="Stanford",
+            sunet="janes",
+            cap_profile_id="1234",
+            orcid="0298098343",
+            primary_school="School of Humanities and Sciences",
+            primary_dept="Social Sciences",
+            role="faculty",
+            schools=[
+                "Vice Provost for Undergraduate Education",
+                "School of Humanities and Sciences",
+            ],
+            departments=["Inter-Departmental Programs", "Social Sciences"],
+            academic_council=True,
+        )
+
+        author2 = RialtoAuthor(
+            first_name="Leland",
+            last_name="Stanford",
+            sunet="lelands",
+            cap_profile_id="12345",
+            orcid="02980983434",
+            primary_school="School of Humanities and Sciences",
+            primary_dept="Social Sciences",
+            role="staff",
+            schools=[
+                "School of Humanities and Sciences",
+            ],
+            departments=["Social Sciences"],
+            academic_council=False,
+        )
+
+        pub.authors.append(author1)
+        pub.authors.append(author2)
+        session.add(pub)

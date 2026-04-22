@@ -12,6 +12,8 @@ from sqlalchemy.types import DateTime
 
 from rialto_airflow.database import utcnow
 
+# permanent database for incrementally harvested data
+RIALTO_DB_NAME: str = "rialto"
 
 RialtoSchemaBase = declarative_base()
 

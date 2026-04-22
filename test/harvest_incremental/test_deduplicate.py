@@ -6,11 +6,23 @@ from rialto_airflow.harvest_incremental import deduplicate
 
 
 @pytest.fixture
-def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(deduplicate, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
+@pytest.fixture
+def dataset(
+    test_incremental_session,
+    dim_json,
+    openalex_json,
+    wos_json,
+    sulpub_json,
+    pubmed_json,
+):
     """
     This fixture will create two publications that are duplicates and lack DOIs.
     """
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi=None,
             title="My Life",
@@ -80,15 +92,17 @@ def dataset(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed
         session.add(pub2)
 
 
-def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
+def test_openalex_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that the publication with an OpenAlex duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_openalex_duplicates(snapshot)
+    dupes = deduplicate.remove_openalex_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -105,15 +119,17 @@ def test_openalex_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 
-def test_dimensions_deduplicate(test_session, dataset, snapshot, caplog):
+def test_dimensions_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that the publication with a Dimensions duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_dimensions_duplicates(snapshot)
+    dupes = deduplicate.remove_dimensions_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -130,15 +146,17 @@ def test_dimensions_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from Dimensions." in caplog.text
 
 
-def test_pubmed_deduplicate(test_session, dataset, snapshot, caplog):
+def test_pubmed_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot)
+    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -154,15 +172,17 @@ def test_pubmed_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
 
 
-def test_sulpub_deduplicate(test_session, dataset, snapshot, caplog):
+def test_sulpub_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that the publication with an sulpub duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_sulpub_duplicates(snapshot)
+    dupes = deduplicate.remove_sulpub_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -179,15 +199,17 @@ def test_sulpub_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows from sulpub." in caplog.text
 
 
-def test_wos_id_deduplicate(test_session, dataset, snapshot, caplog):
+def test_wos_id_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that publications with a duplicate wos_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_wos_id_duplicates(snapshot)
+    dupes = deduplicate.remove_wos_id_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -199,15 +221,17 @@ def test_wos_id_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows with duplicate wos_id." in caplog.text
 
 
-def test_pubmed_id_deduplicate(test_session, dataset, snapshot, caplog):
+def test_pubmed_id_deduplicate(
+    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot)
+    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot_incremental)
     assert dupes == 1
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
             "only one publication remains in table"
         )
@@ -219,11 +243,11 @@ def test_pubmed_id_deduplicate(test_session, dataset, snapshot, caplog):
         assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
 
 
-def test_merge_pubs(test_session, dataset):
+def test_merge_pubs(test_incremental_session, dataset):
     """
     Test that merge_pubs merges authors and deletes duplicates.
     """
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pubs = session.query(Publication).all()
         assert len(pubs) == 2, "two pubs exist before merging"
         deleted = deduplicate.merge_pubs(pubs=pubs, session=session)
@@ -240,11 +264,18 @@ def test_merge_pubs(test_session, dataset):
 
 
 @pytest.fixture
-def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubmed_json):
+def dataset2(
+    test_incremental_session,
+    dim_json,
+    openalex_json,
+    wos_json,
+    sulpub_json,
+    pubmed_json,
+):
     """
     This fixture will create two publications that are duplicates within different platforms and lack DOIs.
     """
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi=None,
             title="My Life",
@@ -325,9 +356,11 @@ def dataset2(test_session, dim_json, openalex_json, wos_json, sulpub_json, pubme
         session.add(pub3)
 
 
-def test_remove_duplicates(test_session, dataset2, snapshot):
+def test_remove_duplicates(
+    test_incremental_session, dataset2, snapshot_incremental, mock_rialto_db_name
+):
     """
     Test that remove_duplicates returns the total number of duplicates removed.
     """
-    total_dupes = deduplicate.remove_duplicates(snapshot)
+    total_dupes = deduplicate.remove_duplicates(snapshot_incremental)
     assert total_dupes == 2, "two duplicates have been removed"

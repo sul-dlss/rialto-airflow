@@ -7,7 +7,6 @@ from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
 from rialto_airflow.schema.harvest import HarvestSchemaBase, Author
-from rialto_airflow.schema import rialto
 
 from rialto_airflow.snapshot import Snapshot
 

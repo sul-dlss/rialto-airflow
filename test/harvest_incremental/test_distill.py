@@ -1,13 +1,26 @@
+import pytest
+
+from rialto_airflow.harvest_incremental import distill as distill_mod
 from rialto_airflow.harvest_incremental.distill import distill
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 # This simply tests that the distill function is working. For the detailed testing of distill rules see
 # the test/distill directory.
 
 
-def test_distill(test_session, dataset, snapshot):
-    with test_session.begin() as session:
-        distill(snapshot)
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(distill_mod, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
+def test_distill(
+    test_incremental_session,
+    dataset_incremental,
+    snapshot_incremental,
+    mock_rialto_db_name,
+):
+    with test_incremental_session.begin() as session:
+        distill(snapshot_incremental)
 
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()

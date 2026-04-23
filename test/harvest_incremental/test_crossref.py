@@ -3,10 +3,17 @@ import re
 
 import dotenv
 import pandas
+import pytest
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import crossref
 from test.utils import num_jsonl_objects, num_log_record_matches
+
+
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(crossref, "RIALTO_DB_NAME", "rialto_incremental_test")
+
 
 dotenv.load_dotenv()
 
@@ -190,7 +197,14 @@ def test_unexpected_json(caplog, requests_mock):
     assert "Unexpected JSON response {'foo': 'bar'}" in caplog.text
 
 
-def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
+def test_fill_in(
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
     caplog.set_level(logging.INFO)
 
     # setup Works to return a list of one record
@@ -203,9 +217,9 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
     ]
     monkeypatch.setattr(crossref, "get_dois", lambda _: records)
 
-    crossref.fill_in(snapshot)
+    crossref.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -218,5 +232,5 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         }
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "crossref-fillin.jsonl") == 1
+    assert num_jsonl_objects(snapshot_incremental.path / "crossref-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text

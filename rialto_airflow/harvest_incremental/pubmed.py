@@ -16,10 +16,11 @@ from sqlalchemy.dialects.postgresql import insert
 from xml.parsers.expat import ExpatError
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
     Author,
     Publication,
     pub_author_association,
+    RIALTO_DB_NAME,
 )
 from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import add_orcid, normalize_doi, normalize_pmid
@@ -67,7 +68,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
     stop = False
 
     with jsonl_file.open("w") as jsonl_output:
-        with get_session(snapshot.database_name).begin() as select_session:
+        with get_session(RIALTO_DB_NAME).begin() as select_session:
             # get all authors that have an ORCID
             for author in (
                 select_session.query(Author).where(Author.orcid.is_not(None)).all()
@@ -90,7 +91,7 @@ def harvest(snapshot: Snapshot, limit=None) -> Path:
                     doi = normalize_doi(get_doi(pubmed_pub))
                     pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
 
-                    with get_session(snapshot.database_name).begin() as insert_session:
+                    with get_session(RIALTO_DB_NAME).begin() as insert_session:
                         # if there's a DOI constraint violation we need to update instead of insert
                         pub_id = insert_session.execute(
                             insert(Publication)
@@ -126,7 +127,7 @@ def fill_in(snapshot: Snapshot):
     jsonl_file = snapshot.path / "pubmed-fillin.jsonl"
     count = 0
     with jsonl_file.open("a") as jsonl_output:
-        with get_session(snapshot.database_name).begin() as select_session:
+        with get_session(RIALTO_DB_NAME).begin() as select_session:
             stmt = (
                 select(Publication.doi)
                 .where(Publication.doi.is_not(None))
@@ -159,7 +160,7 @@ def fill_in(snapshot: Snapshot):
                         )
                         continue
 
-                    with get_session(snapshot.database_name).begin() as update_session:
+                    with get_session(RIALTO_DB_NAME).begin() as update_session:
                         pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
                         update_stmt = (
                             update(Publication)

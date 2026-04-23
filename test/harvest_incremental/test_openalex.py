@@ -5,7 +5,7 @@ import pytest
 import pyalex
 import requests
 from rialto_airflow.harvest_incremental import openalex
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 from test.utils import num_jsonl_objects, num_log_record_matches
 
@@ -28,6 +28,11 @@ def test_orcid_publications():
 
 
 @pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(openalex, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
+@pytest.fixture
 def mock_openalex(monkeypatch):
     """
     Mock our function for fetching publications by orcid from OpenAlex.
@@ -44,15 +49,21 @@ def mock_openalex(monkeypatch):
     monkeypatch.setattr(openalex, "orcid_publications", f)
 
 
-def test_harvest(snapshot, test_session, mock_authors, mock_openalex):
+def test_harvest(
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_openalex,
+    mock_rialto_db_name,
+):
     # harvest from openalex
-    openalex.harvest(snapshot)
+    openalex.harvest(snapshot_incremental)
 
     # the mocked openalex api returns the same publication for both authors
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex.jsonl") == 2
 
     # make sure a publication is in the database and linked to the author
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, "one publication loaded"
 
         pub = session.query(Publication).first()
@@ -65,16 +76,21 @@ def test_harvest(snapshot, test_session, mock_authors, mock_openalex):
 
 
 def test_harvest_when_doi_exists(
-    snapshot, test_session, mock_publication, mock_authors, mock_openalex
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_incremental_authors,
+    mock_openalex,
+    mock_rialto_db_name,
 ):
     # harvest from openalex
-    openalex.harvest(snapshot)
+    openalex.harvest(snapshot_incremental)
 
     # jsonl file is there and has two lines (one for each author)
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex.jsonl") == 2
 
     # ensure that the existing publication for the DOI was updated
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, "one publication loaded"
         pub = session.query(Publication).first()
 
@@ -90,21 +106,22 @@ def test_harvest_when_doi_exists(
 
 
 def test_harvest_when_author_exists(
-    snapshot,
-    test_session,
-    mock_publication,
-    mock_authors,
-    mock_association,
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_incremental_authors,
+    mock_incremental_association,
     mock_openalex,
+    mock_rialto_db_name,
 ):
     # harvest from openalex
-    openalex.harvest(snapshot)
+    openalex.harvest(snapshot_incremental)
 
     # jsonl file is there and has two lines (one for each author)
-    assert num_jsonl_objects(snapshot.path / "openalex.jsonl") == 2
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex.jsonl") == 2
 
     # ensure that the existing publication for the DOI was updated
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, "one publication loaded"
         pub = session.query(Publication).first()
 
@@ -136,9 +153,15 @@ def mock_many_openalex(monkeypatch):
     monkeypatch.setattr(openalex, "orcid_publications", f)
 
 
-def test_log_message(snapshot, mock_authors, mock_many_openalex, caplog):
+def test_log_message(
+    snapshot_incremental,
+    mock_incremental_authors,
+    mock_many_openalex,
+    mock_rialto_db_name,
+    caplog,
+):
     caplog.set_level(logging.INFO)
-    openalex.harvest(snapshot, limit=50)
+    openalex.harvest(snapshot_incremental, limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
 
 
@@ -155,7 +178,14 @@ class MockWorks:
         return self.records
 
 
-def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
+def test_fill_in(
+    snapshot_incremental,
+    test_incremental_session,
+    mock_incremental_publication,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
     caplog.set_level(logging.INFO)
 
     # setup Works to return a list of one record
@@ -168,9 +198,9 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         }
     ]
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks(records))
-    openalex.fill_in(snapshot)
+    openalex.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -185,20 +215,25 @@ def test_fill_in(snapshot, test_session, mock_publication, caplog, monkeypatch):
         assert pub.pubmed_id == "36857419", "pubmed_id populated from ids.pmid"
 
     # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 1
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
 def test_fill_in_no_openalex(
-    test_session, mock_publication, snapshot, caplog, monkeypatch
+    test_incremental_session,
+    mock_incremental_publication,
+    snapshot_incremental,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
 ):
     caplog.set_level(logging.INFO)
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([]))
-    openalex.fill_in(snapshot)
+    openalex.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -207,11 +242,18 @@ def test_fill_in_no_openalex(
         assert pub.openalex_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
-def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkeypatch):
+def test_fill_in_no_doi(
+    test_incremental_session,
+    mock_incremental_publication,
+    snapshot_incremental,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
     """
     Test that Dimensions publication metadata lacking a DOI doesn't cause an
     exception during fill-in.
@@ -220,9 +262,9 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"title": "example"}]))
-    openalex.fill_in(snapshot)
+    openalex.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
             .where(Publication.doi == "10.1515/9781503624153")
@@ -231,13 +273,18 @@ def test_fill_in_no_doi(test_session, mock_publication, snapshot, caplog, monkey
         assert pub.openalex_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 
 
 def test_fill_in_none_doi(
-    test_session, mock_publication, snapshot, caplog, monkeypatch
+    test_incremental_session,
+    mock_incremental_publication,
+    snapshot_incremental,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
 ):
     """
     Test that publications with a None DOI are not used to do lookups.
@@ -246,14 +293,14 @@ def test_fill_in_none_doi(
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"doi": None}]))
-    openalex.fill_in(snapshot)
+    openalex.fill_in(snapshot_incremental)
 
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = session.query(Publication).where(Publication.doi is None).first()
         assert pub is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot.path / "openalex-fillin.jsonl") == 0
+    assert num_jsonl_objects(snapshot_incremental.path / "openalex-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 

@@ -167,6 +167,13 @@ uv run dotenv alembic current # show the current migration revision for this env
 uv run dotenv alembic history --verbose # show the history of migrations that have been run in this env
 ```
 
+For the harvest that stores incrementally harvested data in the `rialto` databse, specify the name of the database:
+```sh
+uv run dotenv run alembic -n rialto upgrade head # run the migrations to get to the current DB schema for the deployment
+uv run dotenv run alembic -n rialto current # show the current migration revision for this env
+uv run dotenv run alembic -n rialto history --verbose # show the history of migrations that have been run in this env
+```
+
 ## Run Tests
 To run the tests, you'll need to be up to date on database migrations in your local dev environment.  That should happen automatically if you've started the full Docker stack since the last migration was added, and not wiped the `postgres` volume since that.  If you've not done that, and you just want to manually run the migrations after starting the `postgres` container, see the Database Management section above.
 

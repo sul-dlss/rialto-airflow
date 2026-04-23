@@ -121,7 +121,11 @@ def fetch_orcid_user(access_token: str, base_url: str, user_id: str) -> ORCIDRec
 
 
 def current_orcid_users(
-    mais_client_id: str, mais_client_secret: str, mais_token_url: str, base_url: str
+    mais_client_id: str,
+    mais_client_secret: str,
+    mais_token_url: str,
+    base_url: str,
+    limit: Optional[int] = None,
 ) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
 
@@ -129,7 +133,7 @@ def current_orcid_users(
         raise ValueError("AIRFLOW_VAR_MAIS_BASE_URL is a required value")
 
     all_users = fetch_orcid_users(
-        mais_client_id, mais_client_secret, mais_token_url, base_url
+        mais_client_id, mais_client_secret, mais_token_url, base_url, limit
     )
 
     # Create a dictionary to store the most recent record for each ORCID iD

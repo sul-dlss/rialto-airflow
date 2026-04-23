@@ -193,13 +193,11 @@ Note that if you have hard-coded values in the compose.yml files, they will over
 For MaIS tests, update your .env with values shown below / pulled from vault as indicated:
 
 ```
-AIRFLOW_VAR_MAIS_TOKEN_URL=https://mais-uat.auth.us-west-2.amazoncognito.com
-AIRFLOW_VAR_MAIS_BASE_URL=https://mais.suapiuat.stanford.edu
-AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/test/mais_client_id`}
-AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/test/mais_secret`}
+AIRFLOW_VAR_MAIS_CLIENT_ID=${get from vault at `puppet/application/rialto-airflow/prod/mais_client_id`}
+AIRFLOW_VAR_MAIS_SECRET=${get from vault at `puppet/application/rialto-airflow/prod/mais_secret`}
 ```
 
-Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with the UAT (not prod) credentials.  If no credentials are available in the environment variables, the tests will be skipped completely.  If production credentials are supplied, some of the tests may fail, since they assert checks against UAT data.
+Note: The MaIS `test_mais.py` file depends on the MaIS API being configured specifically with PROD credentials (which is the default in the compose.yaml file).  If no credentials are available in the environment variables, the tests will be skipped completely.  If UAT credentials are supplied, some of the tests may fail, since they assert checks against Prod data.
 
 ### Test coverage reporting
 

@@ -86,24 +86,21 @@ def test_fetch_orcid_users_with_limit(client_id, client_secret, token_url, base_
 def test_fetch_orcid_user_valid_id(access_token, base_url, client_id, client_secret):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    orcid_id = "https://sandbox.orcid.org/0000-0002-4589-7232"  # Example Valid ID
+    orcid_id = "https://orcid.org/0000-0002-1859-6354"  # Example Valid ID
     user_data = mais.fetch_orcid_user(access_token, base_url, orcid_id)
     assert isinstance(user_data, dict)
 
 
-def test_current_orcid_users(
-    client_id, client_secret, token_url, base_url, monkeypatch
-):
+def test_current_orcid_users(client_id, client_secret, token_url, base_url):
     if not (client_secret and client_id):
         pytest.skip("No MAIS credentials available")
-    monkeypatch.setattr(
-        mais, "page_size", lambda *args: 5
-    )  # monkey patch a smaller page size so we can hit the paging code in UAT
+    limit = 50  # don't hit all prod data, it takes too long
     current_users = mais.current_orcid_users(
-        client_id, client_secret, token_url, base_url
+        client_id, client_secret, token_url, base_url, limit
     )
     assert isinstance(current_users, list)
     assert len(current_users) > 0
+    assert len(current_users) == limit  # there are at least this many users in prod
     seen_orcids = set()
     for user in current_users:
         orcid_id = user.get("orcid_id")

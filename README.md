@@ -169,9 +169,9 @@ uv run dotenv alembic history --verbose # show the history of migrations that ha
 
 For the harvest that stores incrementally harvested data in the `rialto` databse, specify the name of the database:
 ```sh
-uv run dotenv alembic -n rialto upgrade head # run the migrations to get to the current DB schema for the deployment
-uv run dotenv alembic -n rialto current # show the current migration revision for this env
-uv run dotenv alembic -n rialto history --verbose # show the history of migrations that have been run in this env
+uv run dotenv run alembic -n rialto upgrade head # run the migrations to get to the current DB schema for the deployment
+uv run dotenv run alembic -n rialto current # show the current migration revision for this env
+uv run dotenv run alembic -n rialto history --verbose # show the history of migrations that have been run in this env
 ```
 
 ## Run Tests

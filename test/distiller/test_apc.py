@@ -162,3 +162,17 @@ def test_missing_dim_issn():
 
     # issn list of None is ignored
     assert apc(pub, {"pub_year": 2022}) is None
+
+
+def test_preprint_apc():
+    """
+    preprint publications are assigned $0
+    """
+    pub = Publication(
+        doi="10.1515/9781503624153",
+        openalex_json={
+            "apc_paid": {"value_usd": 123},
+        },
+    )
+
+    assert apc(pub, {"types": ["Preprint"]}) == 0

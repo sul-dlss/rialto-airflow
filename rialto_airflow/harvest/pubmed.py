@@ -49,7 +49,7 @@ http.mount(
     HTTPAdapter(
         max_retries=Retry(
             status=10,
-            status_forcelist=[429, 500],
+            status_forcelist=[429, 500, 502],
             backoff_factor=0.1,
             backoff_jitter=2,
             allowed_methods=["GET", "POST"],

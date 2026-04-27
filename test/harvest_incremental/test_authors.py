@@ -2,6 +2,7 @@ import csv
 import logging
 import pytest
 from rialto_airflow.schema.rialto import Author
+from rialto_airflow.harvest_incremental import authors as authors_mod
 from rialto_airflow.harvest_incremental.authors import load_authors_table
 from test.utils import num_log_record_matches
 
@@ -19,6 +20,11 @@ def author(test_incremental_session):
                 status=True,
             )
         )
+
+
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(authors_mod, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 def test_author_fixture(test_incremental_session, author):
@@ -77,7 +83,9 @@ def authors_csv(tmp_path):
     return fixture_file
 
 
-def test_load_authors_table(test_incremental_session, tmp_path, caplog, authors_csv):
+def test_load_authors_table(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
     load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
@@ -103,7 +111,9 @@ def test_load_authors_table(test_incremental_session, tmp_path, caplog, authors_
     assert "Errors:" not in caplog.text
 
 
-def test_load_dupe_orcid(test_incremental_session, tmp_path, caplog, authors_csv):
+def test_load_dupe_orcid(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
     caplog.set_level(logging.DEBUG)
     # add a row with a duplicate ORCID to the CSV
     with open(authors_csv, "a", newline="") as csvfile:
@@ -149,7 +159,9 @@ def test_load_dupe_orcid(test_incremental_session, tmp_path, caplog, authors_csv
     )
 
 
-def test_load_null_cap_id(test_incremental_session, tmp_path, caplog, authors_csv):
+def test_load_null_cap_id(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
     # add row with null cap_profile_id
     with open(authors_csv, "a", newline="") as csvfile:
         writer = csv.writer(csvfile)

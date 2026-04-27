@@ -166,7 +166,7 @@ def test_missing_dim_issn():
 
 def test_preprint_apc():
     """
-    preprint publications are assigned $0
+    preprint publications are assigned $0 only if they are ONLY preprints
     """
     pub = Publication(
         doi="10.1515/9781503624153",
@@ -175,4 +175,8 @@ def test_preprint_apc():
         },
     )
 
+    # Only Preprint -> 0
     assert apc(pub, {"types": ["Preprint"]}) == 0
+
+    # Preprint and Article -> should return the value from OpenAlex (123)
+    assert apc(pub, {"types": ["Article", "Preprint"]}) == 123

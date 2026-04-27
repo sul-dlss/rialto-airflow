@@ -66,6 +66,21 @@ class Publication(RialtoSchemaBase):
     crossref_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
     wos_id: Mapped[Optional[str]] = mapped_column(String)
     pubmed_id: Mapped[Optional[str]] = mapped_column(String)
+    openalex_harvested: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    dim_harvested: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    sulpub_harvested: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    wos_harvested: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+    pubmed_harvested: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
     created_at: Mapped[Optional[DateTime]] = mapped_column(
         DateTime, server_default=utcnow()
     )

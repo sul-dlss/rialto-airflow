@@ -7,6 +7,8 @@ from sqlalchemy.pool import NullPool
 
 from rialto_airflow import database
 from rialto_airflow.schema.harvest import HarvestSchemaBase, Author
+from rialto_airflow.schema import rialto
+from rialto_airflow.schema.rialto import RialtoSchemaBase
 
 from rialto_airflow.snapshot import Snapshot
 
@@ -200,6 +202,69 @@ def test_create_schema(
     finally:
         # even if exception raised, tear down the database
         teardown_database(snapshot.database_name)
+
+
+def test_create_rialto_schema(
+    mock_rialto_postgres,
+    monkeypatch,
+    teardown_database,
+):
+    database_name = "rialto_incremental_test"
+
+    # During testing, we want to be able to drop the database at the end.
+    # Mocking the engine obtained by create_schema to avoid connections staying open and preventing teardown.
+    def mock_engine_setup(db_name):
+        return null_pool_engine(db_name)
+
+    monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
+    monkeypatch.setattr(rialto, "RIALTO_DB_NAME", database_name)
+
+    try:
+        if database.database_exists(database_name):
+            database.drop_database(database_name)
+
+        database.create_database(database_name)
+        database.create_schema(database_name, RialtoSchemaBase)
+        engine = null_pool_engine(database_name)
+        with engine.connect() as conn:
+            pub_result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='publication'"
+                )
+            )
+            pub_columns = [row[0] for row in pub_result]
+            assert set(pub_columns) == {
+                "id",
+                "doi",
+                "title",
+                "pub_year",
+                "open_access",
+                "apc",
+                "crossref_json",
+                "dim_json",
+                "openalex_json",
+                "sulpub_json",
+                "wos_json",
+                "pubmed_json",
+                "wos_id",
+                "pubmed_id",
+                "openalex_harvested",
+                "dim_harvested",
+                "sulpub_harvested",
+                "wos_harvested",
+                "pubmed_harvested",
+                "created_at",
+                "updated_at",
+                "types",
+                "publisher",
+                "journal_name",
+                "academic_council_authored",
+                "faculty_authored",
+            }
+    finally:
+        # even if exception raised, tear down the database
+        if database.database_exists(database_name):
+            teardown_database(database_name)
 
 
 @pytest.fixture

@@ -1,7 +1,6 @@
 import datetime
 import logging
 from pathlib import Path
-import shutil
 
 from airflow.sdk import dag, task, task_group
 from airflow.models import Variable
@@ -18,8 +17,7 @@ from rialto_airflow.harvest_incremental import (
     distill,
     deduplicate,
 )
-from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import rialto_authors_file
+from rialto_airflow.schema.rialto import Harvest, RIALTO_DB_NAME
 from rialto_airflow.honeybadger import default_args
 
 data_dir = Path(Variable.get("data_dir"))
@@ -56,150 +54,149 @@ def harvest_incremental():
     @task()
     def setup():
         """
-        Set up the snapshot directory and database.
+        Create a Harvest record to track this run.
         """
-        snapshot = Snapshot.create(data_dir)
-        shutil.copyfile(Path(rialto_authors_file(data_dir)), snapshot.authors_csv)
-
-        return snapshot
+        harvest = Harvest.create()
+        return harvest.id
 
     @task()
-    def load_authors(snapshot):
+    def load_authors(harvest_id):
         """
         Load the authors data from the authors CSV into the database.
         """
-        authors.load_authors_table(snapshot)
+        authors.load_authors_table(data_dir)
 
     @task()
-    def dimensions_harvest(snapshot):
+    def dimensions_harvest(harvest_id):
         """
         Fetch the data by ORCID from Dimensions.
         """
-        dimensions.harvest(snapshot, limit=harvest_limit)
+        dimensions.harvest(limit=harvest_limit)
 
     @task()
-    def openalex_harvest(snapshot):
+    def openalex_harvest(harvest_id):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        openalex.harvest(snapshot, limit=harvest_limit)
+        openalex.harvest(limit=harvest_limit)
 
     @task()
-    def wos_harvest(snapshot):
+    def wos_harvest(harvest_id):
         """
         Fetch the data by ORCID from Web of Science.
         """
-        wos.harvest(snapshot, limit=harvest_limit)
+        wos.harvest(limit=harvest_limit)
 
     @task()
-    def sulpub_harvest(snapshot):
+    def sulpub_harvest(harvest_id):
         """
         Harvest data from SUL-Pub.
         """
-        sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=harvest_limit)
+        sul_pub.harvest(sul_pub_host, sul_pub_key, limit=harvest_limit)
 
     @task()
-    def pubmed_harvest(snapshot):
+    def pubmed_harvest(harvest_id):
         """
         Fetch the data by ORCID from Pubmed.
         """
-        pubmed.harvest(snapshot, limit=harvest_limit)
+        pubmed.harvest(limit=harvest_limit)
 
     @task_group()
-    def harvest_pubs(snapshot):
-        dimensions_harvest(snapshot)
-        openalex_harvest(snapshot)
-        wos_harvest(snapshot)
-        sulpub_harvest(snapshot)
-        pubmed_harvest(snapshot)
+    def harvest_pubs(harvest_id):
+        dimensions_harvest(harvest_id)
+        openalex_harvest(harvest_id)
+        wos_harvest(harvest_id)
+        sulpub_harvest(harvest_id)
+        pubmed_harvest(harvest_id)
 
     @task()
-    def fill_in_openalex(snapshot):
+    def fill_in_openalex(harvest_id):
         """
         Fill in OpenAlex data for DOIs from other publication sources.
         """
-        openalex.fill_in(snapshot)
+        openalex.fill_in()
 
     @task()
-    def fill_in_dimensions(snapshot):
+    def fill_in_dimensions(harvest_id):
         """
         Fill in Dimensions data for DOIs from other publication sources.
         """
-        dimensions.fill_in(snapshot)
+        dimensions.fill_in()
 
     @task()
-    def fill_in_wos(snapshot):
+    def fill_in_wos(harvest_id):
         """
         Fill in WebOfScience data for DOIs from other publication sources.
         """
-        wos.fill_in(snapshot)
+        wos.fill_in()
 
     @task()
-    def fill_in_pubmed(snapshot):
+    def fill_in_pubmed(harvest_id):
         """
         Fill in Pubmed data for DOIs from other publication sources.
         """
-        pubmed.fill_in(snapshot)
+        pubmed.fill_in()
 
     @task()
-    def fill_in_crossref(snapshot):
+    def fill_in_crossref(harvest_id):
         """
         Fill in Crossref data for DOIs from other publication sources.
         """
-        crossref.fill_in(snapshot)
+        crossref.fill_in()
 
     @task_group()
-    def fill_in(snapshot):
-        fill_in_openalex(snapshot)
-        fill_in_dimensions(snapshot)
-        fill_in_wos(snapshot)
-        fill_in_crossref(snapshot)
-        fill_in_pubmed(snapshot)
+    def fill_in(harvest_id):
+        fill_in_openalex(harvest_id)
+        fill_in_dimensions(harvest_id)
+        fill_in_wos(harvest_id)
+        fill_in_crossref(harvest_id)
+        fill_in_pubmed(harvest_id)
 
     @task()
-    def remove_duplicates(snapshot):
+    def remove_duplicates(harvest_id):
         """
         Remove duplicates. This task is run *before* the distill_publications
         task because we want to fold together any duplicates prior to extracting
         values from metadata.
         """
-        deduplicate.remove_duplicates(snapshot)
+        deduplicate.remove_duplicates()
 
     @task()
-    def distill_publications(snapshot):
+    def distill_publications(harvest_id):
         """
         Distill the publication metadata into publication table columns.
         """
-        distill.distill(snapshot)
+        distill.distill()
 
     @task()
-    def link_funders(snapshot):
+    def link_funders(harvest_id):
         """
         Link all the publications to funders.
         """
-        funders.link_publications(snapshot)
+        funders.link_publications(RIALTO_DB_NAME)
 
     @task_group()
-    def post_process(snapshot):
-        dedupe = remove_duplicates(snapshot)
-        distill = distill_publications(snapshot)
-        link = link_funders(snapshot)
+    def post_process(harvest_id):
+        dedupe = remove_duplicates(harvest_id)
+        distill = distill_publications(harvest_id)
+        link = link_funders(harvest_id)
         dedupe >> [distill, link]
 
     @task()
-    def complete(snapshot):
-        snapshot.complete()
+    def complete(harvest_id):
+        harvest = Harvest.get_by_id(harvest_id)
+        harvest.complete()
 
     # link up dag tasks and task groups
 
-    snapshot = setup()
+    harvest_id = setup()
 
     (
-        load_authors(snapshot)
-        >> harvest_pubs(snapshot)
-        >> fill_in(snapshot)
-        >> post_process(snapshot)
-        >> complete(snapshot)
+        load_authors(harvest_id)
+        >> harvest_pubs(harvest_id)
+        >> fill_in(harvest_id)
+        >> post_process(harvest_id)
+        >> complete(harvest_id)
     )
 
 

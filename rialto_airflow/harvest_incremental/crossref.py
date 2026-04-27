@@ -1,11 +1,9 @@
-import json
 import logging
 import os
 import re
 import time
 from collections.abc import Iterable
 from itertools import batched
-from pathlib import Path
 from typing import Dict
 
 import requests
@@ -13,44 +11,38 @@ from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import normalize_doi
 
 RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
 
 
-def fill_in(snapshot: Snapshot) -> Path:
+def fill_in() -> None:
     """Harvest Crossref data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "crossref-fillin.jsonl"
     count = 0
-    with jsonl_file.open("a") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            stmt = (
-                select(Publication.doi)
-                .where(Publication.doi.is_not(None))
-                .where(Publication.crossref_json.is_(None))
-                .execution_options(yield_per=1000)
-            )
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        stmt = (
+            select(Publication.doi)
+            .where(Publication.doi.is_not(None))
+            .where(Publication.crossref_json.is_(None))
+            .execution_options(yield_per=1000)
+        )
 
-            for rows in select_session.execute(stmt).partitions():
-                dois = [normalize_doi(row.doi) for row in rows]
-                for crossref_pub in get_dois(dois):
-                    doi = normalize_doi(crossref_pub.get("DOI"))
+        for rows in select_session.execute(stmt).partitions():
+            dois = [normalize_doi(row.doi) for row in rows]
+            for crossref_pub in get_dois(dois):
+                doi = normalize_doi(crossref_pub.get("DOI"))
 
-                    with get_session(RIALTO_DB_NAME).begin() as update_session:
-                        update_stmt = (
-                            update(Publication)
-                            .where(Publication.doi == doi)
-                            .values(crossref_json=crossref_pub)
-                        )
-                        update_session.execute(update_stmt)
+                with get_session(RIALTO_DB_NAME).begin() as update_session:
+                    update_stmt = (
+                        update(Publication)
+                        .where(Publication.doi == doi)
+                        .values(crossref_json=crossref_pub)
+                    )
+                    update_session.execute(update_stmt)
 
-                    count += 1
-                    jsonl_output.write(json.dumps(crossref_pub) + "\n")
+                count += 1
 
     logging.info(f"filled in {count} publications")
-
-    return jsonl_file
 
 
 def get_dois(dois: Iterable[str | None], tries=5) -> Iterable[dict]:

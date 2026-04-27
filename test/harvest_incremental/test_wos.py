@@ -9,8 +9,7 @@ import requests
 
 from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import wos
-from rialto_airflow.snapshot import Snapshot
-from test.utils import num_jsonl_objects, num_log_record_matches
+from test.utils import num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -148,7 +147,6 @@ def test_orcid_publications_with_bad_orcid():
 
 
 def test_harvest(
-    tmp_path,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -159,11 +157,7 @@ def test_harvest(
     publication is matched up to the authors using the ORCID.
     """
     # harvest from Web of Science
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot)
-
-    # the mocked Web of Science api returns the same publication for both authors
-    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
+    wos.harvest()
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -178,7 +172,6 @@ def test_harvest(
 
 
 def test_harvest_when_doi_exists(
-    tmp_path,
     test_incremental_session,
     existing_publication,
     mock_incremental_authors,
@@ -189,11 +182,7 @@ def test_harvest_when_doi_exists(
     When a publication and its authors already exist in the database make sure that the wos_json is updated.
     """
     # harvest from web of science
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot)
-
-    # jsonl file is there and has two lines (one for each author)
-    assert num_jsonl_objects(snapshot.path / "wos.jsonl") == 2
+    wos.harvest()
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -210,17 +199,15 @@ def test_harvest_when_doi_exists(
 
 
 def test_log_message(
-    tmp_path, mock_incremental_authors, mock_rialto_db_name, mock_many_wos, caplog
+    mock_incremental_authors, mock_rialto_db_name, mock_many_wos, caplog
 ):
     caplog.set_level(logging.INFO)
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot, limit=50)
+    wos.harvest(limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
 
 
 def test_customization_error(
     test_incremental_session,
-    tmp_path,
     caplog,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -238,8 +225,7 @@ def test_customization_error(
         headers={"Content-Type": "application/json"},
     )
 
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot, limit=50)
+    wos.harvest(limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert re.search("500 Server Error.*Customization error", caplog.text)
@@ -247,7 +233,6 @@ def test_customization_error(
 
 def test_not_found_error(
     test_incremental_session,
-    tmp_path,
     caplog,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -264,8 +249,7 @@ def test_not_found_error(
         headers={"Content-Type": "application/text"},
     )
 
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot, limit=50)
+    wos.harvest(limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -276,7 +260,6 @@ def test_not_found_error(
 
 def test_server_error(
     test_incremental_session,
-    tmp_path,
     caplog,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -293,8 +276,7 @@ def test_server_error(
         headers={"Content-Type": "application/text"},
     )
 
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot, limit=50)
+    wos.harvest(limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -306,7 +288,6 @@ def test_server_error(
 
 def test_empty_payload(
     test_incremental_session,
-    tmp_path,
     caplog,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -317,8 +298,7 @@ def test_empty_payload(
     """
     requests_mock.get(re.compile(".*"), text="", status_code=200)
 
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    wos.harvest(snapshot, limit=50)
+    wos.harvest(limit=50)
 
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
@@ -327,7 +307,6 @@ def test_empty_payload(
 
 def test_bad_wos_json(
     test_incremental_session,
-    tmp_path,
     caplog,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -338,10 +317,8 @@ def test_bad_wos_json(
     """
     requests_mock.get(re.compile(".*"), text="ffff", status_code=200)
 
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-
     with pytest.raises(requests.exceptions.JSONDecodeError):
-        wos.harvest(snapshot, limit=50)
+        wos.harvest(limit=50)
 
     assert "uhoh, instead of JSON we got: ffff" in caplog.text
 
@@ -410,7 +387,6 @@ def test_get_doi(caplog):
 
 
 def test_fill_in(
-    snapshot_incremental,
     test_incremental_session,
     mock_no_wos_publication,
     mock_rialto_db_name,
@@ -418,7 +394,7 @@ def test_fill_in(
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    wos.fill_in(snapshot_incremental)
+    wos.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -441,13 +417,10 @@ def test_fill_in(
             },
         }
 
-    # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "wos-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
 def test_fill_in_no_wos(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_no_wos_publication,
@@ -459,7 +432,7 @@ def test_fill_in_no_wos(
 
     # make it look like wos returns no publications by DOI
     monkeypatch.setattr(wos, "publications_from_dois", lambda *args, **kwargs: [])
-    wos.fill_in(snapshot_incremental)
+    wos.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -469,8 +442,6 @@ def test_fill_in_no_wos(
         )
         assert pub.wos_json is None
 
-    # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "wos-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 

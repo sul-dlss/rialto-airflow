@@ -23,19 +23,19 @@ config.retry_http_codes = [429, 500, 503]
 config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
 
 
-def link_publications(snapshot) -> int:
-    dim_count = link_dim_publications(snapshot)
-    openalex_count = link_openalex_publications(snapshot)
+def link_publications(database_name: str) -> int:
+    dim_count = link_dim_publications(database_name)
+    openalex_count = link_openalex_publications(database_name)
 
     return dim_count + openalex_count
 
 
-def link_dim_publications(snapshot) -> int:
+def link_dim_publications(database_name: str) -> int:
     """
     Get funder info from Dimensions and link them to publications
     """
     count = 0
-    with get_session(snapshot.database_name).begin() as session:
+    with get_session(database_name).begin() as session:
         stmt = (
             select(Publication)
             .where(Publication.dim_json.is_not(None))
@@ -53,7 +53,7 @@ def link_dim_publications(snapshot) -> int:
             if funders is None:
                 continue
 
-            with get_session(snapshot.database_name).begin() as update_session:
+            with get_session(database_name).begin() as update_session:
                 for funder in pub.dim_json.get("funders", []):
                     if funder_id := _find_or_create_dim_funder(update_session, funder):
                         update_session.execute(
@@ -65,12 +65,12 @@ def link_dim_publications(snapshot) -> int:
     return count
 
 
-def link_openalex_publications(snapshot) -> int:
+def link_openalex_publications(database_name: str) -> int:
     """
     Get funder info from OpenAlex and link to publications
     """
     count = 0
-    with get_session(snapshot.database_name).begin() as session:
+    with get_session(database_name).begin() as session:
         stmt = (
             select(Publication)
             .where(Publication.openalex_json.is_not(None))
@@ -88,7 +88,7 @@ def link_openalex_publications(snapshot) -> int:
         if not funders:
             continue
 
-        with get_session(snapshot.database_name).begin() as update_session:
+        with get_session(database_name).begin() as update_session:
             for funder in funders:
                 openalex_funder_id = funder["funder"]
                 if funder_id := _find_or_create_openalex_funder(

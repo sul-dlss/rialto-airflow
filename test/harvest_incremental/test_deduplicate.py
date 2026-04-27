@@ -93,14 +93,14 @@ def dataset(
 
 
 def test_openalex_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that the publication with an OpenAlex duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_openalex_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_openalex_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -120,14 +120,14 @@ def test_openalex_deduplicate(
 
 
 def test_dimensions_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that the publication with a Dimensions duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_dimensions_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_dimensions_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -147,14 +147,14 @@ def test_dimensions_deduplicate(
 
 
 def test_pubmed_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_pubmed_id_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -173,14 +173,14 @@ def test_pubmed_deduplicate(
 
 
 def test_sulpub_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that the publication with an sulpub duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_sulpub_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_sulpub_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -200,14 +200,14 @@ def test_sulpub_deduplicate(
 
 
 def test_wos_id_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that publications with a duplicate wos_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_wos_id_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_wos_id_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -222,14 +222,14 @@ def test_wos_id_deduplicate(
 
 
 def test_pubmed_id_deduplicate(
-    test_incremental_session, dataset, snapshot_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset, mock_rialto_db_name, caplog
 ):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
     """
     caplog.set_level(logging.INFO)
-    dupes = deduplicate.remove_pubmed_id_duplicates(snapshot_incremental)
+    dupes = deduplicate.remove_pubmed_id_duplicates()
     assert dupes == 1
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 1, (
@@ -356,11 +356,9 @@ def dataset2(
         session.add(pub3)
 
 
-def test_remove_duplicates(
-    test_incremental_session, dataset2, snapshot_incremental, mock_rialto_db_name
-):
+def test_remove_duplicates(test_incremental_session, dataset2, mock_rialto_db_name):
     """
     Test that remove_duplicates returns the total number of duplicates removed.
     """
-    total_dupes = deduplicate.remove_duplicates(snapshot_incremental)
+    total_dupes = deduplicate.remove_duplicates()
     assert total_dupes == 2, "two duplicates have been removed"

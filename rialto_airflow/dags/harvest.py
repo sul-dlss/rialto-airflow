@@ -181,7 +181,7 @@ def harvest():
         """
         Link all the publications to funders.
         """
-        funders.link_publications(snapshot)
+        funders.link_publications(snapshot.database_name)
 
     @task_group()
     def post_process(snapshot):

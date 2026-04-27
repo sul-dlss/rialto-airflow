@@ -6,9 +6,8 @@ import pytest
 
 from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import sul_pub
-from rialto_airflow.snapshot import Snapshot
 
-from test.utils import num_jsonl_objects, num_log_record_matches
+from test.utils import num_log_record_matches
 
 
 @pytest.fixture
@@ -60,7 +59,6 @@ response = {
 
 
 def test_harvest(
-    tmp_path,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -73,11 +71,7 @@ def test_harvest(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
-
-    # make sure the jsonl file looks good
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
+    sul_pub.harvest(sul_pub_host, sul_pub_key)
 
     # make sure there are publications in the database
     with test_incremental_session.begin() as session:
@@ -107,7 +101,6 @@ def test_harvest(
 
 
 def test_harvest_limit(
-    tmp_path,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -124,11 +117,7 @@ def test_harvest_limit(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub with a limit of one publication
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key, limit=1)
-
-    # make sure the jsonl file looks good
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 1
+    sul_pub.harvest(sul_pub_host, sul_pub_key, limit=1)
 
     # make sure a publication is in the database and linked to the authors
     with test_incremental_session.begin() as session:
@@ -153,7 +142,6 @@ def test_harvest_limit(
 
 
 def test_harvest_when_doi_exists(
-    tmp_path,
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
@@ -164,11 +152,7 @@ def test_harvest_when_doi_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
-
-    # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
+    sul_pub.harvest(sul_pub_host, sul_pub_key)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -188,7 +172,6 @@ def test_harvest_when_doi_exists(
 
 
 def test_harvest_when_author_exists(
-    tmp_path,
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
@@ -200,11 +183,7 @@ def test_harvest_when_author_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    snapshot = Snapshot.create(tmp_path, "rialto_incremental_test")
-    sul_pub.harvest(snapshot, sul_pub_host, sul_pub_key)
-
-    # jsonl file is there and ok
-    assert num_jsonl_objects(snapshot.path / "sulpub.jsonl") == 3
+    sul_pub.harvest(sul_pub_host, sul_pub_key)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:

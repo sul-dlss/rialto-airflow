@@ -5,23 +5,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from rialto_airflow.database import get_engine
-from rialto_airflow.schema.rialto import Author
+from rialto_airflow.schema.rialto import Author, RIALTO_DB_NAME
 from rialto_airflow.utils import rialto_authors_file
 
 
-def load_authors_table(snapshot) -> None:
+def load_authors_table(data_dir) -> None:
     """
     Load the authors data from the authors CSV into the database
     """
-    engine = get_engine(snapshot.database_name)
+    engine = get_engine(RIALTO_DB_NAME)
     Session = sessionmaker(engine)
 
-    authors_file = rialto_authors_file(snapshot.path)
+    authors_file = rialto_authors_file(data_dir)
     check_headers(authors_file)
 
-    logging.debug(
-        f"Loading authors from {authors_file} into database {snapshot.database_name}"
-    )
+    logging.debug(f"Loading authors from {authors_file} into database {RIALTO_DB_NAME}")
     with open(authors_file, "r") as file:
         errors = []
         csv_reader = csv.DictReader(file)

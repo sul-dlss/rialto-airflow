@@ -8,27 +8,19 @@ from rialto_airflow.schema.rialto import (
     pub_author_association,
     RIALTO_DB_NAME,
 )
-from rialto_airflow.snapshot import Snapshot
 
 
-def remove_duplicates(snapshot: Snapshot) -> int:
+def remove_duplicates() -> int:
     """
     Remove duplicate publications from the database.
     Returns the number of duplicates found (not the number of rows deleted).
     """
     logging.debug("Removing duplicate publications from each source.")
-    openalex_dupes = remove_openalex_duplicates(snapshot)
-    dimensions_dupes = remove_dimensions_duplicates(snapshot)
-    sulpub_dupes = remove_sulpub_duplicates(snapshot)
-    wos_id_dupes = remove_wos_id_duplicates(snapshot)
-    pubmed_id_dupes = remove_pubmed_id_duplicates(snapshot)
-    total_deleted = (
-        openalex_dupes
-        + dimensions_dupes
-        + sulpub_dupes
-        + wos_id_dupes
-        + pubmed_id_dupes
-    )
+    openalex_dupes = remove_openalex_duplicates()
+    dimensions_dupes = remove_dimensions_duplicates()
+    sulpub_dupes = remove_sulpub_duplicates()
+    wos_id_dupes = remove_wos_id_duplicates()
+    pubmed_id_dupes = remove_pubmed_id_duplicates()
     total_deleted = (
         openalex_dupes
         + dimensions_dupes
@@ -42,7 +34,7 @@ def remove_duplicates(snapshot: Snapshot) -> int:
     return total_deleted
 
 
-def remove_openalex_duplicates(snapshot: Snapshot) -> int:
+def remove_openalex_duplicates() -> int:
     logging.debug("Removing any duplicate OpenAlex publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate OpenAlex publications in the snapshot
@@ -73,7 +65,7 @@ def remove_openalex_duplicates(snapshot: Snapshot) -> int:
     return num_dupes
 
 
-def remove_dimensions_duplicates(snapshot: Snapshot) -> int:
+def remove_dimensions_duplicates() -> int:
     logging.debug("Removing any duplicate Dimensions publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate Dimensions publications in the snapshot
@@ -104,7 +96,7 @@ def remove_dimensions_duplicates(snapshot: Snapshot) -> int:
     return num_dupes
 
 
-def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
+def remove_sulpub_duplicates() -> int:
     logging.debug("Removing any duplicate sulpub publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
         # Find all duplicate sulpub publications in the snapshot
@@ -135,7 +127,7 @@ def remove_sulpub_duplicates(snapshot: Snapshot) -> int:
     return num_dupes
 
 
-def remove_wos_id_duplicates(snapshot: Snapshot) -> int:
+def remove_wos_id_duplicates() -> int:
     logging.debug("Removing any publications with duplicate wos_id.")
     with get_session(RIALTO_DB_NAME).begin() as session:
         duplicates = session.execute(
@@ -161,7 +153,7 @@ def remove_wos_id_duplicates(snapshot: Snapshot) -> int:
     return num_dupes
 
 
-def remove_pubmed_id_duplicates(snapshot: Snapshot) -> int:
+def remove_pubmed_id_duplicates() -> int:
     logging.debug("Removing any publications with duplicate pubmed_id.")
     with get_session(RIALTO_DB_NAME).begin() as session:
         duplicates = session.execute(

@@ -27,9 +27,9 @@ def test_author_fixture(test_incremental_session, author):
 
 
 @pytest.fixture
-def authors_csv(snapshot_incremental):
+def authors_csv(tmp_path):
     # Create a fixture authors CSV file
-    fixture_file = snapshot_incremental.path / "authors.csv"
+    fixture_file = tmp_path / "authors.csv"
     with open(fixture_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(
@@ -77,10 +77,8 @@ def authors_csv(snapshot_incremental):
     return fixture_file
 
 
-def test_load_authors_table(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
-):
-    load_authors_table(snapshot_incremental)
+def test_load_authors_table(test_incremental_session, tmp_path, caplog, authors_csv):
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
@@ -105,9 +103,7 @@ def test_load_authors_table(
     assert "Errors:" not in caplog.text
 
 
-def test_load_dupe_orcid(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
-):
+def test_load_dupe_orcid(test_incremental_session, tmp_path, caplog, authors_csv):
     caplog.set_level(logging.DEBUG)
     # add a row with a duplicate ORCID to the CSV
     with open(authors_csv, "a", newline="") as csvfile:
@@ -134,7 +130,7 @@ def test_load_dupe_orcid(
             ]
         )
 
-    load_authors_table(snapshot_incremental)
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
@@ -153,9 +149,7 @@ def test_load_dupe_orcid(
     )
 
 
-def test_load_null_cap_id(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
-):
+def test_load_null_cap_id(test_incremental_session, tmp_path, caplog, authors_csv):
     # add row with null cap_profile_id
     with open(authors_csv, "a", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -202,7 +196,7 @@ def test_load_null_cap_id(
             ]
         )
 
-    load_authors_table(snapshot_incremental)
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 3

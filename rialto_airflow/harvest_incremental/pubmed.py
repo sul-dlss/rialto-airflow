@@ -1,9 +1,7 @@
-import json
 import logging
 import os
 import re
 import time
-from pathlib import Path
 from typing import Any, Optional
 from urllib3.util import Retry
 
@@ -22,8 +20,7 @@ from rialto_airflow.schema.rialto import (
     pub_author_association,
     RIALTO_DB_NAME,
 )
-from rialto_airflow.snapshot import Snapshot
-from rialto_airflow.utils import add_orcid, normalize_doi, normalize_pmid
+from rialto_airflow.utils import normalize_doi, normalize_pmid
 
 
 PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
@@ -59,122 +56,109 @@ http.mount(
 )
 
 
-def harvest(snapshot: Snapshot, limit=None) -> Path:
+def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them from pubmed.
     """
-    jsonl_file = snapshot.path / "pubmed.jsonl"
     count = 0
     stop = False
 
-    with jsonl_file.open("w") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            # get all authors that have an ORCID
-            for author in (
-                select_session.query(Author).where(Author.orcid.is_not(None)).all()
-            ):
-                if stop is True:
-                    logging.warning(f"Reached limit of {limit} publications stopping")
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        # get all authors that have an ORCID
+        for author in (
+            select_session.query(Author).where(Author.orcid.is_not(None)).all()
+        ):
+            if stop is True:
+                logging.warning(f"Reached limit of {limit} publications stopping")
+                break
+
+            pmids = pmids_from_orcid(author.orcid)
+            if not pmids:
+                logging.debug(f"No publications found for {author.orcid}")
+                continue
+
+            for pubmed_pub in publications_from_pmids(pmids):
+                count += 1
+                if limit is not None and count > limit:
+                    stop = True
                     break
 
-                pmids = pmids_from_orcid(author.orcid)
-                if not pmids:
-                    logging.debug(f"No publications found for {author.orcid}")
+                doi = normalize_doi(get_doi(pubmed_pub))
+                pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
+
+                with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    # if there's a DOI constraint violation we need to update instead of insert
+                    pub_id = insert_session.execute(
+                        insert(Publication)
+                        .values(
+                            doi=doi,
+                            pubmed_json=pubmed_pub,
+                            pubmed_id=pubmed_id,
+                        )
+                        .on_conflict_do_update(
+                            constraint="publication_doi_key",
+                            set_=dict(pubmed_json=pubmed_pub, pubmed_id=pubmed_id),
+                        )
+                        .returning(Publication.id)
+                    ).scalar_one()
+
+                    # a constraint violation is ok here, since it means we
+                    # already know that the publication is by the author
+                    insert_session.execute(
+                        insert(pub_author_association)
+                        .values(publication_id=pub_id, author_id=author.id)
+                        .on_conflict_do_nothing()
+                    )
+
+
+def fill_in() -> None:
+    """Harvest Pubmed data for DOIs from other publication sources."""
+    count = 0
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        stmt = (
+            select(Publication.doi)
+            .where(Publication.doi.is_not(None))
+            .where(Publication.pubmed_json.is_(None))
+            .execution_options(yield_per=50)
+        )
+
+        for rows in select_session.execute(stmt).partitions():
+            # use a batch size of 50 DOIs at a time
+            dois = [normalize_doi(row.doi) for row in rows]
+            # remove any None DOIs since we don't want to include them in the Pubmed
+            dois = [doi for doi in dois if doi is not None]
+
+            logging.debug(f"looking up DOIs {dois}")
+
+            # find PMIDs for the DOIs, and then get full records
+            # note that there are likely not as many PMIDs returned as DOIs that were queried
+            # and the ordering may be different than the queried DOIs
+            # but this doesn't matter, because we will get the full pubmed record for each PMID returned
+            # and then find the DOI in the full pubmed record to figure out which publication to update
+            # in the database
+            pmids = pmids_from_dois(dois)
+            pubmed_pubs = publications_from_pmids(pmids)
+
+            for pubmed_pub in pubmed_pubs:
+                doi = normalize_doi(get_doi(pubmed_pub))
+                if doi is None:
+                    logging.warning(
+                        f"unable to determine what DOI to update for {pubmed_pub}"
+                    )
                     continue
 
-                for pubmed_pub in publications_from_pmids(pmids):
-                    count += 1
-                    if limit is not None and count > limit:
-                        stop = True
-                        break
-
-                    doi = normalize_doi(get_doi(pubmed_pub))
+                with get_session(RIALTO_DB_NAME).begin() as update_session:
                     pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
+                    update_stmt = (
+                        update(Publication)
+                        .where(Publication.doi == doi)
+                        .values(pubmed_json=pubmed_pub, pubmed_id=pubmed_id)
+                    )
+                    update_session.execute(update_stmt)
 
-                    with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                        # if there's a DOI constraint violation we need to update instead of insert
-                        pub_id = insert_session.execute(
-                            insert(Publication)
-                            .values(
-                                doi=doi,
-                                pubmed_json=pubmed_pub,
-                                pubmed_id=pubmed_id,
-                            )
-                            .on_conflict_do_update(
-                                constraint="publication_doi_key",
-                                set_=dict(pubmed_json=pubmed_pub, pubmed_id=pubmed_id),
-                            )
-                            .returning(Publication.id)
-                        ).scalar_one()
-
-                        # a constraint violation is ok here, since it means we
-                        # already know that the publication is by the author
-                        insert_session.execute(
-                            insert(pub_author_association)
-                            .values(publication_id=pub_id, author_id=author.id)
-                            .on_conflict_do_nothing()
-                        )
-
-                        jsonl_output.write(
-                            json.dumps(add_orcid(pubmed_pub, author.orcid)) + "\n"
-                        )
-
-    return jsonl_file
-
-
-def fill_in(snapshot: Snapshot):
-    """Harvest Pubmed data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "pubmed-fillin.jsonl"
-    count = 0
-    with jsonl_file.open("a") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            stmt = (
-                select(Publication.doi)
-                .where(Publication.doi.is_not(None))
-                .where(Publication.pubmed_json.is_(None))
-                .execution_options(yield_per=50)
-            )
-
-            for rows in select_session.execute(stmt).partitions():
-                # use a batch size of 50 DOIs at a time
-                dois = [normalize_doi(row.doi) for row in rows]
-                # remove any None DOIs since we don't want to include them in the Pubmed
-                dois = [doi for doi in dois if doi is not None]
-
-                logging.debug(f"looking up DOIs {dois}")
-
-                # find PMIDs for the DOIs, and then get full records
-                # note that there are likely not as many PMIDs returned as DOIs that were queried
-                # and the ordering may be different than the queried DOIs
-                # but this doesn't matter, because we will get the full pubmed record for each PMID returned
-                # and then find the DOI in the full pubmed record to figure out which publication to update
-                # in the database
-                pmids = pmids_from_dois(dois)
-                pubmed_pubs = publications_from_pmids(pmids)
-
-                for pubmed_pub in pubmed_pubs:
-                    doi = normalize_doi(get_doi(pubmed_pub))
-                    if doi is None:
-                        logging.warning(
-                            f"unable to determine what DOI to update for {pubmed_pub}"
-                        )
-                        continue
-
-                    with get_session(RIALTO_DB_NAME).begin() as update_session:
-                        pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
-                        update_stmt = (
-                            update(Publication)
-                            .where(Publication.doi == doi)
-                            .values(pubmed_json=pubmed_pub, pubmed_id=pubmed_id)
-                        )
-                        update_session.execute(update_stmt)
-
-                    count += 1
-                    jsonl_output.write(json.dumps(pubmed_pub) + "\n")
+                count += 1
 
     logging.info(f"filled in {count} publications")
-
-    return snapshot.path
 
 
 def pmids_from_orcid(orcid: str) -> list[str]:

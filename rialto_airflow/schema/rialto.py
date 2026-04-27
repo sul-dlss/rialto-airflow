@@ -1,6 +1,17 @@
+import datetime
 from typing import List, Optional
 
-from sqlalchemy import Table, Boolean, Column, ForeignKey, Index, Integer, String, text
+from sqlalchemy import (
+    Table,
+    Boolean,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    select,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import (
     Mapped,
@@ -10,7 +21,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.types import DateTime
 
-from rialto_airflow.database import utcnow
+from rialto_airflow.database import get_session, utcnow
 
 # permanent database for incrementally harvested data
 RIALTO_DB_NAME: str = "rialto"
@@ -127,3 +138,48 @@ class Funder(RialtoSchemaBase):
     publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_funder_association, back_populates="funders"
     )
+
+
+class Harvest(RialtoSchemaBase):
+    __tablename__ = "harvest"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    finished_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, server_default=utcnow()
+    )
+
+    @classmethod
+    def create(cls) -> "Harvest":
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            harvest = cls()
+            session.add(harvest)
+            session.flush()
+            session.expunge(harvest)
+            return harvest
+
+    @classmethod
+    def get_by_id(cls, harvest_id: int) -> "Harvest":
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            result = session.get(cls, harvest_id)
+            if result is not None:
+                session.expunge(result)
+            return result
+
+    @classmethod
+    def get_previous(cls) -> "Harvest | None":
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            result = session.execute(
+                select(cls)
+                .where(cls.finished_at.is_not(None))
+                .order_by(cls.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if result is not None:
+                session.expunge(result)
+            return result
+
+    def complete(self) -> None:
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            harvest = session.get(Harvest, self.id)
+            harvest.finished_at = datetime.datetime.now(datetime.timezone.utc)

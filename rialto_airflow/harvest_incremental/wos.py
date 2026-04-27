@@ -1,9 +1,7 @@
-import json
 import logging
 import os
 import re
 from itertools import batched
-from pathlib import Path
 from time import sleep
 
 import requests
@@ -20,123 +18,103 @@ from rialto_airflow.schema.rialto import (
     pub_author_association,
     RIALTO_DB_NAME,
 )
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import (
     normalize_doi,
     normalize_pmid,
     normalize_wos_id,
-    add_orcid,
 )
 
 Params = Dict[str, Union[int, str]]
 
 
-def harvest(snapshot: Snapshot, limit=None) -> Path:
+def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    jsonl_file = snapshot.path / "wos.jsonl"
     count = 0
     stop = False
 
-    with jsonl_file.open("w") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            # get all authors that have an ORCID
-            # TODO: should we just pull the relevant bits back into memory since
-            # that's what's going on with our client-side buffering connection
-            # and there aren't that many of them?
-            for author in (
-                select_session.query(Author).where(Author.orcid.is_not(None)).all()
-            ):
-                if stop is True:
-                    logging.warning(f"Reached limit of {limit} publications stopping")
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        # get all authors that have an ORCID
+        for author in (
+            select_session.query(Author).where(Author.orcid.is_not(None)).all()
+        ):
+            if stop is True:
+                logging.warning(f"Reached limit of {limit} publications stopping")
+                break
+
+            for wos_pub in orcid_publications(author.orcid):
+                count += 1
+                if limit is not None and count > limit:
+                    stop = True
                     break
 
-                for wos_pub in orcid_publications(author.orcid):
-                    count += 1
-                    if limit is not None and count > limit:
-                        stop = True
-                        break
+                doi = get_doi(wos_pub)
+                wos_id = normalize_wos_id(wos_pub.get("UID"))
+                pubmed_id = get_pmid(wos_pub)
 
-                    doi = get_doi(wos_pub)
-                    wos_id = normalize_wos_id(wos_pub.get("UID"))
-                    pubmed_id = get_pmid(wos_pub)
-
-                    with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                        # if there's a DOI constraint violation we need to update instead of insert
-                        pub_id = insert_session.execute(
-                            insert(Publication)
-                            .values(
-                                doi=doi,
-                                wos_json=wos_pub,
-                                wos_id=wos_id,
-                                pubmed_id=pubmed_id,
-                            )
-                            .on_conflict_do_update(
-                                constraint="publication_doi_key",
-                                set_=dict(
-                                    wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
-                                ),
-                            )
-                            .returning(Publication.id)
-                        ).scalar_one()
-
-                        # a constraint violation is ok here, since it means we
-                        # already know that the publication is by the author
-                        insert_session.execute(
-                            insert(pub_author_association)
-                            .values(publication_id=pub_id, author_id=author.id)
-                            .on_conflict_do_nothing()
+                with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    # if there's a DOI constraint violation we need to update instead of insert
+                    pub_id = insert_session.execute(
+                        insert(Publication)
+                        .values(
+                            doi=doi,
+                            wos_json=wos_pub,
+                            wos_id=wos_id,
+                            pubmed_id=pubmed_id,
                         )
-
-                        jsonl_output.write(
-                            json.dumps(add_orcid(wos_pub, author.orcid)) + "\n"
-                        )
-
-    return jsonl_file
-
-
-def fill_in(snapshot: Snapshot):
-    """Harvest WebOfScience data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "wos-fillin.jsonl"
-    count = 0
-    with jsonl_file.open("a") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            stmt = (
-                select(Publication.doi)
-                .where(Publication.doi.is_not(None))
-                .where(Publication.wos_json.is_(None))
-                .execution_options(yield_per=50)
-            )
-
-            for rows in select_session.execute(stmt).partitions():
-                # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
-                dois = [row.doi for row in rows]
-
-                logging.debug(f"looking up DOIs {dois}")
-                for wos_pub in publications_from_dois(dois):
-                    doi = normalize_doi(get_doi(wos_pub))
-                    if doi is None:
-                        continue
-
-                    wos_id = normalize_wos_id(wos_pub.get("UID"))
-                    pubmed_id = get_pmid(wos_pub)
-                    with get_session(RIALTO_DB_NAME).begin() as update_session:
-                        update_stmt = (
-                            update(Publication)
-                            .where(Publication.doi == doi)
-                            .values(
+                        .on_conflict_do_update(
+                            constraint="publication_doi_key",
+                            set_=dict(
                                 wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
-                            )
+                            ),
                         )
-                        update_session.execute(update_stmt)
+                        .returning(Publication.id)
+                    ).scalar_one()
 
-                    count += 1
-                    jsonl_output.write(json.dumps(wos_pub) + "\n")
+                    # a constraint violation is ok here, since it means we
+                    # already know that the publication is by the author
+                    insert_session.execute(
+                        insert(pub_author_association)
+                        .values(publication_id=pub_id, author_id=author.id)
+                        .on_conflict_do_nothing()
+                    )
+
+
+def fill_in():
+    """Harvest WebOfScience data for DOIs from other publication sources."""
+    count = 0
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        stmt = (
+            select(Publication.doi)
+            .where(Publication.doi.is_not(None))
+            .where(Publication.wos_json.is_(None))
+            .execution_options(yield_per=50)
+        )
+
+        for rows in select_session.execute(stmt).partitions():
+            # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
+            dois = [row.doi for row in rows]
+
+            logging.debug(f"looking up DOIs {dois}")
+            for wos_pub in publications_from_dois(dois):
+                doi = normalize_doi(get_doi(wos_pub))
+                if doi is None:
+                    continue
+
+                wos_id = normalize_wos_id(wos_pub.get("UID"))
+                pubmed_id = get_pmid(wos_pub)
+                with get_session(RIALTO_DB_NAME).begin() as update_session:
+                    update_stmt = (
+                        update(Publication)
+                        .where(Publication.doi == doi)
+                        .values(wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id)
+                    )
+                    update_session.execute(update_stmt)
+
+                count += 1
 
     logging.info(f"filled in {count} publications")
-
-    return jsonl_file
 
 
 def orcid_publications(orcid) -> Generator[dict, None, None]:

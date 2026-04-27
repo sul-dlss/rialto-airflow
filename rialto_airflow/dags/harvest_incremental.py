@@ -9,7 +9,6 @@ from rialto_airflow import funders
 from rialto_airflow.harvest_incremental import (
     authors,
     crossref,
-    harvests,
     dimensions,
     openalex,
     sul_pub,
@@ -18,7 +17,7 @@ from rialto_airflow.harvest_incremental import (
     distill,
     deduplicate,
 )
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
+from rialto_airflow.schema.rialto import Harvest, RIALTO_DB_NAME
 from rialto_airflow.honeybadger import default_args
 
 data_dir = Path(Variable.get("data_dir"))
@@ -57,7 +56,7 @@ def harvest_incremental():
         """
         Create a Harvest record to track this run.
         """
-        harvest = harvests.create_harvest()
+        harvest = Harvest.create()
         return harvest.id
 
     @task()
@@ -185,7 +184,10 @@ def harvest_incremental():
 
     @task()
     def complete(harvest_id):
-        harvests.complete_harvest(harvest_id)
+        harvest = Harvest.get_by_id(harvest_id)
+        if harvest is None:
+            raise ValueError(f"Harvest {harvest_id} not found")
+        harvest.complete()
 
     # link up dag tasks and task groups
 

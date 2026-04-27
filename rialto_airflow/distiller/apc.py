@@ -7,6 +7,9 @@ def apc(pub, context):
     Get the APC cost from one place in the openalex data, an external dataset, or another place in
     OpenAlex data.
     """
+    if context.get("types") == ["Preprint"]:
+        return 0
+
     # https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CR1MMV
     first_match_apc = first(
         pub,

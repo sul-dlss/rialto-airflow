@@ -27,7 +27,6 @@ def upgrade() -> None:
         sa.Column(
             "openalex_harvested",
             sa.DateTime(),
-            server_default=sa.text("TIMEZONE('utc', CURRENT_TIMESTAMP)"),
             nullable=True,
         ),
     )
@@ -36,7 +35,6 @@ def upgrade() -> None:
         sa.Column(
             "dim_harvested",
             sa.DateTime(),
-            server_default=sa.text("TIMEZONE('utc', CURRENT_TIMESTAMP)"),
             nullable=True,
         ),
     )
@@ -45,7 +43,6 @@ def upgrade() -> None:
         sa.Column(
             "sulpub_harvested",
             sa.DateTime(),
-            server_default=sa.text("TIMEZONE('utc', CURRENT_TIMESTAMP)"),
             nullable=True,
         ),
     )
@@ -54,7 +51,6 @@ def upgrade() -> None:
         sa.Column(
             "wos_harvested",
             sa.DateTime(),
-            server_default=sa.text("TIMEZONE('utc', CURRENT_TIMESTAMP)"),
             nullable=True,
         ),
     )
@@ -63,7 +59,6 @@ def upgrade() -> None:
         sa.Column(
             "pubmed_harvested",
             sa.DateTime(),
-            server_default=sa.text("TIMEZONE('utc', CURRENT_TIMESTAMP)"),
             nullable=True,
         ),
     )

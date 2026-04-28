@@ -16,11 +16,10 @@ def mock_rialto_db_name(monkeypatch):
 def test_distill(
     test_incremental_session,
     dataset_incremental,
-    snapshot_incremental,
     mock_rialto_db_name,
 ):
     with test_incremental_session.begin() as session:
-        distill(snapshot_incremental)
+        distill()
 
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()

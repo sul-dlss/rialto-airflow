@@ -9,7 +9,7 @@ import dimcli
 from rialto_airflow.harvest_incremental import dimensions
 from rialto_airflow.schema.rialto import Publication
 
-from test.utils import num_jsonl_objects, num_log_record_matches
+from test.utils import num_log_record_matches
 
 dotenv.load_dotenv()
 
@@ -165,17 +165,13 @@ def mock_dimensions(monkeypatch):
 
 
 def test_harvest(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_dimensions,
 ):
     # harvest from dimensions
-    dimensions.harvest(snapshot_incremental)
-
-    # the mocked openalex api returns the same publication for both authors
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions.jsonl") == 2
+    dimensions.harvest()
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -190,7 +186,6 @@ def test_harvest(
 
 
 def test_harvest_when_doi_exists(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
@@ -198,10 +193,7 @@ def test_harvest_when_doi_exists(
     mock_dimensions,
 ):
     # harvest from dimensions
-    dimensions.harvest(snapshot_incremental)
-
-    # jsonl file is there and has two lines (one for each author)
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions.jsonl") == 2
+    dimensions.harvest()
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -219,7 +211,6 @@ def test_harvest_when_doi_exists(
 
 
 def test_harvest_when_pub_author_association_exists(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
@@ -228,10 +219,7 @@ def test_harvest_when_pub_author_association_exists(
     mock_dimensions,
 ):
     # harvest from dimensions
-    dimensions.harvest(snapshot_incremental)
-
-    # jsonl file is there and has two lines (one for each author)
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions.jsonl") == 2
+    dimensions.harvest()
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -266,14 +254,13 @@ def mock_many_dimensions(monkeypatch):
 
 
 def test_log_message(
-    snapshot_incremental,
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_many_dimensions,
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    dimensions.harvest(snapshot_incremental, limit=50)
+    dimensions.harvest(limit=50)
     assert "Reached limit of 50 publications stopping" in caplog.text
 
 
@@ -307,7 +294,6 @@ def mock_dimensions_doi(monkeypatch):
 
 
 def test_fill_in(
-    snapshot_incremental,
     test_incremental_session,
     mock_no_dim_publication,
     mock_rialto_db_name,
@@ -315,7 +301,7 @@ def test_fill_in(
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    dimensions.fill_in(snapshot_incremental)
+    dimensions.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -330,13 +316,10 @@ def test_fill_in(
             "publication_year": 1891,
         }
 
-    # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
 def test_fill_in_no_dimensions(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_no_dim_publication,
@@ -351,7 +334,7 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    dimensions.fill_in(snapshot_incremental)
+    dimensions.fill_in()
     with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -360,8 +343,6 @@ def test_fill_in_no_dimensions(
         )
         assert pub.dim_json is None
 
-    # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
@@ -394,7 +375,6 @@ def test_researchers_error():
 
 
 def test_fill_in_no_doi(
-    snapshot_incremental,
     test_incremental_session,
     mock_no_dim_publication,
     mock_rialto_db_name,
@@ -413,7 +393,7 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    dimensions.fill_in(snapshot_incremental)
+    dimensions.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -423,7 +403,5 @@ def test_fill_in_no_doi(
         )
         assert pub.dim_json is None
 
-    # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "dimensions-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text

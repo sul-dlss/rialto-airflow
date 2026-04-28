@@ -1,9 +1,7 @@
-import json
 import logging
 import os
 import time
 from functools import cache
-from pathlib import Path
 
 import dimcli
 import requests
@@ -18,77 +16,66 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.schema.rialto import RIALTO_DB_NAME
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.utils import (
     normalize_doi,
     normalize_orcid,
     normalize_pmid,
-    add_orcid,
 )
 
 
-def harvest(snapshot: Snapshot, limit: None | int = None) -> Path:
+def harvest(limit: None | int = None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    jsonl_file = snapshot.path / "dimensions.jsonl"
     count = 0
     stop = False
 
-    with jsonl_file.open("w") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            # get all authors that have an ORCID
-            for author in (
-                select_session.query(Author).where(Author.orcid.is_not(None)).all()
-            ):
-                if stop is True:
-                    logging.warning(f"Reached limit of {limit} publications stopping")
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        # get all authors that have an ORCID
+        for author in (
+            select_session.query(Author).where(Author.orcid.is_not(None)).all()
+        ):
+            if stop is True:
+                logging.warning(f"Reached limit of {limit} publications stopping")
+                break
+
+            for dimensions_pub_json in publications_from_orcid(author.orcid):
+                count += 1
+                if limit is not None and count > limit:
+                    stop = True
                     break
 
-                for dimensions_pub_json in publications_from_orcid(author.orcid):
-                    count += 1
-                    if limit is not None and count > limit:
-                        stop = True
-                        break
+                doi = normalize_doi(dimensions_pub_json.get("doi", None))
+                pubmed_id = (
+                    normalize_pmid(dimensions_pub_json.get("pmid"))
+                    if dimensions_pub_json.get("pmid") is not None
+                    else None
+                )
+                with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    # if there's a DOI constraint violation, update the existing row's JSON
+                    pub_id = insert_session.execute(
+                        insert(Publication)
+                        .values(
+                            doi=doi,
+                            dim_json=dimensions_pub_json,
+                            pubmed_id=pubmed_id,
+                        )
+                        .on_conflict_do_update(
+                            constraint="publication_doi_key",
+                            set_=dict(
+                                dim_json=dimensions_pub_json, pubmed_id=pubmed_id
+                            ),
+                        )
+                        .returning(Publication.id)
+                    ).scalar_one()
 
-                    doi = normalize_doi(dimensions_pub_json.get("doi", None))
-                    pubmed_id = (
-                        normalize_pmid(dimensions_pub_json.get("pmid"))
-                        if dimensions_pub_json.get("pmid") is not None
-                        else None
+                    # a constraint violation here means we already know the
+                    # publication is by the author
+                    insert_session.execute(
+                        insert(pub_author_association)
+                        .values(publication_id=pub_id, author_id=author.id)
+                        .on_conflict_do_nothing()
                     )
-                    with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                        # if there's a DOI constraint violation, update the existing row's JSON
-                        pub_id = insert_session.execute(
-                            insert(Publication)
-                            .values(
-                                doi=doi,
-                                dim_json=dimensions_pub_json,
-                                pubmed_id=pubmed_id,
-                            )
-                            .on_conflict_do_update(
-                                constraint="publication_doi_key",
-                                set_=dict(
-                                    dim_json=dimensions_pub_json, pubmed_id=pubmed_id
-                                ),
-                            )
-                            .returning(Publication.id)
-                        ).scalar_one()
-
-                        # a constraint violation here means we already know the
-                        # publication is by the author
-                        insert_session.execute(
-                            insert(pub_author_association)
-                            .values(publication_id=pub_id, author_id=author.id)
-                            .on_conflict_do_nothing()
-                        )
-
-                        jsonl_output.write(
-                            json.dumps(add_orcid(dimensions_pub_json, author.orcid))
-                            + "\n"
-                        )
-
-    return jsonl_file
 
 
 def publications_from_dois(dois: list, batch_size=200):
@@ -252,48 +239,43 @@ def query_with_retry(q, retry=5):
                 time.sleep(try_count * 10)
 
 
-def fill_in(snapshot: Snapshot):
+def fill_in():
     """Harvest Dimensions data for DOIs from other publication sources."""
-    jsonl_file = snapshot.path / "dimensions-fillin.jsonl"
     count = 0
-    with jsonl_file.open("a") as jsonl_output:
-        with get_session(RIALTO_DB_NAME).begin() as select_session:
-            stmt = (
-                select(Publication.doi)
-                .where(Publication.doi.is_not(None))
-                .where(Publication.dim_json.is_(None))
-                .execution_options(yield_per=100)
-            )
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
+        stmt = (
+            select(Publication.doi)
+            .where(Publication.doi.is_not(None))
+            .where(Publication.dim_json.is_(None))
+            .execution_options(yield_per=100)
+        )
 
-            for rows in select_session.execute(stmt).partitions():
-                dois = [row.doi for row in rows]
+        for rows in select_session.execute(stmt).partitions():
+            dois = [row.doi for row in rows]
 
-                # note: we could potentially adjust batch_size upwards if we
-                # want to look up more DOIs at a time
-                for dimensions_pub in publications_from_dois(dois, batch_size=100):
-                    doi = dimensions_pub.get("doi")
-                    if doi is None:
-                        logging.warning(
-                            f"unable to determine what DOI to update from {dimensions_pub}"
-                        )
-                        continue
+            # note: we could potentially adjust batch_size upwards if we
+            # want to look up more DOIs at a time
+            for dimensions_pub in publications_from_dois(dois, batch_size=100):
+                doi = dimensions_pub.get("doi")
+                if doi is None:
+                    logging.warning(
+                        f"unable to determine what DOI to update from {dimensions_pub}"
+                    )
+                    continue
 
-                    with get_session(RIALTO_DB_NAME).begin() as update_session:
-                        pubmed_id = (
-                            normalize_pmid(str(dimensions_pub["pmid"]))
-                            if dimensions_pub.get("pmid") is not None
-                            else None
-                        )
-                        update_stmt = (
-                            update(Publication)
-                            .where(Publication.doi == doi)
-                            .values(dim_json=dimensions_pub, pubmed_id=pubmed_id)
-                        )
-                        update_session.execute(update_stmt)
+                with get_session(RIALTO_DB_NAME).begin() as update_session:
+                    pubmed_id = (
+                        normalize_pmid(str(dimensions_pub["pmid"]))
+                        if dimensions_pub.get("pmid") is not None
+                        else None
+                    )
+                    update_stmt = (
+                        update(Publication)
+                        .where(Publication.doi == doi)
+                        .values(dim_json=dimensions_pub, pubmed_id=pubmed_id)
+                    )
+                    update_session.execute(update_stmt)
 
-                    count += 1
-                    jsonl_output.write(json.dumps(dimensions_pub) + "\n")
+                count += 1
 
     logging.info(f"filled in {count} publications")
-
-    return jsonl_file

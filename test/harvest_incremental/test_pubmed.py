@@ -6,7 +6,7 @@ from xml.parsers.expat import ExpatError
 
 from rialto_airflow.harvest_incremental import pubmed
 from rialto_airflow.schema.rialto import Publication
-from test.utils import load_jsonl_file, num_jsonl_objects, num_log_record_matches
+from test.utils import load_jsonl_file, num_log_record_matches
 
 
 @pytest.fixture
@@ -316,7 +316,6 @@ def test_pubmed_fetch_publications_expects_list():
 
 
 def test_harvest(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -328,10 +327,7 @@ def test_harvest(
     publications are matched up to the authors using the ORCID.
     """
     # harvest from Pubmed
-    pubmed.harvest(snapshot_incremental)
-
-    # the mocked Pubmed api returns the same two publications for both authors
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 4
+    pubmed.harvest()
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -347,7 +343,6 @@ def test_harvest(
 
 
 def test_harvest_limit(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -360,11 +355,7 @@ def test_harvest_limit(
     harvest limit, confirm that processing stops as expected and logs appropriately.
     """
     # harvest from Pubmed with a limit of one publication
-    pubmed.harvest(snapshot_incremental, 1)
-
-    # the mocked Pubmed api returns the same two publications for both authors, but we
-    # only process the first
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 1
+    pubmed.harvest(1)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -389,7 +380,6 @@ def test_harvest_limit(
 
 
 def test_harvest_no_pubmed_results(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -402,8 +392,7 @@ def test_harvest_no_pubmed_results(
     log the unsuccessful searches appropriately.
     """
     caplog.set_level(logging.DEBUG)
-    pubmed.harvest(snapshot_incremental)
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 0
+    pubmed.harvest()
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, (
             "no publications loaded because none found"
@@ -427,7 +416,6 @@ def test_harvest_no_pubmed_results(
 
 
 def test_harvest_when_doi_exists(
-    snapshot_incremental,
     test_incremental_session,
     existing_publication,
     mock_incremental_authors,
@@ -439,10 +427,7 @@ def test_harvest_when_doi_exists(
     When a publication and its authors already exist in the database make sure that the pubmed_json is updated.
     """
     # harvest from Pubmed
-    pubmed.harvest(snapshot_incremental)
-
-    # jsonl file is there and has four lines (two pubs for each author)
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed.jsonl") == 4
+    pubmed.harvest()
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -459,7 +444,6 @@ def test_harvest_when_doi_exists(
 
 
 def test_fill_in(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
@@ -477,7 +461,7 @@ def test_fill_in(
         "publications_from_pmids",
         lambda *args, **kwargs: [pubmed_json_fill_in_doi()],
     )
-    pubmed.fill_in(snapshot_incremental)
+    pubmed.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -487,15 +471,12 @@ def test_fill_in(
         )
         assert pub.pubmed_json == pubmed_json_fill_in_doi()
 
-    # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text
 
 
 def test_fill_in_no_pubmed(
     test_incremental_session,
     mock_incremental_publication,
-    snapshot_incremental,
     mock_rialto_db_name,
     caplog,
     monkeypatch,
@@ -504,7 +485,7 @@ def test_fill_in_no_pubmed(
 
     # mock pubmed api to return no records for the doi
     monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: [])
-    pubmed.fill_in(snapshot_incremental)
+    pubmed.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -514,15 +495,12 @@ def test_fill_in_no_pubmed(
         )
         assert pub.pubmed_json is None
 
-    # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 0
     assert "filled in 0 publications" in caplog.text
 
 
 def test_fill_in_no_doi(
     test_incremental_session,
     mock_incremental_publication,
-    snapshot_incremental,
     mock_rialto_db_name,
     caplog,
     monkeypatch,
@@ -543,7 +521,7 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    pubmed.fill_in(snapshot_incremental)
+    pubmed.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -554,7 +532,6 @@ def test_fill_in_no_doi(
         assert pub.pubmed_json is None
 
     # adds 0 publications to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "pubmed-fillin.jsonl") == 0
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
 

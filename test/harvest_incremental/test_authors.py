@@ -2,6 +2,7 @@ import csv
 import logging
 import pytest
 from rialto_airflow.schema.rialto import Author
+from rialto_airflow.harvest_incremental import authors as authors_mod
 from rialto_airflow.harvest_incremental.authors import load_authors_table
 from test.utils import num_log_record_matches
 
@@ -21,15 +22,20 @@ def author(test_incremental_session):
         )
 
 
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(authors_mod, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
 def test_author_fixture(test_incremental_session, author):
     with test_incremental_session.begin() as session:
         assert session.query(Author).where(Author.sunet == "janes").count() == 1
 
 
 @pytest.fixture
-def authors_csv(snapshot_incremental):
+def authors_csv(tmp_path):
     # Create a fixture authors CSV file
-    fixture_file = snapshot_incremental.path / "authors.csv"
+    fixture_file = tmp_path / "authors.csv"
     with open(fixture_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(
@@ -78,9 +84,9 @@ def authors_csv(snapshot_incremental):
 
 
 def test_load_authors_table(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):
-    load_authors_table(snapshot_incremental)
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
@@ -106,7 +112,7 @@ def test_load_authors_table(
 
 
 def test_load_dupe_orcid(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):
     caplog.set_level(logging.DEBUG)
     # add a row with a duplicate ORCID to the CSV
@@ -134,7 +140,7 @@ def test_load_dupe_orcid(
             ]
         )
 
-    load_authors_table(snapshot_incremental)
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
@@ -154,7 +160,7 @@ def test_load_dupe_orcid(
 
 
 def test_load_null_cap_id(
-    test_incremental_session, tmp_path, caplog, authors_csv, snapshot_incremental
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):
     # add row with null cap_profile_id
     with open(authors_csv, "a", newline="") as csvfile:
@@ -202,7 +208,7 @@ def test_load_null_cap_id(
             ]
         )
 
-    load_authors_table(snapshot_incremental)
+    load_authors_table(tmp_path)
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 3

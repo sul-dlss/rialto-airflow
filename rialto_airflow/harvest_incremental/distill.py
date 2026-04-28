@@ -14,10 +14,9 @@ from rialto_airflow.distiller import (
     apc,
 )
 from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME
-from rialto_airflow.snapshot import Snapshot
 
 
-def distill(snapshot: Snapshot) -> int:
+def distill() -> int:
     """
     Walk through all publications in the database and set the title, pub_year,
     open_access columns using the harvested metadata.

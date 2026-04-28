@@ -1,4 +1,3 @@
-import json
 import logging
 
 import requests
@@ -17,64 +16,56 @@ from rialto_airflow.schema.rialto import (
 from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
 
-def harvest(snapshot, host, key, per_page=1000, limit=None):
-    # create a jsonl file to write to
-    jsonl_file = snapshot.path / "sulpub.jsonl"
+def harvest(host, key, per_page=1000, limit=None):
+    for sulpub_pub in publications(host, key, per_page, limit):
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            doi = extract_doi(sulpub_pub)
 
-    with jsonl_file.open("w") as jsonl_output:
-        for sulpub_pub in publications(host, key, per_page, limit):
-            with get_session(RIALTO_DB_NAME).begin() as session:
-                doi = extract_doi(sulpub_pub)
-
-                # only write approved publications to the database
-                if approved(sulpub_pub):
-                    wos_id = extract_wos_uid(sulpub_pub)
-                    pubmed_id = extract_pmid(sulpub_pub)
-                    # if when inserting the row we get a constraint violation
-                    # on the DOI then we have to do an update
-                    pub_id = session.execute(
-                        insert(Publication)
-                        .values(
-                            doi=doi,
+            # only write approved publications to the database
+            if approved(sulpub_pub):
+                wos_id = extract_wos_uid(sulpub_pub)
+                pubmed_id = extract_pmid(sulpub_pub)
+                # if when inserting the row we get a constraint violation
+                # on the DOI then we have to do an update
+                pub_id = session.execute(
+                    insert(Publication)
+                    .values(
+                        doi=doi,
+                        sulpub_json=sulpub_pub,
+                        wos_id=wos_id,
+                        pubmed_id=pubmed_id,
+                    )
+                    .on_conflict_do_update(
+                        constraint="publication_doi_key",
+                        set_=dict(
                             sulpub_json=sulpub_pub,
                             wos_id=wos_id,
                             pubmed_id=pubmed_id,
-                        )
-                        .on_conflict_do_update(
-                            constraint="publication_doi_key",
-                            set_=dict(
-                                sulpub_json=sulpub_pub,
-                                wos_id=wos_id,
-                                pubmed_id=pubmed_id,
-                            ),
-                        )
-                        .returning(Publication.id)
-                    ).scalar_one()
-
-                    # get a list of approved cap_ids for the publication
-                    # the cap_profile_id needs to be a string for the database
-                    cap_ids = [
-                        str(a["cap_profile_id"])
-                        for a in sulpub_pub["authorship"]
-                        if a["status"] == "approved"
-                    ]
-
-                    # if the row is already there we could get a constraint
-                    # violation, but we can safely ignore that
-                    session.execute(
-                        insert(pub_author_association)
-                        .from_select(
-                            ["publication_id", "author_id"],
-                            select(pub_id, Author.id).where(
-                                Author.cap_profile_id.in_(cap_ids)
-                            ),
-                        )
-                        .on_conflict_do_nothing()
+                        ),
                     )
+                    .returning(Publication.id)
+                ).scalar_one()
 
-                jsonl_output.write(json.dumps(sulpub_pub) + "\n")
+                # get a list of approved cap_ids for the publication
+                # the cap_profile_id needs to be a string for the database
+                cap_ids = [
+                    str(a["cap_profile_id"])
+                    for a in sulpub_pub["authorship"]
+                    if a["status"] == "approved"
+                ]
 
-    return jsonl_file
+                # if the row is already there we could get a constraint
+                # violation, but we can safely ignore that
+                session.execute(
+                    insert(pub_author_association)
+                    .from_select(
+                        ["publication_id", "author_id"],
+                        select(pub_id, Author.id).where(
+                            Author.cap_profile_id.in_(cap_ids)
+                        ),
+                    )
+                    .on_conflict_do_nothing()
+                )
 
 
 def publications(host, key, per_page=1000, limit=None):

@@ -7,7 +7,7 @@ import pytest
 
 from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import crossref
-from test.utils import num_jsonl_objects, num_log_record_matches
+from test.utils import num_log_record_matches
 
 
 @pytest.fixture
@@ -198,7 +198,6 @@ def test_unexpected_json(caplog, requests_mock):
 
 
 def test_fill_in(
-    snapshot_incremental,
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
@@ -217,7 +216,7 @@ def test_fill_in(
     ]
     monkeypatch.setattr(crossref, "get_dois", lambda _: records)
 
-    crossref.fill_in(snapshot_incremental)
+    crossref.fill_in()
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -231,6 +230,4 @@ def test_fill_in(
             "publication_year": 1891,
         }
 
-    # adds 1 publication to the jsonl file
-    assert num_jsonl_objects(snapshot_incremental.path / "crossref-fillin.jsonl") == 1
     assert "filled in 1 publications" in caplog.text

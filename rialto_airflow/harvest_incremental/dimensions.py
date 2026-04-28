@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import time
@@ -10,12 +11,13 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
+    Harvest,
     Author,
     Publication,
     pub_author_association,
+    RIALTO_DB_NAME,
 )
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 from rialto_airflow.utils import (
     normalize_doi,
     normalize_orcid,
@@ -52,6 +54,7 @@ def harvest(limit: None | int = None) -> None:
                     else None
                 )
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
                     # if there's a DOI constraint violation, update the existing row's JSON
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -59,11 +62,14 @@ def harvest(limit: None | int = None) -> None:
                             doi=doi,
                             dim_json=dimensions_pub_json,
                             pubmed_id=pubmed_id,
+                            dim_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
                             set_=dict(
-                                dim_json=dimensions_pub_json, pubmed_id=pubmed_id
+                                dim_json=dimensions_pub_json,
+                                pubmed_id=pubmed_id,
+                                dim_harvested=harvested_at,
                             ),
                         )
                         .returning(Publication.id)
@@ -99,16 +105,25 @@ def publications_from_dois(dois: list, batch_size=200):
 
 def publications_from_orcid(orcid: str, batch_size=200):
     """
-    Get the publications metadata for a given ORCID.
+    Get the publications metadata for a given ORCID, for records created (inserted) since the last harvest.
     """
+    previous_harvest = Harvest.get_previous()
+    # Dimensions expects the date in YYYY-MM-DD format.
+    previous_harvest_date = None
+    if previous_harvest is not None and previous_harvest.created_at is not None:
+        previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
     orcid = normalize_orcid(orcid)
     logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
+    date_limit = (
+        f' and date_inserted >= "{previous_harvest_date}"'
+        if previous_harvest_date
+        else ""
+    )
     q = f"""
-        search publications where researchers.orcid_id = "{orcid}"
+        search publications where researchers.orcid_id = "{orcid}"{date_limit}
         return publications[{fields}]
         """
-
     result = query_with_retry(q, retry=5)
     for pub in result["publications"]:
         yield normalize_publication(pub)
@@ -272,7 +287,10 @@ def fill_in():
                     update_stmt = (
                         update(Publication)
                         .where(Publication.doi == doi)
-                        .values(dim_json=dimensions_pub, pubmed_id=pubmed_id)
+                        .values(
+                            dim_json=dimensions_pub,
+                            pubmed_id=pubmed_id,
+                        )
                     )
                     update_session.execute(update_stmt)
 

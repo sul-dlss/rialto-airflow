@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import pytest
@@ -7,7 +8,7 @@ import dotenv
 import dimcli
 
 from rialto_airflow.harvest_incremental import dimensions
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Harvest, Publication
 
 from test.utils import num_log_record_matches
 
@@ -35,15 +36,63 @@ def test_publication_fields():
     assert "book" in fields
 
 
-def test_publications_from_orcid():
+def test_publications_from_orcid(test_incremental_session, mock_rialto_db_name):
+    with test_incremental_session.begin() as session:
+        # Previous harvest exists, but we should still get a large and consistent set of publications by setting this to 2000.
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2000, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2000, 4, 28, 0, 0, 0),
+            )
+        )
+
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
 
 
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
+def test_publications_from_orcid_uses_previous_harvest_date(
+    test_incremental_session, mock_rialto_db_name, monkeypatch
+):
+    queries = []
+
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+
+    def mock_query_with_retry(query, retry=5):
+        queries.append(query)
+        return {"publications": []}
+
+    monkeypatch.setattr(dimensions, "query_with_retry", mock_query_with_retry)
+
+    list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
+
+    assert 'date_inserted >= "2026-04-27"' in queries[0]
+    assert 'date_inserted >= "2026-04-27T"' not in queries[0]
+
+
+def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
+    test_incremental_session, mock_rialto_db_name, monkeypatch
+):
+    queries = []
+
+    with test_incremental_session.begin() as session:
+        session.add(Harvest())
+
+    def mock_query_with_retry(query, retry=5):
+        queries.append(query)
+        return {"publications": []}
+
+    monkeypatch.setattr(dimensions, "query_with_retry", mock_query_with_retry)
+
+    list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
+
+    assert "date_inserted >=" not in queries[0]
 
 
 @pytest.fixture
@@ -87,10 +136,11 @@ def mock_dimensions_dsl_query_error(monkeypatch):
     )  # wrapped in a lambda because dimensions.dsl is a fn that returns a dimcli.Dsl instance
 
 
-def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
+def test_query_with_retry(mock_dimensions_dsl_query_error, caplog, monkeypatch):
+    monkeypatch.setattr(dimensions.Harvest, "get_previous", lambda: None)
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert len(pubs) == 17
-    assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
+    assert "10.1016/j.annemergmed.2025.05.017" in [pub["doi"] for pub in pubs]
     assert num_log_record_matches(
         caplog.records,
         logging.WARNING,
@@ -137,7 +187,10 @@ def mock_dimensions_dsl_query_login_error(monkeypatch):
     )  # wrapped in a lambda because dimensions.dsl is a fn that returns a dimcli.Dsl instance
 
 
-def test_query_with_login_retry(mock_dimensions_dsl_query_login_error, caplog):
+def test_query_with_login_retry(
+    mock_dimensions_dsl_query_login_error, caplog, monkeypatch
+):
+    monkeypatch.setattr(dimensions.Harvest, "get_previous", lambda: None)
     pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
     assert num_log_record_matches(

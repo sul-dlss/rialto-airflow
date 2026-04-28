@@ -93,12 +93,7 @@ def test_drop_database(
             teardown_database(snapshot.database_name)
 
 
-def test_create_schema(
-    snapshot,
-    mock_rialto_postgres,
-    monkeypatch,
-    teardown_database,
-):
+def test_create_schema(snapshot, mock_rialto_postgres, monkeypatch, teardown_database):
     # During testing, we want to be able to drop the database at the end.
     # Mocking the engine obtained by create_schema to avoid connections staying open and preventing teardown.
     def mock_engine_setup(db_name):
@@ -205,11 +200,9 @@ def test_create_schema(
 
 
 def test_create_rialto_schema(
-    mock_rialto_postgres,
-    monkeypatch,
-    teardown_database,
+    mock_rialto_postgres, mock_rialto_db_name, monkeypatch, teardown_database
 ):
-    database_name = "rialto_incremental_test"
+    database_name = rialto.RIALTO_DB_NAME
 
     # During testing, we want to be able to drop the database at the end.
     # Mocking the engine obtained by create_schema to avoid connections staying open and preventing teardown.
@@ -217,7 +210,6 @@ def test_create_rialto_schema(
         return null_pool_engine(db_name)
 
     monkeypatch.setattr(database, "engine_setup", mock_engine_setup)
-    monkeypatch.setattr(rialto, "RIALTO_DB_NAME", database_name)
 
     try:
         if database.database_exists(database_name):

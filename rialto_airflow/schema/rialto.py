@@ -66,15 +66,17 @@ class Publication(RialtoSchemaBase):
     crossref_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
     wos_id: Mapped[Optional[str]] = mapped_column(String)
     pubmed_id: Mapped[Optional[str]] = mapped_column(String)
-    openalex_harvested: Mapped[Optional[DateTime]] = mapped_column(DateTime)
-    dim_harvested: Mapped[Optional[DateTime]] = mapped_column(DateTime)
-    sulpub_harvested: Mapped[Optional[DateTime]] = mapped_column(DateTime)
-    wos_harvested: Mapped[Optional[DateTime]] = mapped_column(DateTime)
-    pubmed_harvested: Mapped[Optional[DateTime]] = mapped_column(DateTime)
-    created_at: Mapped[Optional[DateTime]] = mapped_column(
+    openalex_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    dim_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    sulpub_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    wos_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    pubmed_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, onupdate=utcnow()
+    )
     types: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
     publisher: Mapped[Optional[str]] = mapped_column(String)
     journal_name: Mapped[Optional[str]] = mapped_column(String)
@@ -119,10 +121,12 @@ class Author(RialtoSchemaBase):
     primary_school: Mapped[Optional[str]] = mapped_column(String)
     primary_dept: Mapped[Optional[str]] = mapped_column(String)
     primary_division: Mapped[Optional[str]] = mapped_column(String)
-    created_at: Mapped[Optional[DateTime]] = mapped_column(
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, onupdate=utcnow()
+    )
     publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"
     )
@@ -137,10 +141,12 @@ class Funder(RialtoSchemaBase):
     ror_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
     openalex_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
     federal: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[DateTime]] = mapped_column(
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, onupdate=utcnow())
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, onupdate=utcnow()
+    )
     publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_funder_association, back_populates="funders"
     )
@@ -150,8 +156,10 @@ class Harvest(RialtoSchemaBase):
     __tablename__ = "harvest"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    finished_at: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[Optional[DateTime]] = mapped_column(
+    finished_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=utcnow()
     )
 

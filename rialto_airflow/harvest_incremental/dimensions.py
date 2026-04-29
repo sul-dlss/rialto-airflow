@@ -29,7 +29,8 @@ def harvest(limit: None | int = None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
@@ -43,15 +44,33 @@ def harvest(limit: None | int = None) -> None:
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
         ):
+            author_count += 1
+            if limit is not None and author_count > limit:
+                stop = True
+
             if stop is True:
-                logging.warning(f"Reached limit of {limit} publications stopping")
+                logging.warning(
+                    f"Reached limit of {limit} publications or authors, stopping"
+                )
                 break
+
+            # if the author was created or updated after the last harvest (e.g. adding an ORCID),
+            # we want to get all their publications, not just ones since the last harvest timestamp.
+            if previous_harvest is not None:
+                # TODO: remove the created_at check once updated_at gets populated upon create
+                if author.created_at >= previous_harvest.created_at:
+                    previous_harvest_date = None
+                elif (
+                    author.updated_at is not None
+                    and author.updated_at >= previous_harvest.created_at
+                ):
+                    previous_harvest_date = None
 
             for dimensions_pub_json in publications_from_orcid(
                 author.orcid, harvest_date=previous_harvest_date
             ):
-                count += 1
-                if limit is not None and count > limit:
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 

@@ -8,7 +8,7 @@ import dotenv
 import dimcli
 
 from rialto_airflow.harvest_incremental import dimensions
-from rialto_airflow.schema.rialto import Harvest, Publication
+from rialto_airflow.schema.rialto import Author, Harvest, Publication
 
 from test.utils import num_log_record_matches
 
@@ -102,6 +102,13 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
                 finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
             )
         )
+        # Make sure Authors are similar to those loaded in productio, with created_at dates.
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: None,
+            }
+        )
 
     harvest_dates = []
 
@@ -115,6 +122,74 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
 
     assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
     assert set(harvest_dates) == {"2026-04-27"}
+
+
+def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+                Author.updated_at: None,
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        return iter(())
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
+
+    dimensions.harvest()
+
+    assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
+    assert set(harvest_dates) == {None}
+
+
+def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        return iter(())
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
+
+    dimensions.harvest()
+
+    assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
+    assert set(harvest_dates) == {None}
 
 
 def test_publications_from_orcid(test_incremental_session, mock_rialto_db_name):
@@ -289,7 +364,28 @@ def test_log_message(
 ):
     caplog.set_level(logging.INFO)
     dimensions.harvest(limit=50)
-    assert "Reached limit of 50 publications stopping" in caplog.text
+    assert "Reached limit of 50 publications or authors, stopping" in caplog.text
+
+
+def test_harvest_stops_when_author_limit_is_exceeded(
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
+    queried_orcids = []
+
+    def _capture_orcid(orcid, harvest_date=None):
+        queried_orcids.append(orcid)
+        return iter(())
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_orcid)
+
+    caplog.set_level(logging.INFO)
+    dimensions.harvest(limit=1)
+
+    assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
+    assert "Reached limit of 1 publications or authors, stopping" in caplog.text
 
 
 @pytest.fixture

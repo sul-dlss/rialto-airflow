@@ -33,6 +33,12 @@ def harvest(limit: None | int = None) -> None:
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        previous_harvest = Harvest.get_previous()
+        previous_harvest_date = None
+        if previous_harvest is not None and previous_harvest.created_at is not None:
+            # Dimensions expects the date in YYYY-MM-DD format.
+            previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
+
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
@@ -41,7 +47,9 @@ def harvest(limit: None | int = None) -> None:
                 logging.warning(f"Reached limit of {limit} publications stopping")
                 break
 
-            for dimensions_pub_json in publications_from_orcid(author.orcid):
+            for dimensions_pub_json in publications_from_orcid(
+                author.orcid, harvest_date=previous_harvest_date
+            ):
                 count += 1
                 if limit is not None and count > limit:
                     stop = True
@@ -103,23 +111,14 @@ def publications_from_dois(dois: list, batch_size=200):
             yield normalize_publication(pub)
 
 
-def publications_from_orcid(orcid: str, batch_size=200):
+def publications_from_orcid(orcid: str, batch_size=200, harvest_date=None):
     """
     Get the publications metadata for a given ORCID, for records created (inserted) since the last harvest.
     """
-    previous_harvest = Harvest.get_previous()
-    # Dimensions expects the date in YYYY-MM-DD format.
-    previous_harvest_date = None
-    if previous_harvest is not None and previous_harvest.created_at is not None:
-        previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
     orcid = normalize_orcid(orcid)
     logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
-    date_limit = (
-        f' and date_inserted >= "{previous_harvest_date}"'
-        if previous_harvest_date
-        else ""
-    )
+    date_limit = f' and date_inserted >= "{harvest_date}"' if harvest_date else ""
     q = f"""
         search publications where researchers.orcid_id = "{orcid}"{date_limit}
         return publications[{fields}]

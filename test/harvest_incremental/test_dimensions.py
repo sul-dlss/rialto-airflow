@@ -70,25 +70,6 @@ def test_publication_fields():
     assert "book" in fields
 
 
-def test_previous_harvest_date_formatting(
-    test_incremental_session, mock_rialto_db_name
-):
-    """Test that previous harvest date is correctly formatted as YYYY-MM-DD."""
-    with test_incremental_session.begin() as session:
-        harvest = Harvest(
-            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-        )
-        session.add(harvest)
-
-    previous_harvest = Harvest.get_previous()
-    assert previous_harvest is not None
-    assert previous_harvest.created_at is not None
-
-    previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
-    assert previous_harvest_date == "2026-04-27", "date formatted as YYYY-MM-DD"
-
-
 def test_harvest_passes_previous_harvest_date_to_orcid_query(
     test_incremental_session,
     mock_incremental_authors,
@@ -102,7 +83,7 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
                 finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
             )
         )
-        # Make sure Authors are similar to those loaded in productio, with created_at dates.
+        # Make sure Authors are similar to those loaded in production, with created_at dates.
         session.query(Author).where(Author.orcid.is_not(None)).update(
             {
                 Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
@@ -113,15 +94,20 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
     harvest_dates = []
 
     def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed to publications_from_orcid so that we can assert on it later
         harvest_dates.append(harvest_date)
-        return iter(())
+        yield from ()
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
 
     dimensions.harvest()
 
-    assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
-    assert set(harvest_dates) == {"2026-04-27"}
+    assert harvest_dates, (
+        "publications_from_orcid is passed the recent finished harvest date"
+    )
+    assert set(harvest_dates) == {"2026-04-27"}, (
+        "formatted previous harvest date passed to publications_from_orcid"
+    )
 
 
 def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
@@ -147,15 +133,19 @@ def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
     harvest_dates = []
 
     def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed
+        # don't return results since we're just testing the harvest_date logic.
         harvest_dates.append(harvest_date)
-        return iter(())
+        yield from ()
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
 
     dimensions.harvest()
 
-    assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
-    assert set(harvest_dates) == {None}
+    assert harvest_dates, "publications_from_orcid should be called for authors"
+    assert set(harvest_dates) == {None}, (
+        "previous harvest date should be omitted for recently created authors"
+    )
 
 
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
@@ -182,34 +172,25 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
 
     def _capture_harvest_date(orcid, harvest_date=None):
         harvest_dates.append(harvest_date)
-        return iter(())
+        yield from ()
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
 
     dimensions.harvest()
 
-    assert harvest_dates, "publications_from_orcid should be called for ORCID authors"
-    assert set(harvest_dates) == {None}
+    assert harvest_dates, (
+        "publications_from_orcid should be called with harvest_date for ORCID authors"
+    )
+    assert set(harvest_dates) == {None}, (
+        "previous harvest date should be omitted for recently updated authors"
+    )
 
 
-def test_publications_from_orcid(test_incremental_session, mock_rialto_db_name):
-    with test_incremental_session.begin() as session:
-        # Creating a previous harvest far enough back (2010) to get a large and consistent
-        # set of publications from the API.
-        session.add(
-            Harvest(
-                created_at=datetime.datetime(2010, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2010, 4, 28, 0, 0, 0),
-            )
-        )
-    previous_harvest = Harvest.get_previous()
-    if previous_harvest is not None and previous_harvest.created_at is not None:
-        previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
-    assert previous_harvest_date == "2010-04-27"
-
+def test_publications_from_orcid(mock_rialto_db_name):
     pubs = list(
         dimensions.publications_from_orcid(
-            "0000-0002-2317-1967", harvest_date=previous_harvest_date
+            "0000-0002-2317-1967",
+            harvest_date="2010-04-27",  # using the same date as the previous harvest to get a consistent set of publications
         )
     )
     assert len(pubs) == 17
@@ -376,8 +357,9 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     queried_orcids = []
 
     def _capture_orcid(orcid, harvest_date=None):
+        # keep track of ORCIDs queries but don't return any publications (so that we're only testing the author limit)
         queried_orcids.append(orcid)
-        return iter(())
+        yield from ()
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_orcid)
 

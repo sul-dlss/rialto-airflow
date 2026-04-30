@@ -1,15 +1,8 @@
 import datetime
 
-import pytest
 from sqlalchemy import inspect
 
-from rialto_airflow.schema import rialto
 from rialto_airflow.schema.rialto import Harvest
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(rialto, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 def test_create_persists_harvest(test_incremental_session, mock_rialto_db_name):

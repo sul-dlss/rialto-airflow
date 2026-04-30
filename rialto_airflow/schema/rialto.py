@@ -141,7 +141,7 @@ class Funder(RialtoSchemaBase):
     ror_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
     openalex_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
     federal: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=utcnow()
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
@@ -159,7 +159,7 @@ class Harvest(RialtoSchemaBase):
     finished_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, nullable=True
     )
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=utcnow()
     )
 

@@ -206,11 +206,6 @@ def snapshot(tmp_path):
 
 
 @pytest.fixture
-def snapshot_incremental(tmp_path):
-    return Snapshot.create(data_dir=tmp_path, database_name="rialto_incremental_test")
-
-
-@pytest.fixture
 def test_incremental_engine(monkeypatch):
     """
     This pytest fixture will ensure that the rialto_incremental_test database exists and has

@@ -36,8 +36,7 @@ def harvest(limit: None | int = None) -> None:
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         previous_harvest = Harvest.get_previous()
         previous_harvest_date = None
-        if previous_harvest is not None and previous_harvest.created_at is not None:
-            # Dimensions expects the date in YYYY-MM-DD format.
+        if previous_harvest is not None:
             previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
 
         # get all authors that have an ORCID

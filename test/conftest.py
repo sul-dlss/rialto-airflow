@@ -6,6 +6,7 @@ from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import create_schema, engine_setup
+from rialto_airflow.harvest_incremental import dimensions
 from rialto_airflow.schema.harvest import (
     HarvestSchemaBase,
     Author,
@@ -14,6 +15,7 @@ from rialto_airflow.schema.harvest import (
     pub_author_association,
 )
 from rialto_airflow.schema.reports import ReportsSchemaBase
+from rialto_airflow.schema import rialto
 from rialto_airflow.schema.rialto import RialtoSchemaBase
 from rialto_airflow.schema.rialto import Author as RialtoAuthor
 from rialto_airflow.schema.rialto import Publication as RialtoPublication
@@ -69,6 +71,12 @@ def test_session(test_engine):
         yield sessionmaker(test_engine)
     finally:
         close_all_sessions()
+
+
+@pytest.fixture
+def mock_rialto_db_name(monkeypatch):
+    monkeypatch.setattr(rialto, "RIALTO_DB_NAME", "rialto_incremental_test")
+    monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 @pytest.fixture
@@ -195,11 +203,6 @@ def mock_association(test_session, mock_publication, mock_authors):
 @pytest.fixture
 def snapshot(tmp_path):
     return Snapshot.create(data_dir=tmp_path, database_name="rialto_test")
-
-
-@pytest.fixture
-def snapshot_incremental(tmp_path):
-    return Snapshot.create(data_dir=tmp_path, database_name="rialto_incremental_test")
 
 
 @pytest.fixture

@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import pytest
@@ -7,11 +8,45 @@ import dotenv
 import dimcli
 
 from rialto_airflow.harvest_incremental import dimensions
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Author, Harvest, Publication
 
 from test.utils import num_log_record_matches
 
 dotenv.load_dotenv()
+
+
+def _assert_publication_has_two_expected_authors(pub):
+    assert len(pub.authors) == 2, "publication has two authors"
+    assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
+    assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+
+
+def _mock_dimensions_dsl_query_error(monkeypatch, error_message, status_code):
+    """Raise one retriable request error for ORCID publication queries."""
+    patched_dsl = dimensions.dsl()
+    original_query_iterative = patched_dsl.query_iterative
+
+    req_count = 0
+
+    def query_iterative_raise_sometimes_fn(*args, **kwargs):
+        nonlocal req_count
+        if "search publications where researchers.orcid_id = " not in args[0]:
+            return original_query_iterative(*args, **kwargs)
+
+        req_count += 1
+        if req_count > 1:
+            return original_query_iterative(*args, **kwargs)
+
+        exception = dimensions.requests.exceptions.RequestException(error_message)
+        response = requests.Response()
+        response.status_code = status_code
+        exception.response = response
+        raise exception
+
+    monkeypatch.setattr(
+        patched_dsl, "query_iterative", query_iterative_raise_sometimes_fn
+    )
+    monkeypatch.setattr(dimensions, "dsl", lambda: patched_dsl)
 
 
 def test_publications_from_dois():
@@ -35,115 +70,167 @@ def test_publication_fields():
     assert "book" in fields
 
 
-def test_publications_from_orcid():
-    pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
-    assert len(pubs) == 17
-    assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
-
-
-@pytest.fixture
-def mock_dimensions_dsl_query_error(monkeypatch):
-    """
-    Mock our function for fetching publications by orcid from Dimensions
-    such that the first call results in a retriable error.
-    """
-
-    patched_dsl = dimensions.dsl()  # Dimensions dimcli.Dsl instance lets you query
-    original_query_iterative = (
-        patched_dsl.query_iterative
-    )  # a ref to the real query_iterative function
-
-    # for the first call to query_iterative that does an orcid query on publications,
-    # raise a request exception.  for the rest, just call the real query function.
-    req_count = 0
-
-    def query_iterative_raise_sometimes_fn(*args, **kwargs):
-        nonlocal req_count
-        if "search publications where researchers.orcid_id = " not in args[0]:
-            return original_query_iterative(*args, **kwargs)
-
-        req_count += 1
-        if req_count > 1:
-            return original_query_iterative(*args, **kwargs)
-        else:
-            exception = dimensions.requests.exceptions.RequestException(
-                "transient error"
+def test_harvest_passes_previous_harvest_date_to_orcid_query(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
             )
-            response = requests.Response()
-            response.status_code = 429
-            exception.response = response
-            raise exception
+        )
+        # Make sure Authors are similar to those loaded in production, with created_at dates.
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: None,
+            }
+        )
 
-    monkeypatch.setattr(
-        patched_dsl, "query_iterative", query_iterative_raise_sometimes_fn
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed to publications_from_orcid so that we can assert on it later
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
+
+    dimensions.harvest()
+
+    assert harvest_dates, (
+        "publications_from_orcid is passed the recent finished harvest date"
     )
-    monkeypatch.setattr(
-        dimensions, "dsl", lambda: patched_dsl
-    )  # wrapped in a lambda because dimensions.dsl is a fn that returns a dimcli.Dsl instance
+    assert set(harvest_dates) == {"2026-04-27"}, (
+        "formatted previous harvest date passed to publications_from_orcid"
+    )
 
 
-def test_query_with_retry(mock_dimensions_dsl_query_error, caplog):
-    pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
+def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+                Author.updated_at: None,
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed
+        # don't return results since we're just testing the harvest_date logic.
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
+
+    dimensions.harvest()
+
+    assert harvest_dates, "publications_from_orcid should be called for authors"
+    assert set(harvest_dates) == {None}, (
+        "previous harvest date should be omitted for recently created authors"
+    )
+
+
+def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
+
+    dimensions.harvest()
+
+    assert harvest_dates, (
+        "publications_from_orcid should be called with harvest_date for ORCID authors"
+    )
+    assert set(harvest_dates) == {None}, (
+        "previous harvest date should be omitted for recently updated authors"
+    )
+
+
+def test_publications_from_orcid(mock_rialto_db_name):
+    pubs = list(
+        dimensions.publications_from_orcid(
+            "0000-0002-2317-1967",
+            harvest_date="2010-04-27",  # using the same date as the previous harvest to get a consistent set of publications
+        )
+    )
     assert len(pubs) == 17
     assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
+
+
+def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
+    test_incremental_session, mock_rialto_db_name, monkeypatch
+):
+    queries = []
+
+    def mock_query_with_retry(query, retry=5):
+        queries.append(query)
+        return {"publications": []}
+
+    monkeypatch.setattr(dimensions, "query_with_retry", mock_query_with_retry)
+    list(dimensions.publications_from_orcid("0000-0002-2317-1967", harvest_date=None))
+
+    assert "date_inserted >=" not in queries[0]
+
+
+@pytest.mark.parametrize(
+    "error_message,status_code,expected_doi",
+    [
+        ("transient error", 429, "10.1016/j.annemergmed.2025.05.017"),
+        ("login error", 401, "10.1002/emp2.12007"),
+    ],
+)
+def test_query_with_retry_variants(
+    caplog, monkeypatch, error_message, status_code, expected_doi
+):
+    _mock_dimensions_dsl_query_error(monkeypatch, error_message, status_code)
+    pubs = list(
+        dimensions.publications_from_orcid("0000-0002-2317-1967", harvest_date=None)
+    )
+    assert expected_doi in [pub["doi"] for pub in pubs]
     assert num_log_record_matches(
         caplog.records,
         logging.WARNING,
-        "Dimensions query error retry 1 of 5: transient error",
-    )
-
-
-@pytest.fixture
-def mock_dimensions_dsl_query_login_error(monkeypatch):
-    """
-    Mock our function for fetching publications by orcid from Dimensions
-    such that the first call results in an authentication error.
-    """
-
-    patched_dsl = dimensions.dsl()  # Dimensions dimcli.Dsl instance lets you query
-    original_query_iterative = (
-        patched_dsl.query_iterative
-    )  # a ref to the real query_iterative function
-
-    # for the first call to query_iterative that does an orcid query on publications,
-    # raise a request exception. For the rest, just call the real query function.
-    req_count = 0
-
-    def query_iterative_raise_sometimes_fn(*args, **kwargs):
-        nonlocal req_count
-        if "search publications where researchers.orcid_id = " not in args[0]:
-            return original_query_iterative(*args, **kwargs)
-
-        req_count += 1
-        if req_count > 1:
-            return original_query_iterative(*args, **kwargs)
-        else:
-            exception = dimensions.requests.exceptions.RequestException("login error")
-            response = requests.Response()
-            response.status_code = 401
-            exception.response = response
-            raise exception
-
-    monkeypatch.setattr(
-        patched_dsl, "query_iterative", query_iterative_raise_sometimes_fn
-    )
-    monkeypatch.setattr(
-        dimensions, "dsl", lambda: patched_dsl
-    )  # wrapped in a lambda because dimensions.dsl is a fn that returns a dimcli.Dsl instance
-
-
-def test_query_with_login_retry(mock_dimensions_dsl_query_login_error, caplog):
-    pubs = list(dimensions.publications_from_orcid("0000-0002-2317-1967"))
-    assert "10.1002/emp2.12007" in [pub["doi"] for pub in pubs]
-    assert num_log_record_matches(
-        caplog.records,
-        logging.WARNING,
-        "Dimensions query error retry 1 of 5: login error",
+        f"Dimensions query error retry 1 of 5: {error_message}",
     )
 
 
@@ -179,10 +266,10 @@ def test_harvest(
 
         pub = session.query(Publication).first()
         assert pub.doi == "10.1515/9781503624153", "doi was normalized"
-
-        assert len(pub.authors) == 2, "publication has two authors"
-        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
-        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+        assert isinstance(pub.dim_harvested, datetime.datetime), (
+            "harvest timestamp is a datetime"
+        )
+        _assert_publication_has_two_expected_authors(pub)
 
 
 def test_harvest_when_doi_exists(
@@ -204,10 +291,10 @@ def test_harvest_when_doi_exists(
         assert pub.dim_json["title"] == "An example title", "dimensions json updated"
         assert pub.sulpub_json == {"sulpub": "data"}, "sulpub data the same"
         assert pub.openalex_json is None
-
-        assert len(pub.authors) == 2, "publication has two authors"
-        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
-        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+        assert isinstance(pub.dim_harvested, datetime.datetime), (
+            "harvest timestamp is a datetime"
+        )
+        _assert_publication_has_two_expected_authors(pub)
 
 
 def test_harvest_when_pub_author_association_exists(
@@ -230,10 +317,7 @@ def test_harvest_when_pub_author_association_exists(
         assert pub.dim_json["title"] == "An example title", "dimensions json updated"
         assert pub.wos_json == {"wos": "data"}, "wos data the same"
         assert pub.pubmed_json is None
-
-        assert len(pub.authors) == 2, "publication has two authors"
-        assert pub.authors[0].orcid == "https://orcid.org/0000-0000-0000-0001"
-        assert pub.authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
+        _assert_publication_has_two_expected_authors(pub)
 
 
 @pytest.fixture
@@ -261,7 +345,29 @@ def test_log_message(
 ):
     caplog.set_level(logging.INFO)
     dimensions.harvest(limit=50)
-    assert "Reached limit of 50 publications stopping" in caplog.text
+    assert "Reached limit of 50 publications or authors, stopping" in caplog.text
+
+
+def test_harvest_stops_when_author_limit_is_exceeded(
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
+    queried_orcids = []
+
+    def _capture_orcid(orcid, harvest_date=None):
+        # keep track of ORCIDs queries but don't return any publications (so that we're only testing the author limit)
+        queried_orcids.append(orcid)
+        yield from ()
+
+    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_orcid)
+
+    caplog.set_level(logging.INFO)
+    dimensions.harvest(limit=1)
+
+    assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
+    assert "Reached limit of 1 publications or authors, stopping" in caplog.text
 
 
 @pytest.fixture

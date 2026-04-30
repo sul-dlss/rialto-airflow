@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import time
@@ -10,12 +11,13 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
+    Harvest,
     Author,
     Publication,
     pub_author_association,
+    RIALTO_DB_NAME,
 )
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 from rialto_airflow.utils import (
     normalize_doi,
     normalize_orcid,
@@ -27,21 +29,47 @@ def harvest(limit: None | int = None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        previous_harvest = Harvest.get_previous()
+        previous_harvest_date = None
+        if previous_harvest is not None:
+            previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
+
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
         ):
+            author_count += 1
+            if limit is not None and author_count > limit:
+                stop = True
+
             if stop is True:
-                logging.warning(f"Reached limit of {limit} publications stopping")
+                logging.warning(
+                    f"Reached limit of {limit} publications or authors, stopping"
+                )
                 break
 
-            for dimensions_pub_json in publications_from_orcid(author.orcid):
-                count += 1
-                if limit is not None and count > limit:
+            # if the author was created or updated after the last harvest (e.g. adding an ORCID),
+            # we want to get all their publications, not just ones since the last harvest timestamp.
+            if previous_harvest is not None:
+                # TODO: remove the created_at check once updated_at gets populated upon create
+                if author.created_at >= previous_harvest.created_at:
+                    previous_harvest_date = None
+                elif (
+                    author.updated_at is not None
+                    and author.updated_at >= previous_harvest.created_at
+                ):
+                    previous_harvest_date = None
+
+            for dimensions_pub_json in publications_from_orcid(
+                author.orcid, harvest_date=previous_harvest_date
+            ):
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 
@@ -52,6 +80,7 @@ def harvest(limit: None | int = None) -> None:
                     else None
                 )
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
                     # if there's a DOI constraint violation, update the existing row's JSON
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -59,11 +88,14 @@ def harvest(limit: None | int = None) -> None:
                             doi=doi,
                             dim_json=dimensions_pub_json,
                             pubmed_id=pubmed_id,
+                            dim_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
                             set_=dict(
-                                dim_json=dimensions_pub_json, pubmed_id=pubmed_id
+                                dim_json=dimensions_pub_json,
+                                pubmed_id=pubmed_id,
+                                dim_harvested=harvested_at,
                             ),
                         )
                         .returning(Publication.id)
@@ -97,18 +129,18 @@ def publications_from_dois(dois: list, batch_size=200):
             yield normalize_publication(pub)
 
 
-def publications_from_orcid(orcid: str, batch_size=200):
+def publications_from_orcid(orcid: str, batch_size=200, harvest_date=None):
     """
-    Get the publications metadata for a given ORCID.
+    Get the publications metadata for a given ORCID, for records created (inserted) since the last harvest.
     """
     orcid = normalize_orcid(orcid)
     logging.debug(f"looking up publications for orcid {orcid}")
     fields = " + ".join(publication_fields())
+    date_limit = f' and date_inserted >= "{harvest_date}"' if harvest_date else ""
     q = f"""
-        search publications where researchers.orcid_id = "{orcid}"
+        search publications where researchers.orcid_id = "{orcid}"{date_limit}
         return publications[{fields}]
         """
-
     result = query_with_retry(q, retry=5)
     for pub in result["publications"]:
         yield normalize_publication(pub)
@@ -272,7 +304,10 @@ def fill_in():
                     update_stmt = (
                         update(Publication)
                         .where(Publication.doi == doi)
-                        .values(dim_json=dimensions_pub, pubmed_id=pubmed_id)
+                        .values(
+                            dim_json=dimensions_pub,
+                            pubmed_id=pubmed_id,
+                        )
                     )
                     update_session.execute(update_stmt)
 

@@ -75,7 +75,7 @@ class Publication(RialtoSchemaBase):
         DateTime, server_default=utcnow()
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, onupdate=utcnow()
+        DateTime, default=utcnow(), onupdate=utcnow()
     )
     types: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
     publisher: Mapped[Optional[str]] = mapped_column(String)
@@ -125,7 +125,7 @@ class Author(RialtoSchemaBase):
         DateTime, server_default=utcnow()
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, onupdate=utcnow()
+        DateTime, default=utcnow(), onupdate=utcnow()
     )
     publications: Mapped[List["Publication"]] = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"

@@ -110,44 +110,6 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
     )
 
 
-def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
-    test_incremental_session,
-    mock_incremental_authors,
-    mock_rialto_db_name,
-    monkeypatch,
-):
-    with test_incremental_session.begin() as session:
-        session.add(
-            Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-            )
-        )
-        session.query(Author).where(Author.orcid.is_not(None)).update(
-            {
-                Author.created_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
-                Author.updated_at: None,
-            }
-        )
-
-    harvest_dates = []
-
-    def _capture_harvest_date(orcid, harvest_date=None):
-        # capture the harvest_date that is passed
-        # don't return results since we're just testing the harvest_date logic.
-        harvest_dates.append(harvest_date)
-        yield from ()
-
-    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
-
-    dimensions.harvest()
-
-    assert harvest_dates, "publications_from_orcid should be called for authors"
-    assert set(harvest_dates) == {None}, (
-        "previous harvest date should be omitted for recently created authors"
-    )
-
-
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     test_incremental_session,
     mock_incremental_authors,

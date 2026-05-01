@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import datetime
 from itertools import batched
 from time import sleep
 
@@ -17,6 +18,7 @@ from rialto_airflow.schema.rialto import (
     Publication,
     pub_author_association,
     RIALTO_DB_NAME,
+    Harvest,
 )
 from rialto_airflow.utils import (
     normalize_doi,
@@ -31,21 +33,44 @@ def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        previous_harvest = Harvest.get_previous()
+        previous_harvest_date = None
+        if previous_harvest is not None:
+            previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
+            logging.info(
+                f"previous harvest found with created_at {previous_harvest.created_at}, so only harvesting publications modified since {previous_harvest_date}"
+            )
+
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
         ):
+            author_count += 1
+            if limit is not None and author_count > limit:
+                stop = True
+
             if stop is True:
-                logging.warning(f"Reached limit of {limit} publications stopping")
+                logging.warning(
+                    f"Reached limit of {limit} publications or authors, stopping"
+                )
                 break
 
-            for wos_pub in orcid_publications(author.orcid):
-                count += 1
-                if limit is not None and count > limit:
+            # if the author was created or updated (e.g. adding an ORCID) after the last harvest,
+            # we want to get all their publications, not just ones since the last harvest timestamp.
+            if previous_harvest is not None:
+                if author.updated_at >= previous_harvest.created_at:
+                    previous_harvest_date = None
+
+            for wos_pub in orcid_publications(
+                author.orcid, harvest_date=previous_harvest_date
+            ):
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 
@@ -54,6 +79,7 @@ def harvest(limit=None) -> None:
                 pubmed_id = get_pmid(wos_pub)
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -62,11 +88,15 @@ def harvest(limit=None) -> None:
                             wos_json=wos_pub,
                             wos_id=wos_id,
                             pubmed_id=pubmed_id,
+                            wos_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
                             set_=dict(
-                                wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
+                                wos_json=wos_pub,
+                                wos_id=wos_id,
+                                pubmed_id=pubmed_id,
+                                wos_harvested=harvested_at,
                             ),
                         )
                         .returning(Publication.id)
@@ -117,15 +147,20 @@ def fill_in():
     logging.info(f"filled in {count} publications")
 
 
-def orcid_publications(orcid) -> Generator[dict, None, None]:
+def orcid_publications(orcid, harvest_date=None) -> Generator[dict, None, None]:
     """
-    A generator that returns publications associated with a given ORCID.
+    A generator that returns new or updated publications associated with a given ORCID, taking the last harvest date into account.
     """
     # WoS doesn't recognize ORCID URIs which are stored in User table
     if m := re.match(r"^https?://orcid.org/(.+)$", orcid):
         orcid = m.group(1)
 
-    yield from _wos_api(f"AI={orcid}")
+    # construct a date range if this query is limited to pubs since the last harvest
+    # date range should be in the format YYYY-MM-DD+YYYY-MM-DD
+    current_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+    time_span = f"{harvest_date}+{current_date}" if harvest_date else None
+    query = f"AI={orcid}&modifiedTimeSpan={time_span}" if time_span else f"AI={orcid}"
+    yield from _wos_api(query)
 
 
 def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:

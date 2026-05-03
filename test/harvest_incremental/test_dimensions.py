@@ -110,44 +110,6 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
     )
 
 
-def test_harvest_omits_previous_harvest_date_for_recently_created_authors(
-    test_incremental_session,
-    mock_incremental_authors,
-    mock_rialto_db_name,
-    monkeypatch,
-):
-    with test_incremental_session.begin() as session:
-        session.add(
-            Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-            )
-        )
-        session.query(Author).where(Author.orcid.is_not(None)).update(
-            {
-                Author.created_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
-                Author.updated_at: None,
-            }
-        )
-
-    harvest_dates = []
-
-    def _capture_harvest_date(orcid, harvest_date=None):
-        # capture the harvest_date that is passed
-        # don't return results since we're just testing the harvest_date logic.
-        harvest_dates.append(harvest_date)
-        yield from ()
-
-    monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
-
-    dimensions.harvest()
-
-    assert harvest_dates, "publications_from_orcid should be called for authors"
-    assert set(harvest_dates) == {None}, (
-        "previous harvest date should be omitted for recently created authors"
-    )
-
-
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     test_incremental_session,
     mock_incremental_authors,
@@ -157,14 +119,24 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     with test_incremental_session.begin() as session:
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                created_at=datetime.datetime(2026, 4, 25, 16, 38, 10),
                 finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
             )
         )
-        session.query(Author).where(Author.orcid.is_not(None)).update(
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0001"
+        ).update(
             {
-                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.created_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
                 Author.updated_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+            }
+        )
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0002"
+        ).update(
+            {
+                Author.created_at: datetime.datetime(2025, 1, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
             }
         )
 
@@ -181,8 +153,9 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     assert harvest_dates, (
         "publications_from_orcid should be called with harvest_date for ORCID authors"
     )
-    assert set(harvest_dates) == {None}, (
-        "previous harvest date should be omitted for recently updated authors"
+    assert len(harvest_dates) == 2, "two ORCID authors should be harvested"
+    assert harvest_dates == [None, "2026-04-25"], (
+        "recently updated author should omit previous harvest date while older updated author should keep it"
     )
 
 

@@ -55,18 +55,16 @@ def harvest(limit: None | int = None) -> None:
 
             # if the author was created or updated after the last harvest (e.g. adding an ORCID),
             # we want to get all their publications, not just ones since the last harvest timestamp.
+            author_harvest_date = previous_harvest_date
             if previous_harvest is not None:
-                # TODO: remove the created_at check once updated_at gets populated upon create
-                if author.created_at >= previous_harvest.created_at:
-                    previous_harvest_date = None
-                elif (
+                if (
                     author.updated_at is not None
                     and author.updated_at >= previous_harvest.created_at
                 ):
-                    previous_harvest_date = None
+                    author_harvest_date = None
 
             for dimensions_pub_json in publications_from_orcid(
-                author.orcid, harvest_date=previous_harvest_date
+                author.orcid, harvest_date=author_harvest_date
             ):
                 pub_count += 1
                 if limit is not None and pub_count > limit:

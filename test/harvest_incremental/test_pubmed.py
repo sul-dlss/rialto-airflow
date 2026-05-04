@@ -739,3 +739,69 @@ def test_too_many_chunked_encoding_errors(requests_mock, caplog):
         "too many retries: <class 'requests.exceptions.ChunkedEncodingError'>"
         in caplog.text
     )
+
+
+def test_pubmed_search_json_decode_error_retries_and_fails(requests_mock, caplog):
+    """
+    Test that _pubmed_search_api catches JSONDecodeError, retries, logs the response text, and returns an empty list.
+    """
+    caplog.set_level(logging.WARNING)
+
+    # Simulate a response that is not valid JSON
+    bad_json_text = (
+        '{"esearchresult": {"count": "1", "idlist": ["123"]}, "invalid": \x01}'
+    )
+
+    requests_mock.get(
+        re.compile(".*"),
+        text=bad_json_text,
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    # We'll use a small number of retries for the test to be fast
+    result = pubmed._pubmed_search_api("some_query", retries=2)
+
+    assert result == []
+    assert "Failed to decode JSON response from PubMed, retrying" in caplog.text
+    assert "Failed to decode JSON response from PubMed after retries" in caplog.text
+    assert "Response text: " + bad_json_text in caplog.text
+
+    # Check that it retried twice (total 3 attempts: initial + 2 retries)
+    assert (
+        caplog.text.count("Failed to decode JSON response from PubMed, retrying") == 2
+    )
+
+
+def test_pubmed_search_json_decode_error_recovers_on_retry(requests_mock, caplog):
+    """
+    Test that _pubmed_search_api catches JSONDecodeError, retries, and succeeds if the next response is valid.
+    """
+    caplog.set_level(logging.WARNING)
+
+    bad_json_text = (
+        '{"esearchresult": {"count": "1", "idlist": ["123"]}, "invalid": \x01}'
+    )
+    good_json = {"esearchresult": {"count": "1", "idlist": ["123"]}}
+
+    requests_mock.get(
+        re.compile(".*"),
+        [
+            {
+                "text": bad_json_text,
+                "status_code": 200,
+                "headers": {"Content-Type": "application/json"},
+            },
+            {
+                "json": good_json,
+                "status_code": 200,
+                "headers": {"Content-Type": "application/json"},
+            },
+        ],
+    )
+
+    result = pubmed._pubmed_search_api("some_query", retries=2)
+
+    assert result == ["123"]
+    assert "Failed to decode JSON response from PubMed, retrying" in caplog.text
+    assert "Failed to decode JSON response from PubMed after retries" not in caplog.text

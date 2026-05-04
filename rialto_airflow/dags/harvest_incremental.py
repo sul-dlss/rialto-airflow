@@ -14,6 +14,7 @@ from rialto_airflow.harvest_incremental import (
     sul_pub,
     wos,
     pubmed,
+    altmetric,
     distill,
     deduplicate,
 )
@@ -144,6 +145,13 @@ def harvest_incremental():
         """
         crossref.fill_in()
 
+    @task()
+    def fill_in_altmetric(snapshot):
+        """
+        Fill in Altmetric data for all DOIs.
+        """
+        altmetric.fill_in()
+
     @task_group()
     def fill_in(harvest_id):
         fill_in_openalex(harvest_id)
@@ -151,6 +159,7 @@ def harvest_incremental():
         fill_in_wos(harvest_id)
         fill_in_crossref(harvest_id)
         fill_in_pubmed(harvest_id)
+        fill_in_altmetric(harvest_id)
 
     @task()
     def remove_duplicates(harvest_id):

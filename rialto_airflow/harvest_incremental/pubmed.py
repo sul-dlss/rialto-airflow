@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -233,7 +234,7 @@ def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]
         return pubs
 
 
-def _pubmed_search_api(query) -> list:
+def _pubmed_search_api(query, retries=10) -> list:
     """
     Return a list of pmids given a general search query.
     """
@@ -243,7 +244,22 @@ def _pubmed_search_api(query) -> list:
 
     response = http.get(SEARCH_URL, params=params, headers=HEADERS)
     response.raise_for_status()
-    results = response.json()
+
+    try:
+        results = response.json()
+    except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as e:
+        if retries > 0:
+            logging.warning(
+                f"Failed to decode JSON response from PubMed, retrying: {e}"
+            )
+            time.sleep(1)
+            return _pubmed_search_api(query, retries=retries - 1)
+        else:
+            logging.error(
+                f"Failed to decode JSON response from PubMed after retries: {e}"
+            )
+            logging.error(f"Response text: {response.text}")
+            return []
 
     if "error" in results:
         logging.error(f"Error in results found for {query}: {results['error']}")

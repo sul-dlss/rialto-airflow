@@ -33,7 +33,7 @@ def openalex_json():
         "title": "On the dangers of stochastic parrots (openalex)",
         "publication_year": 2022,
         "open_access": {"oa_status": "gold"},
-        "type": "preprint",
+        "type": "article",
         "abstract_inverted_index": {
             "This": [0],
             "is": [1, 5],

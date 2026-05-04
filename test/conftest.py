@@ -6,7 +6,7 @@ from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow.database import create_schema, engine_setup
-from rialto_airflow.harvest_incremental import dimensions
+from rialto_airflow.harvest_incremental import dimensions, sul_pub
 from rialto_airflow.schema.harvest import (
     HarvestSchemaBase,
     Author,
@@ -77,6 +77,7 @@ def test_session(test_engine):
 def mock_rialto_db_name(monkeypatch):
     monkeypatch.setattr(rialto, "RIALTO_DB_NAME", "rialto_incremental_test")
     monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
+    monkeypatch.setattr(sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 @pytest.fixture
@@ -231,13 +232,12 @@ def test_incremental_engine(monkeypatch):
 
 
 @pytest.fixture
-def test_incremental_session(test_incremental_engine, monkeypatch):
+def test_incremental_session(test_incremental_engine):
     """
     Returns a sqlalchemy session for the test database.
     """
-    # monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
     try:
-        yield sessionmaker(engine_setup("rialto_incremental_test", echo=True))
+        yield sessionmaker(test_incremental_engine)
     finally:
         close_all_sessions()
 

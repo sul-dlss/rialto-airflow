@@ -1,26 +1,11 @@
-import os
 import logging
 
-import dotenv
-import pytest
+import datetime
 
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Harvest, Publication
 from rialto_airflow.harvest_incremental import sul_pub
 
 from test.utils import num_log_record_matches
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test")
-
-
-dotenv.load_dotenv()
-
-sul_pub_host = os.environ.get("AIRFLOW_VAR_SUL_PUB_HOST")
-sul_pub_key = os.environ.get("AIRFLOW_VAR_SUL_PUB_KEY")
-
-no_auth = not (sul_pub_host and sul_pub_key)
 
 
 response = {
@@ -71,7 +56,7 @@ def test_harvest(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest(sul_pub_host, sul_pub_key)
+    sul_pub.harvest("example.org", "fake-key")
 
     # make sure there are publications in the database
     with test_incremental_session.begin() as session:
@@ -100,6 +85,66 @@ def test_harvest(
         )
 
 
+def test_harvest_with_previous_harvest(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+    caplog,
+):
+    caplog.set_level(logging.DEBUG)
+
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(host, key, per_page=1000, limit=None, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        return []
+
+    monkeypatch.setattr(sul_pub, "publications", _capture_harvest_date)
+
+    # harvest from sulpub
+    sul_pub.harvest("example.org", "fake-key")
+
+    assert "2026-04-27" in harvest_dates
+
+
+def test_harvest_date(requests_mock):
+    """
+    Ensure that the harvest date is making it into sul_pub API query parameter.
+    """
+    now = datetime.date.today()
+    last_week = now - datetime.timedelta(days=7)
+    harvest_date = last_week.strftime("%Y-%m-%d")
+
+    requests_mock.get(f"/publications.json?changedSince={harvest_date}", json=response)
+    requests_mock.get(
+        f"/publications.json?changedSince={harvest_date}&page=2", json={"records": []}
+    )
+
+    assert (
+        len(
+            list(
+                sul_pub.publications(
+                    "example.org",
+                    "fake-key",
+                    per_page=1000,
+                    limit=None,
+                    harvest_date=harvest_date,
+                )
+            )
+        )
+        == 3
+    )
+
+
 def test_harvest_limit(
     test_incremental_session,
     mock_incremental_authors,
@@ -117,7 +162,7 @@ def test_harvest_limit(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub with a limit of one publication
-    sul_pub.harvest(sul_pub_host, sul_pub_key, limit=1)
+    sul_pub.harvest("example.org", "fake-key", limit=1)
 
     # make sure a publication is in the database and linked to the authors
     with test_incremental_session.begin() as session:
@@ -152,7 +197,7 @@ def test_harvest_when_doi_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest(sul_pub_host, sul_pub_key)
+    sul_pub.harvest("example.org", "fake-key")
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -183,7 +228,7 @@ def test_harvest_when_author_exists(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest(sul_pub_host, sul_pub_key)
+    sul_pub.harvest("example.org", "fake-key")
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:

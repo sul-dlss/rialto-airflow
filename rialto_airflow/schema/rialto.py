@@ -44,7 +44,11 @@ pub_author_association = Table(
 pub_funder_association = Table(
     "pub_funder_association",
     RialtoSchemaBase.metadata,
-    Column("publication_id", ForeignKey("publication.id"), primary_key=True),
+    Column(
+        "publication_id",
+        ForeignKey("publication.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
     Column("funder_id", ForeignKey("funder.id"), primary_key=True),
 )
 

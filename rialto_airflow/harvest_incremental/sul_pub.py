@@ -8,6 +8,7 @@ from urllib3.util import Retry
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
+    Harvest,
     Author,
     Publication,
     pub_author_association,
@@ -17,7 +18,16 @@ from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
 
 def harvest(host, key, per_page=1000, limit=None):
-    for sulpub_pub in publications(host, key, per_page, limit):
+
+    # look for a previous harvest to use
+    prev_harvest = Harvest.get_previous()
+    prev_harvest_date = (
+        prev_harvest.created_at.strftime("%Y-%m-%d")
+        if prev_harvest is not None
+        else None
+    )
+
+    for sulpub_pub in publications(host, key, per_page, limit, prev_harvest_date):
         with get_session(RIALTO_DB_NAME).begin() as session:
             doi = extract_doi(sulpub_pub)
 
@@ -68,11 +78,14 @@ def harvest(host, key, per_page=1000, limit=None):
                 )
 
 
-def publications(host, key, per_page=1000, limit=None):
+def publications(host, key, per_page=1000, limit=None, harvest_date=None):
     url = f"https://{host}/publications.json"
 
     http_headers = {"CAPKEY": key}
     params = {"per": per_page}
+
+    if harvest_date is not None:
+        params["changedSince"] = harvest_date
 
     page = 0
     record_count = 0

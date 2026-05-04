@@ -6,11 +6,6 @@ from rialto_airflow.harvest_incremental import deduplicate
 
 
 @pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(deduplicate, "RIALTO_DB_NAME", "rialto_incremental_test")
-
-
-@pytest.fixture
 def dataset(
     test_incremental_session,
     dim_json,

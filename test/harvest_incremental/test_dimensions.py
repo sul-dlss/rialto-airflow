@@ -1,18 +1,14 @@
 import datetime
 import logging
 import os
+
+import dimcli
 import pytest
 import requests
 
-import dotenv
-import dimcli
-
 from rialto_airflow.harvest_incremental import dimensions
 from rialto_airflow.schema.rialto import Author, Harvest, Publication
-
 from test.utils import num_log_record_matches
-
-dotenv.load_dotenv()
 
 
 def _assert_publication_has_two_expected_authors(pub):

@@ -5,26 +5,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
+from rialto_airflow import harvest_incremental
 from rialto_airflow.database import create_schema, engine_setup
-from rialto_airflow.harvest_incremental import dimensions, sul_pub
-from rialto_airflow.schema.harvest import (
-    HarvestSchemaBase,
-    Author,
-    Funder,
-    Publication,
-    pub_author_association,
-)
-from rialto_airflow.schema.reports import ReportsSchemaBase
-from rialto_airflow.schema import rialto
-from rialto_airflow.schema.rialto import RialtoSchemaBase
-from rialto_airflow.schema.rialto import Author as RialtoAuthor
-from rialto_airflow.schema.rialto import Publication as RialtoPublication
-from rialto_airflow.schema.rialto import (
-    pub_author_association as rialto_pub_author_association,
-)
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
-
+from rialto_airflow.schema import harvest as harvest_schema
+from rialto_airflow.schema import rialto as rialto_schema
+from rialto_airflow.schema import reports as reports_schema
+from rialto_airflow.snapshot import Snapshot
 
 dotenv.load_dotenv()
 
@@ -48,7 +35,7 @@ def test_engine(monkeypatch):
     create_database(db_uri)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
-    create_schema(db_name, HarvestSchemaBase)
+    create_schema(db_name, harvest_schema.HarvestSchemaBase)
 
     # it's handy seeing SQL statements in the log when testing
     return engine_setup(db_name, echo=True)
@@ -75,9 +62,36 @@ def test_session(test_engine):
 
 @pytest.fixture
 def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(rialto, "RIALTO_DB_NAME", "rialto_incremental_test")
-    monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
-    monkeypatch.setattr(sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test")
+    # TODO: hopefully these can go away once incremental harvesting replaces the
+    # full snapshot harvesting, and we don't need to juggle the databases
+    monkeypatch.setattr(rialto_schema, "RIALTO_DB_NAME", "rialto_incremental_test")
+    monkeypatch.setattr(
+        harvest_incremental.dimensions, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.authors, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.crossref, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.deduplicate, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.distill, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.openalex, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.pubmed, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
+    monkeypatch.setattr(
+        harvest_incremental.wos, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
 
 
 @pytest.fixture
@@ -85,7 +99,7 @@ def mock_authors(test_session):
     with test_session.begin() as session:
         session.bulk_save_objects(
             [
-                Author(
+                harvest_schema.Author(
                     sunet="janes",
                     cap_profile_id="12345",
                     orcid="https://orcid.org/0000-0000-0000-0001",
@@ -93,7 +107,7 @@ def mock_authors(test_session):
                     last_name="Stanford",
                     status=True,
                 ),
-                Author(
+                harvest_schema.Author(
                     sunet="lelands",
                     cap_profile_id="123456",
                     orcid="https://orcid.org/0000-0000-0000-0002",
@@ -103,7 +117,7 @@ def mock_authors(test_session):
                 ),
                 # this user intentionally lacks an ORCID to help test code that
                 # ignores harvesting for users that lack an ORCID
-                Author(
+                harvest_schema.Author(
                     sunet="lelelandjr",
                     cap_profile_id="1234567",
                     orcid=None,
@@ -120,7 +134,7 @@ def mock_incremental_authors(test_incremental_session):
     with test_incremental_session.begin() as session:
         session.bulk_save_objects(
             [
-                RialtoAuthor(
+                rialto_schema.Author(
                     sunet="janes",
                     cap_profile_id="12345",
                     orcid="https://orcid.org/0000-0000-0000-0001",
@@ -128,7 +142,7 @@ def mock_incremental_authors(test_incremental_session):
                     last_name="Stanford",
                     status=True,
                 ),
-                RialtoAuthor(
+                rialto_schema.Author(
                     sunet="lelands",
                     cap_profile_id="123456",
                     orcid="https://orcid.org/0000-0000-0000-0002",
@@ -138,7 +152,7 @@ def mock_incremental_authors(test_incremental_session):
                 ),
                 # this user intentionally lacks an ORCID to help test code that
                 # ignores harvesting for users that lack an ORCID
-                RialtoAuthor(
+                rialto_schema.Author(
                     sunet="lelelandjr",
                     cap_profile_id="1234567",
                     orcid=None,
@@ -153,7 +167,7 @@ def mock_incremental_authors(test_incremental_session):
 @pytest.fixture
 def mock_incremental_publication(test_incremental_session):
     with test_incremental_session.begin() as session:
-        pub = RialtoPublication(
+        pub = rialto_schema.Publication(
             doi="10.1515/9781503624153",
             sulpub_json={"sulpub": "data"},
             wos_json={"wos": "data"},
@@ -169,7 +183,7 @@ def mock_incremental_association(
 ):
     with test_incremental_session.begin() as session:
         session.execute(
-            insert(rialto_pub_author_association).values(
+            insert(rialto_schema.pub_author_association).values(
                 publication_id=1,
                 author_id=1,
             )
@@ -179,7 +193,7 @@ def mock_incremental_association(
 @pytest.fixture
 def mock_publication(test_session):
     with test_session.begin() as session:
-        pub = Publication(
+        pub = harvest_schema.Publication(
             doi="10.1515/9781503624153",
             sulpub_json={"sulpub": "data"},
             wos_json={"wos": "data"},
@@ -193,7 +207,7 @@ def mock_publication(test_session):
 def mock_association(test_session, mock_publication, mock_authors):
     with test_session.begin() as session:
         session.execute(
-            insert(pub_author_association).values(
+            insert(harvest_schema.pub_author_association).values(
                 # TODO: should the IDs be looked up in case they aren't always 1?
                 publication_id=1,
                 author_id=1,
@@ -225,7 +239,7 @@ def test_incremental_engine(monkeypatch):
     create_database(db_uri)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
-    create_schema(db_name, RialtoSchemaBase)
+    create_schema(db_name, rialto_schema.RialtoSchemaBase)
 
     # it's handy seeing SQL statements in the log when testing
     return engine_setup(db_name, echo=True)
@@ -261,7 +275,7 @@ def test_reports_engine(monkeypatch):
     create_database(db_uri)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
-    create_schema(db_name, ReportsSchemaBase)
+    create_schema(db_name, reports_schema.ReportsSchemaBase)
 
     # it's handy seeing SQL statements in the log when testing
     return engine_setup(db_name, echo=True)
@@ -562,7 +576,7 @@ def dataset(
     """
 
     with test_session.begin() as session:
-        pub = Publication(
+        pub = harvest_schema.Publication(
             doi="10.000/000001",
             title="My Life",
             apc=123,
@@ -581,7 +595,7 @@ def dataset(
             journal_name="Proceedings of the National Academy of Sciences of the United States of America",
         )
 
-        pub2 = Publication(
+        pub2 = harvest_schema.Publication(
             doi="10.000/000002",
             title="My Life Part 2",
             apc=500,
@@ -597,7 +611,7 @@ def dataset(
             faculty_authored=True,
         )
 
-        author1 = Author(
+        author1 = harvest_schema.Author(
             first_name="Jane",
             last_name="Stanford",
             sunet="janes",
@@ -614,7 +628,7 @@ def dataset(
             academic_council=True,
         )
 
-        author2 = Author(
+        author2 = harvest_schema.Author(
             first_name="Leland",
             last_name="Stanford",
             sunet="lelands",
@@ -630,7 +644,7 @@ def dataset(
             academic_council=False,
         )
 
-        author3 = Author(
+        author3 = harvest_schema.Author(
             first_name="Frederick",
             last_name="Olmstead",
             sunet="folms",
@@ -644,7 +658,7 @@ def dataset(
             academic_council=False,
         )
 
-        author4 = Author(
+        author4 = harvest_schema.Author(
             first_name="Frederick",
             last_name="Terman",
             sunet="fterm",
@@ -658,10 +672,10 @@ def dataset(
             academic_council=True,
         )
 
-        funder1 = Funder(
+        funder1 = harvest_schema.Funder(
             name="National Institutes of Health", grid_id="12345", federal=True
         )
-        funder2 = Funder(
+        funder2 = harvest_schema.Funder(
             name="Andrew Mellon Foundation", grid_id="123456", federal=False
         )
 
@@ -694,7 +708,7 @@ def dataset_incremental(
     using the rialto schema models.
     """
     with test_incremental_session.begin() as session:
-        pub = RialtoPublication(
+        pub = rialto_schema.Publication(
             doi="10.000/000001",
             title="My Life",
             apc=123,
@@ -713,7 +727,7 @@ def dataset_incremental(
             journal_name="Proceedings of the National Academy of Sciences of the United States of America",
         )
 
-        author1 = RialtoAuthor(
+        author1 = rialto_schema.Author(
             first_name="Jane",
             last_name="Stanford",
             sunet="janes",
@@ -730,7 +744,7 @@ def dataset_incremental(
             academic_council=True,
         )
 
-        author2 = RialtoAuthor(
+        author2 = rialto_schema.Author(
             first_name="Leland",
             last_name="Stanford",
             sunet="lelands",

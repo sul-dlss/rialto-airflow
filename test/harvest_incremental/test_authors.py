@@ -4,7 +4,6 @@ import logging
 import pandas
 import pytest
 
-from rialto_airflow.harvest_incremental import authors as authors_mod
 from rialto_airflow.harvest_incremental.authors import load_authors_table
 from rialto_airflow.schema.rialto import Author, Publication
 
@@ -42,11 +41,6 @@ def author(test_incremental_session):
                 status=True,
             )
         )
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(authors_mod, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 def test_author_fixture(test_incremental_session, author):

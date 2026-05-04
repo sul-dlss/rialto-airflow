@@ -10,11 +10,6 @@ from test.utils import load_jsonl_file, num_log_record_matches
 
 
 @pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(pubmed, "RIALTO_DB_NAME", "rialto_incremental_test")
-
-
-@pytest.fixture
 def mock_pubmed_fetch(monkeypatch):
     """
     Mock our function for fetching publications from a list of PMIDs from Pubmed.

@@ -1,4 +1,3 @@
-import dotenv
 import logging
 import pytest
 
@@ -8,8 +7,6 @@ from rialto_airflow.harvest_incremental import openalex
 from rialto_airflow.schema.rialto import Publication
 
 from test.utils import num_log_record_matches
-
-dotenv.load_dotenv()
 
 
 def test_orcid_publications():
@@ -25,11 +22,6 @@ def test_orcid_publications():
             break
 
     assert count == 400, "found 100 publications"
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(openalex, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 @pytest.fixture

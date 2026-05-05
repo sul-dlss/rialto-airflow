@@ -62,3 +62,27 @@ def test_no_open_alex_or_dimensions():
     )
 
     assert open_access(pub) is None
+
+
+def test_preprint_oa_status():
+    """
+    If the publication type is Preprint, open_access should return 'preprint'
+    """
+    # OpenAlex preprint
+    pub_oa = Publication(
+        openalex_json={"type": "preprint", "open_access": {"oa_status": "gold"}}
+    )
+    assert open_access(pub_oa) == "preprint"
+
+    # Dimensions preprint
+    pub_dim = Publication(
+        dim_json={"type": "preprint", "open_access": ["oa_all", "closed"]}
+    )
+    assert open_access(pub_dim) == "preprint"
+
+    # Both present, but type is preprint
+    pub_both = Publication(
+        dim_json={"type": "preprint", "open_access": ["oa_all", "green"]},
+        openalex_json={"type": "preprint", "open_access": {"oa_status": "gold"}},
+    )
+    assert open_access(pub_both) == "preprint"

@@ -1,10 +1,16 @@
 from .utils import JsonPathRule, FuncRule, first, json_path
+from .types import types
 
 
 def open_access(pub):
     """
     Get the _open_access value from openalex and then dimensions.
     """
+
+    # preprints do not actually have openaccess types; just return preprint
+    if "Preprint" in types(pub):
+        return "preprint"
+
     return first(
         pub,
         rules=[

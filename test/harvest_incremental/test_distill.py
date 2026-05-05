@@ -1,16 +1,8 @@
-import pytest
-
-from rialto_airflow.harvest_incremental import distill as distill_mod
 from rialto_airflow.harvest_incremental.distill import distill
 from rialto_airflow.schema.rialto import Publication
 
 # This simply tests that the distill function is working. For the detailed testing of distill rules see
 # the test/distill directory.
-
-
-@pytest.fixture
-def mock_rialto_db_name(monkeypatch):
-    monkeypatch.setattr(distill_mod, "RIALTO_DB_NAME", "rialto_incremental_test")
 
 
 def test_distill(

@@ -43,23 +43,6 @@ addopts = "-v --cov --cov-report=html --cov-report=term --log-level INFO --log-f
 [tool.coverage.run]
 omit = ["test/*"]
 
-[tool.mypy]
-check_untyped_defs = true # Type-checks the interior of functions without type annotations.
-
-[[tool.mypy.overrides]]
-module = [
-    "dimcli",
-    "honeybadger",
-    "pyalex",
-    "requests_oauthlib",
-    "sqlalchemy_utils",
-    "jsonpath_ng",
-    "dominate",
-    "dominate.tags",
-    "typing_extensions"
-]
-ignore_missing_imports = true
-
 [dependency-groups]
 dev = [
     "apache-airflow==3.1.8",

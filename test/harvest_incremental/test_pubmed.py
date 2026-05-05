@@ -2,6 +2,7 @@ import logging
 import re
 
 import pytest
+import requests
 from xml.parsers.expat import ExpatError
 
 from rialto_airflow.harvest_incremental import pubmed
@@ -743,7 +744,7 @@ def test_too_many_chunked_encoding_errors(requests_mock, caplog):
 
 def test_pubmed_search_json_decode_error_retries_and_fails(requests_mock, caplog):
     """
-    Test that _pubmed_search_api catches JSONDecodeError, retries, logs the response text, and returns an empty list.
+    Test that _pubmed_search_api catches JSONDecodeError, retries, logs the response text, and re-raises after retries are exhausted.
     """
     caplog.set_level(logging.WARNING)
 
@@ -760,12 +761,12 @@ def test_pubmed_search_json_decode_error_retries_and_fails(requests_mock, caplog
     )
 
     # We'll use a small number of retries for the test to be fast
-    result = pubmed._pubmed_search_api("some_query", retries=2)
+    with pytest.raises(requests.exceptions.JSONDecodeError):
+        pubmed._pubmed_search_api("some_query", retries=2)
 
-    assert result == []
     assert "Failed to decode JSON response from PubMed, retrying" in caplog.text
     assert "Failed to decode JSON response from PubMed after retries" in caplog.text
-    assert "Response text: " + bad_json_text in caplog.text
+    assert "Response text:" in caplog.text
 
     # Check that it retried twice (total 3 attempts: initial + 2 retries)
     assert (

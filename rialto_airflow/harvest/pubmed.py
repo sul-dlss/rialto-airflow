@@ -273,7 +273,7 @@ def _pubmed_search_api(query, retries=10) -> list:
                 f"Failed to decode JSON response from PubMed after retries: {e}"
             )
             logging.error(f"Response text: {response.text}")
-            return []
+            raise
 
     if "error" in results:
         logging.error(f"Error in results found for {query}: {results['error']}")

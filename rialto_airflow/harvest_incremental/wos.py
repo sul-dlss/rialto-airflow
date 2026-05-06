@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import datetime
 from itertools import batched
 from time import sleep
 
@@ -17,6 +18,7 @@ from rialto_airflow.schema.rialto import (
     Publication,
     pub_author_association,
     RIALTO_DB_NAME,
+    Harvest,
 )
 from rialto_airflow.utils import (
     normalize_doi,
@@ -31,21 +33,49 @@ def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        previous_harvest = Harvest.get_previous()
+        previous_harvest_date = None
+        if previous_harvest is not None:
+            previous_harvest_date = previous_harvest.created_at
+            logging.info(
+                f"previous harvest found, so only harvesting publications loaded since {previous_harvest_date}"
+            )
+
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
         ):
+            author_count += 1
+            if limit is not None and author_count > limit:
+                stop = True
+
             if stop is True:
-                logging.warning(f"Reached limit of {limit} publications stopping")
+                logging.warning(
+                    f"Reached limit of {limit} publications or authors, stopping"
+                )
                 break
 
-            for wos_pub in orcid_publications(author.orcid):
-                count += 1
-                if limit is not None and count > limit:
+            # if the author was created or updated (e.g. adding an ORCID) after the last harvest,
+            # we want to get all their publications, not just ones since the last harvest timestamp.
+            # create a variable that can be mutated just for this author loop.
+            author_harvest_date = previous_harvest_date
+            if previous_harvest is not None:
+                if (
+                    author.updated_at is not None
+                    and author.updated_at >= previous_harvest.created_at
+                ):
+                    author_harvest_date = None
+
+            for wos_pub in publications_from_orcid(
+                author.orcid, harvest_date=author_harvest_date
+            ):
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 
@@ -54,6 +84,7 @@ def harvest(limit=None) -> None:
                 pubmed_id = get_pmid(wos_pub)
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -62,11 +93,15 @@ def harvest(limit=None) -> None:
                             wos_json=wos_pub,
                             wos_id=wos_id,
                             pubmed_id=pubmed_id,
+                            wos_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
                             set_=dict(
-                                wos_json=wos_pub, wos_id=wos_id, pubmed_id=pubmed_id
+                                wos_json=wos_pub,
+                                wos_id=wos_id,
+                                pubmed_id=pubmed_id,
+                                wos_harvested=harvested_at,
                             ),
                         )
                         .returning(Publication.id)
@@ -117,15 +152,26 @@ def fill_in():
     logging.info(f"filled in {count} publications")
 
 
-def orcid_publications(orcid) -> Generator[dict, None, None]:
+def publications_from_orcid(orcid, harvest_date=None) -> Generator[dict, None, None]:
     """
-    A generator that returns publications associated with a given ORCID.
+    A generator that returns new or updated publications associated with a given ORCID, taking the last harvest date into account.
     """
     # WoS doesn't recognize ORCID URIs which are stored in User table
     if m := re.match(r"^https?://orcid.org/(.+)$", orcid):
         orcid = m.group(1)
 
-    yield from _wos_api(f"AI={orcid}")
+    query_params = {}
+    query_params["usrQuery"] = f"AI={orcid}"
+    if harvest_date is not None:
+        # construct a date limiter that is relative to the current date, since WOK does not allow use of the modifiedTimeSpan limiter
+        # date limiter should use the number of days since the start of the previous finished harvest + "D", e.g. "7D"
+        # Although harvest_date will have been saved as a UTC datetime, to avoid a TypeError making sure it's timezone-aware.
+        harvest_date = harvest_date.astimezone(datetime.timezone.utc)
+        current_date = datetime.datetime.now(datetime.timezone.utc)
+        number_of_days = (current_date - harvest_date).days
+        if number_of_days > 0:
+            query_params["loadTimeSpan"] = f"{number_of_days}D"
+    yield from _wos_api(query_params=query_params)
 
 
 def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
@@ -150,7 +196,9 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
     for doi_batch in batched(dois, n=50):
         try:
             yield from _wos_api(
-                f"DO=({' '.join(f'"{doi}"' for doi in doi_batch)})",
+                query_params={
+                    "usrQuery": f"DO=({' '.join(f'"{doi}"' for doi in doi_batch)})"
+                },
                 should_raise_for_status=True,
                 timeout=(6.05, 60),
             )
@@ -160,7 +208,9 @@ def publications_from_dois(dois: list[str]) -> Generator[dict, None, None]:
             )
             for doi in doi_batch:
                 try:
-                    yield from _wos_api(f'DO=("{doi}")', timeout=(6.05, 15))
+                    yield from _wos_api(
+                        query_params={"usrQuery": f'DO=("{doi}")'}, timeout=(6.05, 15)
+                    )
                 except Exception as e:
                     logging.error(
                         f'Unexpected error querying for single DOI from larger batch.  DOI="{doi}" -- error={e}'
@@ -180,14 +230,13 @@ def _wos_api_retry() -> Retry:
 
 
 def _wos_api(
-    query,
+    query_params: Params,
     should_raise_for_status: bool = False,
     timeout: int | tuple[float, float] | None = None,
 ) -> Generator[dict, None, None]:
     """
     A generator that returns publications associated a list of DOIs.
     """
-
     # For API details see: https://api.clarivate.com/swagger-ui/?apikey=none&url=https%3A%2F%2Fdeveloper.clarivate.com%2Fapis%2Fwos%2Fswagger
 
     wos_key = os.environ.get("AIRFLOW_VAR_WOS_KEY")
@@ -197,14 +246,14 @@ def _wos_api(
     # the number of records to get in each request (100 is max)
     count = 100
 
-    params: Params = {
+    api_params: Params = {
         "databaseId": "WOK",
-        "usrQuery": query,
         "count": count,
         "firstRecord": 1,
         "optionView": "SR",  # SR = Short Records, which gives us the most basic info about the publication, skipping authors, to keep
     }
 
+    params: Params = {**api_params, **query_params}
     # retry any 429 statuses and stay within rate limits
     http = requests.Session()
     http.mount("https://", HTTPAdapter(max_retries=_wos_api_retry()))
@@ -223,7 +272,7 @@ def _wos_api(
         return
 
     if results["QueryResult"]["RecordsFound"] == 0:
-        logging.debug(f"No results found for {query}")
+        logging.debug(f"No results found for {params}")
         return
 
     yield from results["Data"]["Records"]["records"]["REC"]

@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import re
@@ -6,10 +7,9 @@ import pandas
 import pytest
 import requests
 
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Publication, Author, Harvest
 from rialto_airflow.harvest_incremental import wos
 from test.utils import num_log_record_matches
-
 
 wos_key = os.environ.get("AIRFLOW_VAR_WOS_KEY")
 
@@ -44,7 +44,7 @@ def mock_wos(monkeypatch):
             },
         }
 
-    monkeypatch.setattr(wos, "orcid_publications", f)
+    monkeypatch.setattr(wos, "publications_from_orcid", f)
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def mock_many_wos(monkeypatch):
         for n in range(1, 1000):
             yield {"UID": f"mock:{n}"}
 
-    monkeypatch.setattr(wos, "orcid_publications", f)
+    monkeypatch.setattr(wos, "publications_from_orcid", f)
 
 
 @pytest.fixture
@@ -119,7 +119,7 @@ def test_orcid_publications_with_paging():
     orcid = "https://orcid.org/0000-0002-0673-5257"
 
     uids = set()
-    for pub in wos.orcid_publications(orcid):
+    for pub in wos.publications_from_orcid(orcid):
         assert pub
         assert pub["UID"] not in uids, "haven't seen publication before"
         uids.add(pub["UID"])
@@ -133,7 +133,11 @@ def test_orcid_publications_with_bad_orcid():
     This is a live test of the WoS API to ensure that a search for an invalid ORCID yields no results.
     """
     assert (
-        len(list(wos.orcid_publications("https://orcid.org/0000-0003-0784-7987-XXX")))
+        len(
+            list(
+                wos.publications_from_orcid("https://orcid.org/0000-0003-0784-7987-XXX")
+            )
+        )
         == 0
     )
 
@@ -143,6 +147,7 @@ def test_harvest(
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_wos,
+    monkeypatch,
 ):
     """
     With some authors loaded and a mocked WoS API make sure that a
@@ -195,7 +200,168 @@ def test_log_message(
 ):
     caplog.set_level(logging.INFO)
     wos.harvest(limit=50)
-    assert "Reached limit of 50 publications stopping" in caplog.text
+    assert "Reached limit of 50 publications or authors, stopping" in caplog.text
+
+
+def test_harvest_with_previous_harvest_dates(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    mock_wos,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        # Make sure Authors are similar to those loaded in production, with created_at and updated_at dates.
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed to orcid_publications so that we can assert on it later
+        # don't actually query and return any publications since we're just testing that the date is being passed in correctly
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(wos, "publications_from_orcid", _capture_harvest_date)
+    wos.harvest()
+    assert set(harvest_dates) == {datetime.datetime(2026, 4, 27, 16, 38, 10)}, (
+        "formatted previous harvest date passed to publications_from_orcid"
+    )
+
+
+def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 25, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0001"
+        ).update(
+            {
+                Author.created_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+            }
+        )
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0002"
+        ).update(
+            {
+                Author.created_at: datetime.datetime(2025, 1, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
+            }
+        )
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(wos, "publications_from_orcid", _capture_harvest_date)
+
+    wos.harvest()
+
+    assert harvest_dates, (
+        "publications_from_orcid should be called with harvest_date for ORCID authors"
+    )
+    assert harvest_dates, (
+        "publications_from_orcid should be called with harvest_date for ORCID authors"
+    )
+    assert len(harvest_dates) == 2, "two ORCID authors should be harvested"
+    assert harvest_dates == [None, datetime.datetime(2026, 4, 25, 16, 38, 10)], (
+        "recently updated author should omit previous harvest date while older updated author should keep it"
+    )
+
+
+def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
+    test_incremental_session, mock_rialto_db_name, monkeypatch
+):
+    queries = []
+
+    def mock_wos_api(query_params):
+        # catch the query so that we can assert on it later,
+        # return an empty result set since we're just testing that the date filter is omitted when there is no previous harvest.
+        queries.append(query_params)
+        return {"publications": []}
+
+    monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
+    list(wos.publications_from_orcid("0000-0002-2317-1967", harvest_date=None))
+
+    # because there is no previous harvest date, the query params should not include the loadTimeSpan filter
+    assert "loadTimeSpan" not in queries[0]
+
+
+def test_publications_from_orcid_includes_load_time_when_previous_harvest(
+    test_incremental_session, mock_rialto_db_name, monkeypatch
+):
+    queries = []
+
+    def mock_wos_api(query_params):
+        # catch the query so that we can assert on it later,
+        # return an empty result set since we're just testing that the date filter is included when there is a previous harvest.
+        queries.append(query_params)
+        yield from ()
+
+    class FixedDatetime(datetime.datetime):
+        # sets up a mock datetime class that returns a fixed current date so that we can assert on the loadTimeSpan value
+        # that is calculated based on the current date and the previous harvest date.
+        @classmethod
+        def now(cls, tz=None):
+            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+            return fixed_now.astimezone(tz)
+
+    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
+    monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
+    list(
+        wos.publications_from_orcid(
+            "0000-0002-2317-1967",
+            harvest_date=datetime.datetime(
+                2026, 4, 25, 0, 0, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+    )
+
+    assert queries[0]["loadTimeSpan"] == "6D"
+
+
+def test_harvest_stops_when_author_limit_is_exceeded(
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
+    queried_orcids = []
+
+    def _capture_orcid(orcid, harvest_date=None):
+        # keep track of queries but don't return any publications (so that we're only testing the author limit)
+        queried_orcids.append(orcid)
+        yield from ()
+
+    monkeypatch.setattr(wos, "publications_from_orcid", _capture_orcid)
+
+    caplog.set_level(logging.INFO)
+    wos.harvest(limit=1)
+
+    assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
+    assert "Reached limit of 1 publications or authors, stopping" in caplog.text
 
 
 def test_customization_error(
@@ -245,7 +411,7 @@ def test_not_found_error(
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
-        "404 Client Error: Not Found for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
+        "404 Client Error: Not Found for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK"
         in caplog.text
     )
 
@@ -272,7 +438,7 @@ def test_server_error(
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
-        "500 Server Error: Internal Server Error for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK&usrQuery=AI"
+        "500 Server Error: Internal Server Error for url: https://wos-api.clarivate.com/api/wos?databaseId=WOK"
         in caplog.text
     )
     assert " -- shrug" in caplog.text
@@ -474,7 +640,7 @@ def test_get_list_of_publications_from_dois():
 @pytest.fixture
 def mock_wos_api(monkeypatch):
     def f(*args, **kwargs):
-        query = args[0]
+        query = kwargs["query_params"]["usrQuery"]
         if "my.unretrievable" in query:
             raise requests.exceptions.HTTPError(
                 "https://wos-api.clarivate.com/api/wos?thisrequest=wontwork",

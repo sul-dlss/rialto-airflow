@@ -82,6 +82,17 @@ def test_normalize_doi():
         is None
     )
     assert utils.normalize_doi('10.1562/0031-8655(2004)"79') is None
+    assert utils.normalize_doi("10.1234") is None
+    assert utils.normalize_doi("10.1234/") is None
+    assert (
+        utils.normalize_doi("10.15/scnp00500056") is None
+    )  # two digits after 10. not allowed
+    assert (
+        utils.normalize_doi("10.153/scnp00500056") == "10.153/scnp00500056"
+    )  # legacy can have three digits after 10.
+    assert (
+        utils.normalize_doi("10.1007/s11367-016-1117-6") == "10.1007/s11367-016-1117-6"
+    )
 
 
 def test_normalize_pmid():

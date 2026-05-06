@@ -39,8 +39,9 @@ def downloads_dir(data_dir):
 def _doi_candidate_regex() -> re.Pattern:
     """
     One of the few things we can truly rely on when it comes to DOI format is that it will start with '10.'
+    and have a prefix and suffix separated by a slash. The prefix must be at least 3 characters long.
     """
-    return re.compile("10\\..+")
+    return re.compile("10\\.[^/]{3,}/.+")
 
 
 def _doi_candidate_extract(possible_doi_with_junk: str) -> str | None:
@@ -56,13 +57,12 @@ def _doi_known_format_regex_list() -> list[re.Pattern]:
     * https://www.crossref.org/blog/dois-and-matching-regular-expressions/ (via a different answer to the above question)
     """
     doi_filter_patterns = [
-        "^10\\.\\d{4,9}/[-\\._;()/:a-zA-Z0-9]+$",  # matches e.g. '10.123456789/publication.ABC.123_123-a(23).1239'
+        "^10\\.\\d{3,9}/[-\\._;()/:a-zA-Z0-9]+$",  # matches e.g. '10.123456789/publication.ABC.123_123-a(23).1239'
         "^10\\.1002/[^\\s]+$",  # matches e.g. '10.1002/abc.1542.df'
         "^10\\.\\d{4}/\\d+-\\d+X?\\(\\d+\\)\\d+<[\\d\\w]+:[\\d\\w]*>\\d+\\.\\d+\\.\\w+;\\d$",  # matches e.g. '10.8888/7654-321X(12345)12345<1a2b3c:d4e5>1.2.a;1'
         "^10\\.1021/\\w\\w\\d+$",  # matches e.g. '10.1021/a_1029384756'
         "^10\\.1207/[\\w\\d]+\\&\\d+_\\d+$",  # matches e.g. '10.1207/a12b0z&456_765'
-        "^\\b(10[\\.][0-9]{4,}(?:[\\.][0-9]+)*/(?:(?![\"&'<>])\\S)+)\\b$",  # matches e.g. '10.1016.12.31/nature.S0735-1097(98)2000/12/31/34:7-7' (SO post builds to this regex)
-        "^\\d",
+        "^\\b(10[\\.][0-9]{3,}(?:[0-9.]+)*/(?:(?![\"&'<>])\\S)+)\\b$",  # matches e.g. '10.1016.12.31/nature.S0735-1097(98)2000/12/31/34:7-7' (SO post builds to this regex)
     ]
     return [re.compile(p) for p in doi_filter_patterns]
 

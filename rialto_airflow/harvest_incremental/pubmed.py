@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -20,6 +21,7 @@ from rialto_airflow.schema.rialto import (
     Publication,
     pub_author_association,
     RIALTO_DB_NAME,
+    Harvest,
 )
 from rialto_airflow.utils import normalize_doi, normalize_pmid
 
@@ -61,8 +63,11 @@ def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them from pubmed.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
+
+    previous_harvest = Harvest.get_previous()
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID
@@ -73,14 +78,30 @@ def harvest(limit=None) -> None:
                 logging.warning(f"Reached limit of {limit} publications stopping")
                 break
 
-            pmids = pmids_from_orcid(author.orcid)
+            author_count += 1
+            if limit and author_count > limit:
+                logging.warning(f"Reached limit of {limit} authors stopping")
+                break
+
+            # if the author has had their information added or modified since the last
+            # harvest then we will want to backfill publications since we
+            # haven't collected their publications before
+
+            if (
+                previous_harvest is not None
+                and author.updated_at > previous_harvest.created_at
+            ):
+                pmids = pmids_from_orcid(author.orcid)
+            else:
+                pmids = pmids_from_orcid(author.orcid, previous_harvest)
+
             if not pmids:
                 logging.debug(f"No publications found for {author.orcid}")
                 continue
 
             for pubmed_pub in publications_from_pmids(pmids):
-                count += 1
-                if limit is not None and count > limit:
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 
@@ -88,6 +109,8 @@ def harvest(limit=None) -> None:
                 pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
+
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -95,10 +118,15 @@ def harvest(limit=None) -> None:
                             doi=doi,
                             pubmed_json=pubmed_pub,
                             pubmed_id=pubmed_id,
+                            pubmed_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
-                            set_=dict(pubmed_json=pubmed_pub, pubmed_id=pubmed_id),
+                            set_=dict(
+                                pubmed_json=pubmed_pub,
+                                pubmed_id=pubmed_id,
+                                pubmed_harvested=harvested_at,
+                            ),
                         )
                         .returning(Publication.id)
                     ).scalar_one()
@@ -162,7 +190,9 @@ def fill_in() -> None:
     logging.info(f"filled in {count} publications")
 
 
-def pmids_from_orcid(orcid: str) -> list[str]:
+def pmids_from_orcid(
+    orcid: str, previous_harvest: Optional[Harvest] = None
+) -> list[str]:
     """
     Returns PMIDs associated with a given ORCID.
     """
@@ -170,7 +200,7 @@ def pmids_from_orcid(orcid: str) -> list[str]:
     if m := re.match(r"^https?://orcid.org/(.+)$", orcid):
         orcid = m.group(1)
 
-    return _pubmed_search_api(f"{orcid}[auid]")
+    return _pubmed_search_api(f"{orcid}[auid]", previous_harvest=previous_harvest)
 
 
 # NOTE: You will get a list of PMIDs that may be shorter than the list of DOIs if not all are found
@@ -234,12 +264,20 @@ def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]
         return pubs
 
 
-def _pubmed_search_api(query, retries=10) -> list:
+def _pubmed_search_api(
+    query: str, previous_harvest: Optional[Harvest] = None, retries: int = 10
+) -> list:
     """
     Return a list of pmids given a general search query.
     """
 
     params = {**BASE_PARAMS, "retmode": "json", "term": query}
+
+    if previous_harvest:
+        params["datetype"] = "mdat"
+        params["mindate"] = previous_harvest.created_at.strftime("%Y/%m/%d")
+        params["maxdate"] = datetime.date.today().strftime("%Y/%m/%d")
+
     logging.debug(f"searching pubmed with {params}")
 
     response = http.get(SEARCH_URL, params=params, headers=HEADERS)

@@ -7,7 +7,6 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from rialto_airflow import harvest_incremental
 from rialto_airflow.database import create_schema, engine_setup
-from rialto_airflow.harvest_incremental import dimensions, wos
 from rialto_airflow.publish import publication
 from rialto_airflow.schema import harvest as harvest_schema
 from rialto_airflow.schema import rialto as rialto_schema
@@ -93,8 +92,9 @@ def mock_rialto_db_name(monkeypatch):
     monkeypatch.setattr(
         harvest_incremental.wos, "RIALTO_DB_NAME", "rialto_incremental_test"
     )
-    monkeypatch.setattr(dimensions, "RIALTO_DB_NAME", "rialto_incremental_test")
-    monkeypatch.setattr(wos, "RIALTO_DB_NAME", "rialto_incremental_test")
+    monkeypatch.setattr(
+        harvest_incremental.dimensions, "RIALTO_DB_NAME", "rialto_incremental_test"
+    )
 
 
 @pytest.fixture

@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 
@@ -6,7 +7,7 @@ import requests
 from xml.parsers.expat import ExpatError
 
 from rialto_airflow.harvest_incremental import pubmed
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Author, Harvest, Publication
 from test.utils import load_jsonl_file, num_log_record_matches
 
 
@@ -338,7 +339,94 @@ def test_harvest(
         assert pubs[0].authors[1].orcid == "https://orcid.org/0000-0000-0000-0002"
 
 
-def test_harvest_limit(
+def test_incremental_harvest(
+    test_incremental_session,
+    mock_rialto_db_name,
+    requests_mock,
+):
+    """
+    Ensure that a previous Harvest alters how pubmed IDs are fetched.
+    """
+
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.add(
+            Author(
+                first_name="Jane",
+                last_name="Stanford",
+                orcid="0000-0000-0000-0001",
+                created_at=datetime.datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime.datetime(2026, 4, 1, 0, 0, 0),
+            )
+        )
+
+    requests_mock.get(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        json={"esearchresult": {"count": 0}},
+    )
+
+    # harvest from Pubmed
+    pubmed.harvest()
+
+    assert requests_mock.called
+    assert len(requests_mock.request_history) == 1
+    req = requests_mock.request_history[0]
+    assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
+    assert req.qs["datetype"] == ["mdat"]
+    assert req.qs["mindate"] == ["2026/04/27"]
+    assert req.qs["maxdate"] == [datetime.date.today().strftime("%Y/%m/%d")]
+
+
+def test_incremental_harvest_with_new_author(
+    test_incremental_session,
+    mock_rialto_db_name,
+    requests_mock,
+):
+    """
+    Ensure that an updated Author causes a full harvest of their publications
+    independent of whether there was a previous Harvest.
+    """
+
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.add(
+            Author(
+                first_name="Jane",
+                last_name="Stanford",
+                orcid="0000-0000-0000-0001",
+                created_at=datetime.datetime(2026, 5, 1, 0, 0, 0),
+                updated_at=datetime.datetime(2026, 5, 1, 0, 0, 0),
+            )
+        )
+
+    requests_mock.get(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        json={"esearchresult": {"count": 0}},
+    )
+
+    # harvest from Pubmed
+    pubmed.harvest()
+
+    assert requests_mock.called
+    assert len(requests_mock.request_history) == 1
+    req = requests_mock.request_history[0]
+    assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
+    assert "datetype" not in req.qs
+    assert "mindate" not in req.qs
+    assert "maxdate" not in req.qs
+
+
+def test_harvest_publication_limit(
     test_incremental_session,
     mock_incremental_authors,
     mock_rialto_db_name,
@@ -373,6 +461,34 @@ def test_harvest_limit(
             )
             == 1
         )
+
+
+def test_harvest_author_limit(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    requests_mock,
+):
+    """
+    With some authors loaded and a mocked Pubmed API and an artificially low
+    harvest limit, confirm that processing stops as expected and logs appropriately.
+    """
+
+    requests_mock.get(
+        re.compile(".*"),
+        json={
+            "header": {"type": "esearch", "version": "0.3"},
+            "esearchresult": {"count": "0"},
+        },
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    # harvest from Pubmed with a limit of one publication
+    pubmed.harvest(1)
+
+    assert "Reached limit of 1 authors stopping" in caplog.text
 
 
 def test_harvest_no_pubmed_results(

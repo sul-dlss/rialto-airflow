@@ -1,3 +1,4 @@
+import datetime
 from functools import cache
 import logging
 import os
@@ -14,6 +15,7 @@ from rialto_airflow.schema.rialto import (
     Publication,
     pub_author_association,
     RIALTO_DB_NAME,
+    Harvest,
 )
 from rialto_airflow.utils import normalize_doi, normalize_pmid
 
@@ -27,21 +29,49 @@ def harvest(limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
-    count = 0
+    pub_count = 0
+    author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        previous_harvest = Harvest.get_previous()
+        previous_harvest_date = None
+        if previous_harvest is not None:
+            previous_harvest_date = previous_harvest.created_at.isoformat()
+
+        logging.debug(f"previous harvest date is {previous_harvest_date}")
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
         ):
+            author_count += 1
+            if limit is not None and author_count > limit:
+                stop = True
+
             if stop is True:
-                logging.warning(f"Reached limit of {limit} publications stopping")
+                logging.warning(
+                    f"Reached limit of {limit} publications or authors, stopping"
+                )
                 break
 
-            for openalex_pub in orcid_publications(author.orcid):
-                count += 1
-                if limit is not None and count > limit:
+            # if the author was created or updated after the last harvest (e.g. adding an ORCID),
+            # we want to get all their publications, not just ones since the last harvest timestamp.
+            author_harvest_date = previous_harvest_date
+            if previous_harvest is not None:
+                # when the author was updated after the last harvest started, get all pubs for that author.
+                if (
+                    author.updated_at is not None
+                    and author.updated_at >= previous_harvest.created_at
+                ):
+                    author_harvest_date = None
+            logging.debug(
+                f"harvesting publications for author {author.orcid} with harvest date {author_harvest_date}"
+            )
+            for openalex_pub in publications_from_orcid(
+                author.orcid, harvest_date=author_harvest_date
+            ):
+                pub_count += 1
+                if limit is not None and pub_count > limit:
                     stop = True
                     break
 
@@ -50,6 +80,7 @@ def harvest(limit=None) -> None:
                 pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
+                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -57,12 +88,14 @@ def harvest(limit=None) -> None:
                             doi=doi,
                             openalex_json=openalex_pub,
                             pubmed_id=pubmed_id,
+                            openalex_harvested=harvested_at,
                         )
                         .on_conflict_do_update(
                             constraint="publication_doi_key",
                             set_=dict(
                                 openalex_json=openalex_pub,
                                 pubmed_id=pubmed_id,
+                                openalex_harvested=harvested_at,
                             ),
                         )
                         .returning(Publication.id)
@@ -77,14 +110,15 @@ def harvest(limit=None) -> None:
                     )
 
 
-def orcid_publications(orcid: str) -> Generator[dict, None, None]:
+def publications_from_orcid(
+    orcid: str, harvest_date: str | None = None
+) -> Generator[dict, None, None]:
     """
     Pass in the ORCID ID and get an iterator for publications by that author.
     """
     # TODO: I think we can maybe have this function take a list of orcids and
     # batch process them since we can filter by multiple orcids in one request?
     logging.debug(f"looking up publications for orcid {orcid}")
-
     # get the first (and hopefully only) openalex id for the orcid
     authors = Authors().filter(orcid=orcid).get()
     if len(authors) == 0:
@@ -93,9 +127,17 @@ def orcid_publications(orcid: str) -> Generator[dict, None, None]:
         logging.warning(f"found more than one openalex author id for {orcid}")
     author_id = authors[0]["id"]
 
-    # get all the works for the openalex author id
-    for page in Works().filter(author={"id": author_id}).paginate(per_page=200):
-        yield from page
+    if harvest_date is not None:
+        for page in (
+            Works()
+            .filter(from_updated_date=harvest_date, author={"id": author_id})
+            .paginate(per_page=200)
+        ):
+            yield from page
+    else:
+        # get all the works for the openalex author id
+        for page in Works().filter(author={"id": author_id}).paginate(per_page=200):
+            yield from page
 
 
 def fill_in() -> None:

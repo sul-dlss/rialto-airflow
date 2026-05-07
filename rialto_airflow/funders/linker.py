@@ -39,6 +39,7 @@ def link_dim_publications(database_name: str) -> int:
         stmt = (
             select(Publication)
             .where(Publication.dim_json.is_not(None))
+            .where(~Publication.funders.any())
             .execution_options(yield_per=100)
         )
 
@@ -74,31 +75,32 @@ def link_openalex_publications(database_name: str) -> int:
         stmt = (
             select(Publication)
             .where(Publication.openalex_json.is_not(None))
+            .where(~Publication.funders.any())
             .execution_options(yield_per=100)
         )
 
-    for row in session.execute(stmt):
-        count += 1
-        if count % 50000 == 0:
-            logging.debug(f"processed {count} publications from OpenAlex")
+        for row in session.execute(stmt):
+            count += 1
+            if count % 50000 == 0:
+                logging.debug(f"processed {count} publications from OpenAlex")
 
-        pub = row[0]
+            pub = row[0]
 
-        funders = pub.openalex_json.get("grants", [])
-        if not funders:
-            continue
+            funders = pub.openalex_json.get("grants", [])
+            if not funders:
+                continue
 
-        with get_session(database_name).begin() as update_session:
-            for funder in funders:
-                openalex_funder_id = funder["funder"]
-                if funder_id := _find_or_create_openalex_funder(
-                    update_session, openalex_funder_id
-                ):
-                    update_session.execute(
-                        insert(pub_funder_association)
-                        .values(publication_id=pub.id, funder_id=funder_id)
-                        .on_conflict_do_nothing()
-                    )
+            with get_session(database_name).begin() as update_session:
+                for funder in funders:
+                    openalex_funder_id = funder["funder"]
+                    if funder_id := _find_or_create_openalex_funder(
+                        update_session, openalex_funder_id
+                    ):
+                        update_session.execute(
+                            insert(pub_funder_association)
+                            .values(publication_id=pub.id, funder_id=funder_id)
+                            .on_conflict_do_nothing()
+                        )
     logging.debug(f"processed {count} publications from OpenAlex")
     return count
 

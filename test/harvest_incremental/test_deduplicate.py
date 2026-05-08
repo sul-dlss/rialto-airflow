@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from rialto_airflow.schema.rialto import Author, Publication
+from rialto_airflow.schema.rialto import Author, Publication, Funder
 from rialto_airflow.harvest_incremental import deduplicate
 
 
@@ -81,8 +81,13 @@ def dataset(
             academic_council=False,
         )
 
+        funder1 = Funder(name="NSF", grid_id="grid.123")
+        funder2 = Funder(name="NIH", grid_id="grid.456")
+
         pub.authors.append(author1)
+        pub.funders.append(funder1)
         pub2.authors.append(author2)
+        pub2.funders.append(funder2)
         session.add(pub)
         session.add(pub2)
 
@@ -106,6 +111,7 @@ def test_openalex_deduplicate(
         )
         assert pubs.count() == 1, "remaining publication has the OpenAlex ID"
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
+        assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
@@ -133,6 +139,7 @@ def test_dimensions_deduplicate(
         )
         assert pubs.count() == 1, "remaining publication has the Dimensions ID"
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
+        assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
@@ -159,6 +166,7 @@ def test_pubmed_deduplicate(
             session.query(Publication).where(Publication.pubmed_id == "36857419").one()
         )
         assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        assert len(remaining_pub.funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
@@ -186,6 +194,7 @@ def test_sulpub_deduplicate(
         )
         assert pubs.count() == 1, "remaining publication has the sulpub ID"
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
+        assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
@@ -212,6 +221,7 @@ def test_wos_id_deduplicate(
             session.query(Publication).where(Publication.wos_id == "000123456789").one()
         )
         assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        assert len(remaining_pub.funders) == 2, "remaining publication has both funders"
         assert "Found 1 publications with duplicate wos_id." in caplog.text
         assert "Deleted 1 publication rows with duplicate wos_id." in caplog.text
 
@@ -234,13 +244,14 @@ def test_pubmed_id_deduplicate(
             session.query(Publication).where(Publication.pubmed_id == "36857419").one()
         )
         assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
+        assert len(remaining_pub.funders) == 2, "remaining publication has both funders"
         assert "Found 1 publications with duplicate pubmed_id." in caplog.text
         assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
 
 
 def test_merge_pubs(test_incremental_session, dataset):
     """
-    Test that merge_pubs merges authors and deletes duplicates.
+    Test that merge_pubs merges authors and funders and deletes duplicates.
     """
     with test_incremental_session.begin() as session:
         pubs = session.query(Publication).all()
@@ -252,9 +263,16 @@ def test_merge_pubs(test_incremental_session, dataset):
         assert len(remaining_pub.authors) == 2, (
             "both authors are linked to the remaining publication"
         )
+        assert len(remaining_pub.funders) == 2, (
+            "both funders are linked to the remaining publication"
+        )
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
         assert len(author2.publications) == 1, (
             "second author exists and is linked to the remaining publication"
+        )
+        funder2 = session.query(Funder).where(Funder.name == "NIH").one()
+        assert len(funder2.publications) == 1, (
+            "second funder exists and is linked to the remaining publication"
         )
 
 

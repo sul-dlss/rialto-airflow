@@ -6,6 +6,7 @@ from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
     Publication,
     pub_author_association,
+    pub_funder_association,
     RIALTO_DB_NAME,
 )
 
@@ -186,7 +187,7 @@ def remove_pubmed_id_duplicates() -> int:
 def merge_pubs(*, pubs, session) -> int:
     """
     Given a set of publications that are duplicates, merge them into one,
-    moving author relationships to the first instance and deleting the duplicates.
+    moving author and funder relationships to the first instance and deleting the duplicates.
     Returns the number of deleted publications.
     """
     count_deleted = 0
@@ -197,6 +198,14 @@ def merge_pubs(*, pubs, session) -> int:
             session.execute(
                 insert(pub_author_association)
                 .values(publication_id=main_pub, author_id=author.id)
+                .on_conflict_do_nothing()
+            )
+
+        # Move funder relationships to the first instance
+        for funder in pub.funders:
+            session.execute(
+                insert(pub_funder_association)
+                .values(publication_id=main_pub, funder_id=funder.id)
                 .on_conflict_do_nothing()
             )
 

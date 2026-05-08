@@ -6,8 +6,10 @@ import requests
 from rialto_airflow.funders import linker
 from rialto_airflow.schema.harvest import Funder as HarvestFunder
 from rialto_airflow.schema.harvest import Publication as HarvestPublication
+from rialto_airflow.schema.harvest import pub_funder_association
 from rialto_airflow.schema.rialto import Funder as RialtoFunder
 from rialto_airflow.schema.rialto import Publication as RialtoPublication
+from sqlalchemy import insert
 from test.utils import num_log_record_matches
 
 
@@ -49,7 +51,7 @@ def test_link_publications_harvest(test_session, harvest_database_name):
             )
         )
 
-    assert linker.link_publications(harvest_database_name) == 2
+    assert linker.link_publications(harvest_database_name) == 1
 
 
 def test_link_publications_incremental(
@@ -78,7 +80,7 @@ def test_link_publications_incremental(
             )
         )
 
-    assert linker.link_publications(incremental_database_name) == 2
+    assert linker.link_publications(incremental_database_name) == 1
 
 
 def test_dimensions_funders_linking_harvest(
@@ -652,7 +654,7 @@ def test_skip_openalex_lookup_harvest(test_session, harvest_database_name, monke
         raise Exception("boom")
 
     monkeypatch.setattr(linker, "Funders", explode)
-    assert linker.link_publications(harvest_database_name) == 2
+    assert linker.link_publications(harvest_database_name) == 1
 
 
 def test_skip_openalex_lookup_incremental(
@@ -692,4 +694,63 @@ def test_skip_openalex_lookup_incremental(
         raise Exception("boom")
 
     monkeypatch.setattr(linker, "Funders", explode)
-    assert linker.link_publications(incremental_database_name) == 2
+    assert linker.link_publications(incremental_database_name) == 1
+
+
+def test_link_dim_publications_skips_already_linked(
+    test_session, harvest_database_name
+):
+    with test_session.begin() as session:
+        # Create a publication with dim_json
+        pub = HarvestPublication(
+            doi="10.1234/test.dim",
+            dim_json={"funders": [{"id": "grid.123", "name": "Funder 1"}]},
+        )
+        session.add(pub)
+        session.flush()
+
+        # Create a funder and associate it
+        funder = HarvestFunder(name="Funder 1", grid_id="grid.123")
+        session.add(funder)
+        session.flush()
+
+        session.execute(
+            insert(pub_funder_association).values(
+                publication_id=pub.id, funder_id=funder.id
+            )
+        )
+
+    assert linker.link_dim_publications(harvest_database_name) == 0
+
+
+def test_link_openalex_publications_skips_already_linked(
+    test_session, harvest_database_name
+):
+    with test_session.begin() as session:
+        # Create a publication with openalex_json
+        pub = HarvestPublication(
+            doi="10.1234/test.openalex",
+            openalex_json={
+                "grants": [
+                    {
+                        "funder": "https://openalex.org/F123",
+                        "funder_display_name": "Funder 2",
+                    }
+                ]
+            },
+        )
+        session.add(pub)
+        session.flush()
+
+        # Create a funder and associate it
+        funder = HarvestFunder(name="Funder 2", openalex_id="https://openalex.org/F123")
+        session.add(funder)
+        session.flush()
+
+        session.execute(
+            insert(pub_funder_association).values(
+                publication_id=pub.id, funder_id=funder.id
+            )
+        )
+
+    assert linker.link_openalex_publications(harvest_database_name) == 0

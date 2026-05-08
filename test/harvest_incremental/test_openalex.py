@@ -1,20 +1,23 @@
+import datetime
 import logging
 import pytest
 
 import pyalex
 import requests
 from rialto_airflow.harvest_incremental import openalex
-from rialto_airflow.schema.rialto import Publication
+from rialto_airflow.schema.rialto import Publication, Harvest, Author
 
 from test.utils import num_log_record_matches
 
 
-def test_orcid_publications():
+def test_publications_from_orcid():
     """
     This is a live test of OpenAlex API, to make sure paging works properly.
     """
     count = 0
-    for pub in openalex.orcid_publications("https://orcid.org/0000-0002-8030-5327"):
+    for pub in openalex.publications_from_orcid(
+        "https://orcid.org/0000-0002-8030-5327", harvest_date=None
+    ):
         assert pub
 
         count += 1
@@ -38,7 +41,7 @@ def mock_openalex(monkeypatch):
             "ids": {"pmid": "https://pubmed.ncbi.nlm.nih.gov/36857419"},
         }
 
-    monkeypatch.setattr(openalex, "orcid_publications", f)
+    monkeypatch.setattr(openalex, "publications_from_orcid", f)
 
 
 def test_harvest(
@@ -130,7 +133,7 @@ def mock_many_openalex(monkeypatch):
                 "publication_year": 1891,
             }
 
-    monkeypatch.setattr(openalex, "orcid_publications", f)
+    monkeypatch.setattr(openalex, "publications_from_orcid", f)
 
 
 def test_log_message(
@@ -141,7 +144,7 @@ def test_log_message(
 ):
     caplog.set_level(logging.INFO)
     openalex.harvest(limit=50)
-    assert "Reached limit of 50 publications stopping" in caplog.text
+    assert "Reached limit of 50 publications or authors, stopping" in caplog.text
 
 
 class MockWorks:
@@ -368,3 +371,193 @@ def test_source_by_issn_jsonerror(monkeypatch, caplog):
     source = openalex.source_by_issn("XXXX-0836")
     assert source is None
     assert "Error decoding JSON for ISSN XXXX-0836" in caplog.text
+
+
+def test_harvest_passes_previous_harvest_date_to_orcid_query(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        # Make sure Authors are similar to those loaded in production, with timestamps.
+        session.query(Author).where(Author.orcid.is_not(None)).update(
+            {
+                Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        # capture the harvest_date that is passed to publications_from_orcid so that we can assert on it later
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(openalex, "publications_from_orcid", _capture_harvest_date)
+
+    openalex.harvest()
+    assert harvest_dates, (
+        "publications_from_orcid is passed the recent finished harvest date"
+    )
+    assert set(harvest_dates) == {"2026-04-27T16:38:10"}, (
+        "formatted previous harvest date passed to publications_from_orcid"
+    )
+
+
+def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
+    test_incremental_session,
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 4, 25, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+            )
+        )
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0001"
+        ).update(
+            {
+                Author.created_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2026, 4, 28, 0, 0, 0),
+            }
+        )
+        session.query(Author).where(
+            Author.orcid == "https://orcid.org/0000-0000-0000-0002"
+        ).update(
+            {
+                Author.created_at: datetime.datetime(2025, 1, 20, 0, 0, 0),
+                Author.updated_at: datetime.datetime(2025, 1, 1, 0, 0, 0),
+            }
+        )
+
+    harvest_dates = []
+
+    def _capture_harvest_date(orcid, harvest_date=None):
+        harvest_dates.append(harvest_date)
+        yield from ()
+
+    monkeypatch.setattr(openalex, "publications_from_orcid", _capture_harvest_date)
+
+    openalex.harvest()
+
+    assert harvest_dates, (
+        "publications_from_orcid should be called with harvest_date for ORCID authors"
+    )
+    assert len(harvest_dates) == 2, "two ORCID authors should be harvested"
+    assert harvest_dates == [None, "2026-04-25T16:38:10"], (
+        "recently updated author should omit previous harvest date while unupdatedauthor should keep it"
+    )
+
+
+def test_publications_from_orcid_omits_from_updated_date_when_harvest_date_is_none(
+    monkeypatch,
+):
+    class MockAuthors:
+        def filter(self, **kwargs):
+            return self
+
+        def get(self):
+            return [{"id": "https://openalex.org/A123"}]
+
+    class MockWorks:
+        def __init__(self):
+            self.filter_kwargs = None
+            self.per_page = None
+
+        def filter(self, **kwargs):
+            self.filter_kwargs = kwargs
+            return self
+
+        def paginate(self, per_page=200):
+            self.per_page = per_page
+            yield []
+
+    mock_works = MockWorks()
+
+    monkeypatch.setattr(openalex, "Authors", lambda: MockAuthors())
+    monkeypatch.setattr(openalex, "Works", lambda: mock_works)
+
+    list(
+        openalex.publications_from_orcid(
+            "https://orcid.org/0000-0002-8030-5327", harvest_date=None
+        )
+    )
+
+    assert mock_works.filter_kwargs == {"author": {"id": "https://openalex.org/A123"}}
+    assert mock_works.per_page == 200
+
+
+def test_publications_from_orcid_includes_from_updated_date_when_harvest_date_exists(
+    monkeypatch,
+):
+    class MockAuthors:
+        def filter(self, **kwargs):
+            return self
+
+        def get(self):
+            return [{"id": "https://openalex.org/A123"}]
+
+    class MockWorks:
+        def __init__(self):
+            self.filter_kwargs = None
+            self.per_page = None
+
+        def filter(self, **kwargs):
+            self.filter_kwargs = kwargs
+            return self
+
+        def paginate(self, per_page=200):
+            self.per_page = per_page
+            yield []
+
+    mock_works = MockWorks()
+    harvest_date = "2026-04-27T16:38:10"
+
+    monkeypatch.setattr(openalex, "Authors", lambda: MockAuthors())
+    monkeypatch.setattr(openalex, "Works", lambda: mock_works)
+
+    list(
+        openalex.publications_from_orcid(
+            "https://orcid.org/0000-0002-8030-5327", harvest_date=harvest_date
+        )
+    )
+
+    assert mock_works.filter_kwargs == {
+        "from_updated_date": harvest_date,
+        "author": {"id": "https://openalex.org/A123"},
+    }
+    assert mock_works.per_page == 200
+
+
+def test_harvest_stops_when_author_limit_is_exceeded(
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    caplog,
+    monkeypatch,
+):
+    queried_orcids = []
+
+    def _capture_orcid(orcid, harvest_date=None):
+        # keep track of ORCID queries but doesn't return any publications (so that we're only testing the author limit)
+        queried_orcids.append(orcid)
+        yield from ()
+
+    monkeypatch.setattr(openalex, "publications_from_orcid", _capture_orcid)
+
+    caplog.set_level(logging.INFO)
+    openalex.harvest(limit=1)
+
+    assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
+    assert "Reached limit of 1 publications or authors, stopping" in caplog.text

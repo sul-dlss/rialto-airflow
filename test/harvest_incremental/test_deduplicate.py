@@ -31,6 +31,7 @@ def dataset(
             pubmed_json=pubmed_json,
             wos_id="000123456789",
             pubmed_id="36857419",
+            updated_at="2025-12-01T00:00:00",
         )
 
         pub2 = Publication(
@@ -46,6 +47,7 @@ def dataset(
             pubmed_json=pubmed_json,
             wos_id="000123456789",
             pubmed_id="36857419",
+            updated_at="2026-02-01T00:00:00",
         )
 
         author1 = Author(
@@ -110,6 +112,9 @@ def test_openalex_deduplicate(
             Publication.openalex_json["id"].astext == "https://openalex.org/W123456789"
         )
         assert pubs.count() == 1, "remaining publication has the OpenAlex ID"
+        assert pubs.one().updated_at.isoformat() == "2026-02-01T00:00:00", (
+            "the newer publication remains after deduplication"
+        )
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
         assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
@@ -138,6 +143,9 @@ def test_dimensions_deduplicate(
             Publication.dim_json["id"].astext == "pub.1000000001"
         )
         assert pubs.count() == 1, "remaining publication has the Dimensions ID"
+        assert pubs.one().updated_at.isoformat() == "2026-02-01T00:00:00", (
+            "the newer publication remains after deduplication"
+        )
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
         assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
@@ -164,6 +172,9 @@ def test_pubmed_deduplicate(
         )
         remaining_pub = (
             session.query(Publication).where(Publication.pubmed_id == "36857419").one()
+        )
+        assert remaining_pub.updated_at.isoformat() == "2026-02-01T00:00:00", (
+            "the newer publication remains after deduplication"
         )
         assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
         assert len(remaining_pub.funders) == 2, "remaining publication has both funders"
@@ -193,6 +204,9 @@ def test_sulpub_deduplicate(
             Publication.sulpub_json["sulpubid"].astext == "123456"
         )
         assert pubs.count() == 1, "remaining publication has the sulpub ID"
+        assert pubs.one().updated_at.isoformat() == "2026-02-01T00:00:00", (
+            "the newer publication remains after deduplication"
+        )
         assert len(pubs.one().authors) == 2, "remaining publication has both authors"
         assert len(pubs.one().funders) == 2, "remaining publication has both funders"
         author2 = session.query(Author).where(Author.orcid == "02980983434").one()
@@ -219,6 +233,9 @@ def test_wos_id_deduplicate(
         )
         remaining_pub = (
             session.query(Publication).where(Publication.wos_id == "000123456789").one()
+        )
+        assert remaining_pub.updated_at.isoformat() == "2026-02-01T00:00:00", (
+            "the newer publication remains after deduplication"
         )
         assert len(remaining_pub.authors) == 2, "remaining publication has both authors"
         assert len(remaining_pub.funders) == 2, "remaining publication has both funders"

@@ -187,13 +187,16 @@ def remove_pubmed_id_duplicates() -> int:
 def merge_pubs(*, pubs, session) -> int:
     """
     Given a set of publications that are duplicates, merge them into one,
-    moving author and funder relationships to the first instance and deleting the duplicates.
+    moving author and funder relationships to the newest instance and deleting the duplicates.
     Returns the number of deleted publications.
     """
     count_deleted = 0
+
+    # sort pubs so that the newest publication will be the main pub.
+    pubs = sorted(pubs, key=lambda pub: pub.updated_at, reverse=True)
     main_pub = pubs[0].id
     for pub in pubs[1:]:
-        # Move author relationships to the first instance
+        # Move existing author relationships to the newer instance
         for author in pub.authors:
             session.execute(
                 insert(pub_author_association)
@@ -201,14 +204,13 @@ def merge_pubs(*, pubs, session) -> int:
                 .on_conflict_do_nothing()
             )
 
-        # Move funder relationships to the first instance
+        # Move existing funder relationships to the newer instance
         for funder in pub.funders:
             session.execute(
                 insert(pub_funder_association)
                 .values(publication_id=main_pub, funder_id=funder.id)
                 .on_conflict_do_nothing()
             )
-
         # Delete the duplicate
         session.execute(delete(Publication).where(Publication.id == pub.id))
         count_deleted += 1

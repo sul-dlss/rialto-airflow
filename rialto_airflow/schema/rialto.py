@@ -99,6 +99,32 @@ class Publication(RialtoSchemaBase):
         "Funder", secondary=pub_funder_association, back_populates="publications"
     )
 
+    def last_harvested(self) -> Optional[datetime.datetime]:
+        """
+        Returns the latest timestamp any source was harvested for this publication.
+        """
+        timestamps = [
+            self.openalex_harvested,
+            self.dim_harvested,
+            self.sulpub_harvested,
+            self.wos_harvested,
+            self.pubmed_harvested,
+        ]
+        valid_timestamps = [t for t in timestamps if t is not None]
+        return max(valid_timestamps) if valid_timestamps else None
+
+    def needs_distillation(self) -> bool:
+        """
+        Returns True if the publication needs to be distilled.
+        """
+        if self.distilled_at is None:
+            return True
+
+        if self.updated_at and self.updated_at > self.distilled_at:
+            return True
+
+        return False
+
     __table_args__ = (
         Index("idx_openalex_id", text("(openalex_json->>'id')")),
         Index("idx_wos_id", text("(wos_json->>'UID')")),

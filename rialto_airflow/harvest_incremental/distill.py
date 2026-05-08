@@ -1,10 +1,9 @@
-import datetime
 import logging
 from typing import Optional
 
 from sqlalchemy import select, update
 
-from rialto_airflow.database import get_session
+from rialto_airflow.database import get_session, utcnow
 from rialto_airflow.distiller import (
     title,
     pub_year,
@@ -25,6 +24,7 @@ def distill() -> int:
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # iterate through publictions 100 at a time
         count = 0
+        distilled_count = 0
         stmt = select(Publication).execution_options(yield_per=100)
 
         for row in select_session.execute(stmt):
@@ -33,6 +33,11 @@ def distill() -> int:
                 logging.debug(f"processed {count} publications")
 
             pub = row[0]
+
+            if not pub.needs_distillation():
+                continue
+
+            distilled_count += 1
 
             # populate new publication columns
             cols = {
@@ -44,7 +49,7 @@ def distill() -> int:
                 "journal_name": journal_name(pub),
                 "academic_council_authored": _academic_council(pub),
                 "faculty_authored": _faculty_authored(pub),
-                "distilled_at": datetime.datetime.now(datetime.timezone.utc),
+                "distilled_at": utcnow(),
             }
 
             # pub_year and open_access in cols is needed to determine the apc
@@ -57,7 +62,8 @@ def distill() -> int:
                 )
                 update_session.execute(update_stmt)
 
-    return count
+    logging.info(f"Distilled {distilled_count} of {count} publications")
+    return distilled_count
 
 
 # these helper functions aren't in the rialto_airflow.distiller modules because

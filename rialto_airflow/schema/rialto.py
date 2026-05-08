@@ -75,6 +75,7 @@ class Publication(RialtoSchemaBase):
     sulpub_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
     wos_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
     pubmed_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    distilled_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=utcnow()
     )

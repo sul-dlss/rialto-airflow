@@ -245,6 +245,7 @@ def test_create_rialto_schema(
                 "sulpub_harvested",
                 "wos_harvested",
                 "pubmed_harvested",
+                "distilled_at",
                 "created_at",
                 "updated_at",
                 "types",

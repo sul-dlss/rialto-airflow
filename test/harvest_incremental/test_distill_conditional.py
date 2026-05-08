@@ -44,3 +44,26 @@ def test_distill_conditional(
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
         assert pub.distilled_at > first_distilled_at
+        second_distilled_at = pub.distilled_at
+
+        # 5. Reset capability: set distilled_at to NULL
+        pub.distilled_at = None
+        session.add(pub)
+        session.commit()
+
+    with test_incremental_session.begin() as session:
+        # 6. Fourth distillation after reset (should distill)
+        pub = (
+            session.query(Publication).where(Publication.doi == "10.000/000001").first()
+        )
+        assert pub.distilled_at is None
+
+        distilled_count = distill()
+        assert distilled_count == 1
+
+        pub = (
+            session.query(Publication).where(Publication.doi == "10.000/000001").first()
+        )
+        session.refresh(pub)
+        assert pub.distilled_at is not None
+        assert pub.distilled_at > second_distilled_at

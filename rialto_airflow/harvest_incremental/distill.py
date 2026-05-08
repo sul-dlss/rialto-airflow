@@ -1,3 +1,4 @@
+import datetime
 import logging
 from typing import Optional
 
@@ -43,6 +44,7 @@ def distill() -> int:
                 "journal_name": journal_name(pub),
                 "academic_council_authored": _academic_council(pub),
                 "faculty_authored": _faculty_authored(pub),
+                "distilled_at": datetime.datetime.now(datetime.timezone.utc),
             }
 
             # pub_year and open_access in cols is needed to determine the apc

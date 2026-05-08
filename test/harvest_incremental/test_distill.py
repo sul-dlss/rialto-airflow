@@ -28,3 +28,4 @@ def test_distill(
         )
         assert pub.academic_council_authored is True
         assert pub.faculty_authored is True
+        assert pub.distilled_at is not None

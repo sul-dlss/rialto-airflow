@@ -29,3 +29,34 @@ def test_distill(
         assert pub.academic_council_authored is True
         assert pub.faculty_authored is True
         assert pub.distilled_at is not None
+
+
+def test_academic_council_authored():
+    from rialto_airflow.harvest_incremental.distill import _academic_council
+    from rialto_airflow.schema.rialto import Publication, Author
+
+    pub = Publication()
+    author1 = Author(first_name="A", last_name="B", academic_council=False)
+    author2 = Author(first_name="C", last_name="D", academic_council=False)
+    pub.authors = [author1, author2]
+
+    # Test return False
+    assert _academic_council(pub) is False
+
+    # Test return True on second author (covers branch 80->79)
+    author2.academic_council = True
+    assert _academic_council(pub) is True
+
+
+def test_faculty_authored():
+    from rialto_airflow.harvest_incremental.distill import _faculty_authored
+    from rialto_airflow.schema.rialto import Publication, Author
+
+    pub = Publication()
+    author1 = Author(first_name="A", last_name="B", role="staff")
+    pub.authors = [author1]
+    assert _faculty_authored(pub) is False
+
+    author2 = Author(first_name="C", last_name="D", role="faculty")
+    pub.authors.append(author2)
+    assert _faculty_authored(pub) is True

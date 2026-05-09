@@ -1,3 +1,4 @@
+import datetime
 import os
 import uuid
 
@@ -278,6 +279,37 @@ def author(test_session):
 def test_author_fixture(test_session, author):
     with test_session.begin() as session:
         assert session.query(Author).where(Author.sunet == "janes").count() == 1
+
+
+def test_publication_last_harvested():
+    pub = rialto.Publication()
+    assert pub.last_harvested() is None
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    pub.openalex_harvested = now
+    assert pub.last_harvested() == now
+
+    earlier = now - datetime.timedelta(days=1)
+    pub.dim_harvested = earlier
+    assert pub.last_harvested() == now
+
+    later = now + datetime.timedelta(days=1)
+    pub.wos_harvested = later
+    assert pub.last_harvested() == later
+
+
+def test_publication_needs_distillation():
+    pub = rialto.Publication()
+    assert pub.needs_distillation() is True
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    pub.distilled_at = now
+    pub.updated_at = now
+    assert pub.needs_distillation() is False
+
+    later = now + datetime.timedelta(seconds=1)
+    pub.updated_at = later
+    assert pub.needs_distillation() is True
 
 
 def test_database_names(mock_rialto_postgres, teardown_database):

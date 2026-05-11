@@ -40,17 +40,16 @@ HEADERS = {"User-Agent": "stanford-library-rialto", "Accept": "application/json"
 SEARCH_URL = f"{BASE_URL}/entrez/eutils/esearch.fcgi"
 FETCH_URL = f"{BASE_URL}/entrez/eutils/efetch.fcgi"
 
-# create an http session that will retry any 429 statuses to stay within rate limits
+# create an http session that will retry any statuses listed below to stay within rate limits
 # will retry ten times, backing off with each requests, the last of which is 102.4 seconds
 # see: https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
-
 http = requests.Session()
 http.mount(
     "https://",
     HTTPAdapter(
         max_retries=Retry(
             status=10,
-            status_forcelist=[429, 500],
+            status_forcelist=[429, 500, 502],
             backoff_factor=0.1,
             backoff_jitter=2,
             allowed_methods=["GET", "POST"],

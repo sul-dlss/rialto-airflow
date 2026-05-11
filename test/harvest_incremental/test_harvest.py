@@ -1,4 +1,5 @@
 import datetime
+import pytest
 
 from sqlalchemy import inspect
 
@@ -65,3 +66,23 @@ def test_complete_sets_finished_at(test_incremental_session, mock_rialto_db_name
         completed = session.get(Harvest, harvest.id)
         assert completed is not None
         assert completed.finished_at is not None
+
+
+def test_get_by_id_returns_none_for_missing_harvest(
+    test_incremental_session, mock_rialto_db_name
+):
+    assert Harvest.get_by_id(999999) is None
+
+
+def test_get_previous_returns_none_when_no_finished_harvests(
+    test_incremental_session, mock_rialto_db_name
+):
+    assert Harvest.get_previous() is None
+
+
+def test_complete_raises_value_error_for_missing_harvest(
+    test_incremental_session, mock_rialto_db_name
+):
+    harvest = Harvest(id=999999)
+    with pytest.raises(ValueError, match="Harvest 999999 not found"):
+        harvest.complete()

@@ -6,7 +6,7 @@ from rialto_airflow.schema.reports import PublicationsByAuthor
 
 
 def test_write_publications_by_author(test_reports_session, snapshot, dataset, caplog):
-    result = publication.export_publications_by_author(snapshot)
+    result = publication.export_publications_by_author(snapshot.database_name)
     assert result == 5
 
     with test_reports_session.begin() as session:

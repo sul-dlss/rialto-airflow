@@ -35,19 +35,19 @@ def publish_to_reports():
 
     @task
     def publish_publications(snapshot):
-        publication.export_publications(snapshot)
+        publication.export_publications(snapshot.database_name)
 
     @task
     def publish_publications_by_school(snapshot):
-        publication.export_publications_by_school(snapshot)
+        publication.export_publications_by_school(snapshot.database_name)
 
     @task
     def publish_publications_by_department(snapshot):
-        publication.export_publications_by_department(snapshot)
+        publication.export_publications_by_department(snapshot.database_name)
 
     @task
     def publish_publications_by_author(snapshot):
-        publication.export_publications_by_author(snapshot)
+        publication.export_publications_by_author(snapshot.database_name)
 
     @task
     def generate_download_files(data_dir):

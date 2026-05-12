@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 import requests
@@ -33,6 +34,7 @@ def harvest(host, key, per_page=1000, limit=None):
 
             # only write approved publications to the database
             if approved(sulpub_pub):
+                harvested_at = datetime.datetime.now(datetime.timezone.utc)
                 wos_id = extract_wos_uid(sulpub_pub)
                 pubmed_id = extract_pmid(sulpub_pub)
                 # if when inserting the row we get a constraint violation
@@ -42,6 +44,7 @@ def harvest(host, key, per_page=1000, limit=None):
                     .values(
                         doi=doi,
                         sulpub_json=sulpub_pub,
+                        sulpub_harvested=harvested_at,
                         wos_id=wos_id,
                         pubmed_id=pubmed_id,
                     )
@@ -49,6 +52,7 @@ def harvest(host, key, per_page=1000, limit=None):
                         constraint="publication_doi_key",
                         set_=dict(
                             sulpub_json=sulpub_pub,
+                            sulpub_harvested=harvested_at,
                             wos_id=wos_id,
                             pubmed_id=pubmed_id,
                         ),

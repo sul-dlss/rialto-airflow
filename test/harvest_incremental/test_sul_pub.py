@@ -67,6 +67,9 @@ def test_harvest(
 
         pub = pubs[0]
         assert pub.doi == "10.1515/9781503624153", "first DOI present"
+        assert isinstance(pub.sulpub_harvested, datetime.datetime), (
+            "harvest timestamp is a datetime"
+        )
         assert len(pub.authors) == 2, "publication has two authors"
         assert pub.authors[0].cap_profile_id == "12345"
         assert pub.authors[1].cap_profile_id == "123456"

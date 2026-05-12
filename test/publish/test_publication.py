@@ -21,7 +21,7 @@ def test_dataset(test_session, dataset):
 
 def test_export_publications(test_reports_session, snapshot, dataset, caplog):
     # generate the publications table
-    result = publication.export_publications(snapshot)
+    result = publication.export_publications(snapshot.database_name)
     assert result == 2
 
     with test_reports_session.begin() as session:
@@ -67,7 +67,7 @@ def rialto_reports_db_name(monkeypatch):
 
 def test_generate_download_files(tmp_path, test_reports_session, snapshot, dataset):
     # create the reports database
-    publication.export_publications(snapshot)
+    publication.export_publications(snapshot.database_name)
 
     # generate the download files
     downloads_dir = tmp_path / "downloads"

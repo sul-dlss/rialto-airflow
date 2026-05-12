@@ -6,7 +6,7 @@ from rialto_airflow.schema.reports import PublicationsBySchool
 
 def test_write_publications_by_school(test_reports_session, snapshot, dataset, caplog):
     # generate the publications_by_school table
-    result = publication.export_publications_by_school(snapshot)
+    result = publication.export_publications_by_school(snapshot.database_name)
     assert result == 3
 
     with test_reports_session.begin() as session:

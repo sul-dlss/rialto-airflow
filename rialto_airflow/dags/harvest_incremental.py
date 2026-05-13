@@ -135,7 +135,7 @@ def harvest_incremental():
         """
         Fill in Pubmed data for DOIs from other publication sources.
         """
-        pubmed.fill_in()
+        pubmed.fill_in(harvest_id)
 
     @task()
     def fill_in_crossref(harvest_id):

@@ -262,22 +262,19 @@ def test_incremental_session(test_incremental_engine):
 
 
 @pytest.fixture
-def create_harvest(test_incremental_session):
-    def _create(
-        *,
-        created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-        finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-    ):
-        with test_incremental_session.begin() as session:
-            harvest = rialto_schema.Harvest(
-                created_at=created_at,
-                finished_at=finished_at,
-            )
-            session.add(harvest)
-            session.flush()
-            return harvest.id
+def active_harvest_id(test_incremental_session):
+    """
+    Create a harvest and return its ID for tests that need to look for an
+    active, unfinished harvest.
+    """
+    with test_incremental_session.begin() as session:
+        harvest = rialto_schema.Harvest(
+            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+        )
+        session.add(harvest)
+        session.flush()
 
-    return _create
+        return harvest.id
 
 
 @pytest.fixture

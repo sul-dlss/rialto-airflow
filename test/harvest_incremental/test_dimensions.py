@@ -374,12 +374,11 @@ def test_fill_in(
     mock_rialto_db_name,
     mock_dimensions_doi,
     caplog,
-    create_harvest,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
-    harvest_id = create_harvest()
 
-    dimensions.fill_in(harvest_id=harvest_id)
+    dimensions.fill_in(harvest_id=active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -404,7 +403,7 @@ def test_fill_in_no_dimensions(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
-    create_harvest,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
 
@@ -413,9 +412,7 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    harvest_id = create_harvest()
-
-    dimensions.fill_in(harvest_id=harvest_id)
+    dimensions.fill_in(harvest_id=active_harvest_id)
     with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -461,7 +458,7 @@ def test_fill_in_no_doi(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
-    create_harvest,
+    active_harvest_id,
 ):
     """
     Test that a publication coming back from Dimensions without DOI doesn't
@@ -475,9 +472,8 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    harvest_id = create_harvest()
 
-    dimensions.fill_in(harvest_id=harvest_id)
+    dimensions.fill_in(harvest_id=active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -492,12 +488,8 @@ def test_fill_in_no_doi(
 
 
 def test_fill_in_filters_publications_using_harvest_created_at(
-    test_incremental_session,
-    mock_rialto_db_name,
-    monkeypatch,
-    create_harvest,
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
 ):
-    harvest_id = create_harvest()
 
     with test_incremental_session.begin() as session:
         session.add_all(
@@ -528,7 +520,7 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
     monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
 
-    dimensions.fill_in(harvest_id=harvest_id)
+    dimensions.fill_in(harvest_id=active_harvest_id)
 
     assert queried_dois == ["10.1111/newer"], (
         "only publications updated after the selected harvest created_at should be queried"

@@ -368,22 +368,32 @@ def mock_dimensions_doi(monkeypatch):
     monkeypatch.setattr(dimensions, "publications_from_dois", f)
 
 
+@pytest.fixture
+def create_harvest(test_incremental_session):
+    def _create(
+        *,
+        created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+        finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+    ):
+        with test_incremental_session.begin() as session:
+            harvest = Harvest(created_at=created_at, finished_at=finished_at)
+            session.add(harvest)
+            session.flush()
+            return harvest.id
+
+    return _create
+
+
 def test_fill_in(
     test_incremental_session,
     mock_no_dim_publication,
     mock_rialto_db_name,
     mock_dimensions_doi,
     caplog,
+    create_harvest,
 ):
     caplog.set_level(logging.INFO)
-    with test_incremental_session.begin() as session:
-        harvest = Harvest(
-            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-        )
-        session.add(harvest)
-        session.flush()
-        harvest_id = harvest.id
+    harvest_id = create_harvest()
 
     dimensions.fill_in(harvest_id=harvest_id)
 
@@ -410,6 +420,7 @@ def test_fill_in_no_dimensions(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    create_harvest,
 ):
     caplog.set_level(logging.INFO)
 
@@ -418,14 +429,7 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    with test_incremental_session.begin() as session:
-        harvest = Harvest(
-            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-        )
-        session.add(harvest)
-        session.flush()
-        harvest_id = harvest.id
+    harvest_id = create_harvest()
 
     dimensions.fill_in(harvest_id=harvest_id)
     with test_incremental_session.begin() as session:
@@ -473,6 +477,7 @@ def test_fill_in_no_doi(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    create_harvest,
 ):
     """
     Test that a publication coming back from Dimensions without DOI doesn't
@@ -486,14 +491,7 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    with test_incremental_session.begin() as session:
-        harvest = Harvest(
-            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-        )
-        session.add(harvest)
-        session.flush()
-        harvest_id = harvest.id
+    harvest_id = create_harvest()
 
     dimensions.fill_in(harvest_id=harvest_id)
 
@@ -513,16 +511,11 @@ def test_fill_in_filters_publications_using_harvest_created_at(
     test_incremental_session,
     mock_rialto_db_name,
     monkeypatch,
+    create_harvest,
 ):
-    with test_incremental_session.begin() as session:
-        harvest = Harvest(
-            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-        )
-        session.add(harvest)
-        session.flush()
-        harvest_id = harvest.id
+    harvest_id = create_harvest()
 
+    with test_incremental_session.begin() as session:
         session.add_all(
             [
                 Publication(

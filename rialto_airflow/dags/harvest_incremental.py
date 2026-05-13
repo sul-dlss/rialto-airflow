@@ -128,7 +128,7 @@ def harvest_incremental():
         """
         Fill in WebOfScience data for DOIs from other publication sources.
         """
-        wos.fill_in()
+        wos.fill_in(harvest_id)
 
     @task()
     def fill_in_pubmed(harvest_id):

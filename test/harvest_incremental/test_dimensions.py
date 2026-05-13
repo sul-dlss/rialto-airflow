@@ -376,7 +376,16 @@ def test_fill_in(
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    dimensions.fill_in()
+    with test_incremental_session.begin() as session:
+        harvest = Harvest(
+            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+        )
+        session.add(harvest)
+        session.flush()
+        harvest_id = harvest.id
+
+    dimensions.fill_in(harvest_id=harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -409,7 +418,16 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    dimensions.fill_in()
+    with test_incremental_session.begin() as session:
+        harvest = Harvest(
+            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+        )
+        session.add(harvest)
+        session.flush()
+        harvest_id = harvest.id
+
+    dimensions.fill_in(harvest_id=harvest_id)
     with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -468,7 +486,16 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    dimensions.fill_in()
+    with test_incremental_session.begin() as session:
+        harvest = Harvest(
+            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+        )
+        session.add(harvest)
+        session.flush()
+        harvest_id = harvest.id
+
+    dimensions.fill_in(harvest_id=harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -480,3 +507,47 @@ def test_fill_in_no_doi(
 
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session,
+    mock_rialto_db_name,
+    monkeypatch,
+):
+    with test_incremental_session.begin() as session:
+        harvest = Harvest(
+            created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+            finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+        )
+        session.add(harvest)
+        session.flush()
+        harvest_id = harvest.id
+
+        session.add_all(
+            [
+                Publication(
+                    doi="10.1111/older",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 20, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois, batch_size=200):
+        queried_dois.extend(dois)
+        yield from ()
+
+    monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
+
+    dimensions.fill_in(harvest_id=harvest_id)
+
+    assert queried_dois == ["10.1111/newer"], (
+        "only publications updated after the selected harvest created_at should be queried"
+    )

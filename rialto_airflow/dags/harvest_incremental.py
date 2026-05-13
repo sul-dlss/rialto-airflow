@@ -121,7 +121,7 @@ def harvest_incremental():
         """
         Fill in Dimensions data for DOIs from other publication sources.
         """
-        dimensions.fill_in()
+        dimensions.fill_in(harvest_id)
 
     @task()
     def fill_in_wos(harvest_id):

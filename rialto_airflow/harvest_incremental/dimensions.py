@@ -269,14 +269,20 @@ def query_with_retry(q, retry=5):
                 time.sleep(try_count * 10)
 
 
-def fill_in():
+def fill_in(harvest_id: int) -> None:
     """Harvest Dimensions data for DOIs from other publication sources."""
     count = 0
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        harvest_created_at = (
+            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
+        )
+
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
             .where(Publication.dim_json.is_(None))
+            .where(Publication.updated_at.is_not(None))
+            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=100)
         )
 

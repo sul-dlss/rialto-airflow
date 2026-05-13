@@ -343,16 +343,25 @@ def test_incremental_harvest(
     test_incremental_session,
     mock_rialto_db_name,
     requests_mock,
+    time_machine,
 ):
     """
     Ensure that a previous Harvest alters how pubmed IDs are fetched.
     """
 
+    # Mock the current time to a fixed value
+    now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    time_machine.move_to(now)
+
     with test_incremental_session.begin() as session:
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(
+                    2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc
+                ),
+                finished_at=datetime.datetime(
+                    2026, 4, 28, 0, 0, 0, tzinfo=datetime.timezone.utc
+                ),
             )
         )
         session.add(
@@ -360,8 +369,12 @@ def test_incremental_harvest(
                 first_name="Jane",
                 last_name="Stanford",
                 orcid="0000-0000-0000-0001",
-                created_at=datetime.datetime(2026, 4, 1, 0, 0, 0),
-                updated_at=datetime.datetime(2026, 4, 1, 0, 0, 0),
+                created_at=datetime.datetime(
+                    2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                ),
+                updated_at=datetime.datetime(
+                    2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                ),
             )
         )
 
@@ -377,9 +390,10 @@ def test_incremental_harvest(
     assert len(requests_mock.request_history) == 1
     req = requests_mock.request_history[0]
     assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
-    assert req.qs["datetype"] == ["mdat"]
-    assert req.qs["mindate"] == ["2026/04/27"]
-    assert req.qs["maxdate"] == [datetime.date.today().strftime("%Y/%m/%d")]
+    assert req.qs["datetype"] == ["edat"]
+    assert req.qs["reldate"] == ["15"]
+    assert "mindate" not in req.qs
+    assert "maxdate" not in req.qs
 
 
 def test_incremental_harvest_with_new_author(

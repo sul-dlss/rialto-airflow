@@ -23,7 +23,7 @@ from rialto_airflow.schema.rialto import (
     RIALTO_DB_NAME,
     Harvest,
 )
-from rialto_airflow.utils import normalize_doi, normalize_pmid
+from rialto_airflow.utils import days_since, normalize_doi, normalize_pmid
 
 
 PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
@@ -279,9 +279,13 @@ def _pubmed_search_api(
     params = {**BASE_PARAMS, "retmode": "json", "term": query}
 
     if previous_harvest:
-        params["datetype"] = "mdat"
-        params["mindate"] = previous_harvest.created_at.strftime("%Y/%m/%d")
-        params["maxdate"] = datetime.date.today().strftime("%Y/%m/%d")
+        params["datetype"] = "edat"
+        # Calculate number of days since the start of the previous finished harvest
+        number_of_days = days_since(previous_harvest.created_at)
+        if number_of_days <= 0:
+            logging.info("Zero days since last harvest, nothing to do.")
+            return []
+        params["reldate"] = number_of_days
 
     logging.debug(f"searching pubmed with {params}")
 

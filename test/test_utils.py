@@ -1,4 +1,5 @@
 import csv
+import datetime
 from pathlib import Path
 
 import pytest
@@ -124,3 +125,24 @@ def test_normalize_wos_id():
     assert utils.normalize_wos_id("wos:001008232900698") == "001008232900698"
     assert utils.normalize_wos_id("001008232900698") == "001008232900698"
     assert utils.normalize_wos_id("RC:29780978") == "RC:29780978"
+
+
+def test_days_since():
+    # Test with explicit end date
+    start = datetime.datetime(2026, 5, 1, tzinfo=datetime.timezone.utc)
+    end = datetime.datetime(2026, 5, 11, tzinfo=datetime.timezone.utc)
+    assert utils.days_since(start, end) == 10
+
+    # Test with default end date (now)
+    # Since we can't easily mock now here without a fixture, we'll just test that it returns an int
+    assert isinstance(utils.days_since(start), int)
+
+    # Test with different timezones
+    # 2026-05-01 00:00:00 UTC
+    start_utc = datetime.datetime(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    # 2026-05-11 05:00:00 UTC (which is midnight EST)
+    end_est = datetime.datetime(
+        2026, 5, 11, 0, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-5))
+    )
+    # Difference should be 10 days (and 5 hours, but .days truncates)
+    assert utils.days_since(start_utc, end_est) == 10

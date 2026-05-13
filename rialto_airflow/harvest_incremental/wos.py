@@ -21,6 +21,7 @@ from rialto_airflow.schema.rialto import (
     Harvest,
 )
 from rialto_airflow.utils import (
+    days_since,
     normalize_doi,
     normalize_pmid,
     normalize_wos_id,
@@ -169,10 +170,7 @@ def publications_from_orcid(orcid, harvest_date=None) -> Generator[dict, None, N
     if harvest_date is not None:
         # construct a date limiter that is relative to the current date, since WOK does not allow use of the modifiedTimeSpan limiter
         # date limiter should use the number of days since the start of the previous finished harvest + "D", e.g. "7D"
-        # Although harvest_date will have been saved as a UTC datetime, to avoid a TypeError making sure it's timezone-aware.
-        harvest_date = harvest_date.astimezone(datetime.timezone.utc)
-        current_date = datetime.datetime.now(datetime.timezone.utc)
-        number_of_days = (current_date - harvest_date).days
+        number_of_days = days_since(harvest_date)
         if number_of_days > 0:
             query_params["loadTimeSpan"] = f"{number_of_days}D"
     yield from _wos_api(query_params=query_params)

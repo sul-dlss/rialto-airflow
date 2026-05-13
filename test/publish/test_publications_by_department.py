@@ -7,7 +7,7 @@ from rialto_airflow.schema.reports import PublicationsByDepartment
 def test_write_publications_by_department(
     test_reports_session, snapshot, dataset, caplog
 ):
-    result = publication.export_publications_by_department(snapshot)
+    result = publication.export_publications_by_department(snapshot.database_name)
     assert result == 4
 
     with test_reports_session.begin() as session:

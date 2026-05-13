@@ -368,22 +368,6 @@ def mock_dimensions_doi(monkeypatch):
     monkeypatch.setattr(dimensions, "publications_from_dois", f)
 
 
-@pytest.fixture
-def create_harvest(test_incremental_session):
-    def _create(
-        *,
-        created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-        finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
-    ):
-        with test_incremental_session.begin() as session:
-            harvest = Harvest(created_at=created_at, finished_at=finished_at)
-            session.add(harvest)
-            session.flush()
-            return harvest.id
-
-    return _create
-
-
 def test_fill_in(
     test_incremental_session,
     mock_no_dim_publication,

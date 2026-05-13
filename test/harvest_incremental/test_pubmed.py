@@ -978,3 +978,50 @@ def test_pubmed_search_json_decode_error_recovers_on_retry(requests_mock, caplog
     assert result == ["123"]
     assert "Failed to decode JSON response from PubMed, retrying" in caplog.text
     assert "Failed to decode JSON response from PubMed after retries" not in caplog.text
+
+
+def test_pubmed_incremental_zero_days_coverage(
+    test_incremental_session,
+    mock_rialto_db_name,
+    requests_mock,
+):
+    """
+    Specifically cover the case where number_of_days <= 0.
+    """
+    now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+
+    # Last harvest was 10 days ago
+    last_harvest_time = now - datetime.timedelta(days=10)
+
+    with patch("rialto_airflow.utils.datetime") as mock_datetime:
+        mock_datetime.datetime.now.return_value = now
+        mock_datetime.timezone = datetime.timezone
+
+        with test_incremental_session.begin() as session:
+            session.add(
+                Harvest(
+                    created_at=last_harvest_time,
+                    finished_at=now,
+                )
+            )
+            # Author updated *before* last harvest to trigger the else block
+            session.add(
+                Author(
+                    first_name="Jane",
+                    last_name="Stanford",
+                    orcid="0000-0000-0000-0001",
+                    updated_at=last_harvest_time - datetime.timedelta(days=1),
+                )
+            )
+
+        # Mock days_since to return 0 to trigger the early return
+        with patch(
+            "rialto_airflow.harvest_incremental.pubmed.days_since"
+        ) as mock_days_since:
+            mock_days_since.return_value = 0
+
+            # harvest from Pubmed
+            pubmed.harvest()
+
+    # Verify PubMed was NOT called
+    assert not requests_mock.called

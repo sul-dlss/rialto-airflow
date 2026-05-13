@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -343,7 +344,6 @@ def test_incremental_harvest(
     test_incremental_session,
     mock_rialto_db_name,
     requests_mock,
-    time_machine,
 ):
     """
     Ensure that a previous Harvest alters how pubmed IDs are fetched.
@@ -351,49 +351,52 @@ def test_incremental_harvest(
 
     # Mock the current time to a fixed value
     now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
-    time_machine.move_to(now)
 
-    with test_incremental_session.begin() as session:
-        session.add(
-            Harvest(
-                created_at=datetime.datetime(
-                    2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc
-                ),
-                finished_at=datetime.datetime(
-                    2026, 4, 28, 0, 0, 0, tzinfo=datetime.timezone.utc
-                ),
+    with patch("rialto_airflow.utils.datetime") as mock_datetime:
+        mock_datetime.datetime.now.return_value = now
+        mock_datetime.timezone = datetime.timezone
+
+        with test_incremental_session.begin() as session:
+            session.add(
+                Harvest(
+                    created_at=datetime.datetime(
+                        2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc
+                    ),
+                    finished_at=datetime.datetime(
+                        2026, 4, 28, 0, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                )
             )
-        )
-        session.add(
-            Author(
-                first_name="Jane",
-                last_name="Stanford",
-                orcid="0000-0000-0000-0001",
-                created_at=datetime.datetime(
-                    2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
-                ),
-                updated_at=datetime.datetime(
-                    2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
-                ),
+            session.add(
+                Author(
+                    first_name="Jane",
+                    last_name="Stanford",
+                    orcid="0000-0000-0000-0001",
+                    created_at=datetime.datetime(
+                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                    updated_at=datetime.datetime(
+                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                )
             )
+
+        requests_mock.get(
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+            json={"esearchresult": {"count": 0}},
         )
 
-    requests_mock.get(
-        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-        json={"esearchresult": {"count": 0}},
-    )
+        # harvest from Pubmed
+        pubmed.harvest()
 
-    # harvest from Pubmed
-    pubmed.harvest()
-
-    assert requests_mock.called
-    assert len(requests_mock.request_history) == 1
-    req = requests_mock.request_history[0]
-    assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
-    assert req.qs["datetype"] == ["edat"]
-    assert req.qs["reldate"] == ["15"]
-    assert "mindate" not in req.qs
-    assert "maxdate" not in req.qs
+        assert requests_mock.called
+        assert len(requests_mock.request_history) == 1
+        req = requests_mock.request_history[0]
+        assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
+        assert req.qs["datetype"] == ["edat"]
+        assert req.qs["reldate"] == ["15"]
+        assert "mindate" not in req.qs
+        assert "maxdate" not in req.qs
 
 
 def test_incremental_harvest_with_new_author(

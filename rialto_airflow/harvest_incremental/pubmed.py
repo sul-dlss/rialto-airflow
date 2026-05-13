@@ -139,14 +139,20 @@ def harvest(limit=None) -> None:
                     )
 
 
-def fill_in() -> None:
+def fill_in(harvest_id: int) -> None:
     """Harvest Pubmed data for DOIs from other publication sources."""
     count = 0
     with get_session(RIALTO_DB_NAME).begin() as select_session:
+        harvest_created_at = (
+            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
+        )
+
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
             .where(Publication.pubmed_json.is_(None))
+            .where(Publication.updated_at.is_not(None))
+            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=50)
         )
 

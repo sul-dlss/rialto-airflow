@@ -559,6 +559,7 @@ def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
+    active_harvest_id,
     caplog,
     monkeypatch,
 ):
@@ -573,7 +574,7 @@ def test_fill_in(
         "publications_from_pmids",
         lambda *args, **kwargs: [pubmed_json_fill_in_doi()],
     )
-    pubmed.fill_in()
+    pubmed.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -590,6 +591,7 @@ def test_fill_in_no_pubmed(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
+    active_harvest_id,
     caplog,
     monkeypatch,
 ):
@@ -597,7 +599,7 @@ def test_fill_in_no_pubmed(
 
     # mock pubmed api to return no records for the doi
     monkeypatch.setattr(pubmed, "pmids_from_dois", lambda *args, **kwargs: [])
-    pubmed.fill_in()
+    pubmed.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -614,6 +616,7 @@ def test_fill_in_no_doi(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
+    active_harvest_id,
     caplog,
     monkeypatch,
 ):
@@ -633,7 +636,7 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    pubmed.fill_in()
+    pubmed.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -646,6 +649,47 @@ def test_fill_in_no_doi(
     # adds 0 publications to the jsonl file
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session,
+    mock_rialto_db_name,
+    active_harvest_id,
+    monkeypatch,
+):
+    """
+    Ensure that fill_in only queries for publications that have been updated
+    after the harvest started.
+    """
+    with test_incremental_session.begin() as session:
+        # this publication was updated before the harvest started
+        session.add(
+            Publication(
+                doi="10.1111/old",
+                updated_at=datetime.datetime(2026, 1, 1),
+            )
+        )
+        # this publication was updated after the harvest started
+        session.add(
+            Publication(
+                doi="10.1111/new",
+                updated_at=datetime.datetime(2026, 5, 1),
+            )
+        )
+
+    # capture the DOIs that are passed to pmids_from_dois
+    queried_dois = []
+
+    def mock_pmids_from_dois(dois):
+        queried_dois.extend(dois)
+        return []
+
+    monkeypatch.setattr(pubmed, "pmids_from_dois", mock_pmids_from_dois)
+
+    pubmed.fill_in(active_harvest_id)
+
+    assert "10.1111/new" in queried_dois
+    assert "10.1111/old" not in queried_dois
 
 
 def test_get_doi():

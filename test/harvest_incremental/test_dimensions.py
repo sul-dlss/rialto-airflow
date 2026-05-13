@@ -374,9 +374,12 @@ def test_fill_in(
     mock_rialto_db_name,
     mock_dimensions_doi,
     caplog,
+    create_harvest,
 ):
     caplog.set_level(logging.INFO)
-    dimensions.fill_in()
+    harvest_id = create_harvest()
+
+    dimensions.fill_in(harvest_id=harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -401,6 +404,7 @@ def test_fill_in_no_dimensions(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    create_harvest,
 ):
     caplog.set_level(logging.INFO)
 
@@ -409,7 +413,9 @@ def test_fill_in_no_dimensions(
         dimensions, "publications_from_dois", lambda *args, **kwargs: []
     )
 
-    dimensions.fill_in()
+    harvest_id = create_harvest()
+
+    dimensions.fill_in(harvest_id=harvest_id)
     with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication)
@@ -455,6 +461,7 @@ def test_fill_in_no_doi(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    create_harvest,
 ):
     """
     Test that a publication coming back from Dimensions without DOI doesn't
@@ -468,7 +475,9 @@ def test_fill_in_no_doi(
     )
 
     caplog.set_level(logging.INFO)
-    dimensions.fill_in()
+    harvest_id = create_harvest()
+
+    dimensions.fill_in(harvest_id=harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -480,3 +489,59 @@ def test_fill_in_no_doi(
 
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session,
+    mock_rialto_db_name,
+    monkeypatch,
+    create_harvest,
+):
+    harvest_id = create_harvest()
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Publication(
+                    doi="10.1111/older",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois, batch_size=200):
+        queried_dois.extend(dois)
+        yield {
+            "doi": "10.1111/newer",
+            "title": "Harvested Newer Publication",
+            "type": "article",
+            "publication_year": 2026,
+        }
+
+    monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
+
+    dimensions.fill_in(harvest_id=harvest_id)
+
+    assert queried_dois == ["10.1111/newer"], (
+        "only publications updated after the selected harvest created_at should be queried"
+    )
+
+    with test_incremental_session.begin() as session:
+        newer_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/newer").first()
+        )
+        older_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/older").first()
+        )
+
+        assert newer_pub.dim_json is not None
+        assert newer_pub.dim_json["title"] == "Harvested Newer Publication"
+        assert older_pub.dim_json is None

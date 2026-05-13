@@ -1,3 +1,5 @@
+import datetime
+
 import dotenv
 import pytest
 from sqlalchemy import insert
@@ -257,6 +259,25 @@ def test_incremental_session(test_incremental_engine):
         yield sessionmaker(test_incremental_engine)
     finally:
         close_all_sessions()
+
+
+@pytest.fixture
+def create_harvest(test_incremental_session):
+    def _create(
+        *,
+        created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
+        finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+    ):
+        with test_incremental_session.begin() as session:
+            harvest = rialto_schema.Harvest(
+                created_at=created_at,
+                finished_at=finished_at,
+            )
+            session.add(harvest)
+            session.flush()
+            return harvest.id
+
+    return _create
 
 
 @pytest.fixture

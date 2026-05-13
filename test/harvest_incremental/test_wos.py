@@ -550,9 +550,10 @@ def test_fill_in(
     mock_rialto_db_name,
     mock_wos_doi,
     caplog,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
-    wos.fill_in()
+    wos.fill_in(harvest_id=active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -585,12 +586,13 @@ def test_fill_in_no_wos(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
 
     # make it look like wos returns no publications by DOI
     monkeypatch.setattr(wos, "publications_from_dois", lambda *args, **kwargs: [])
-    wos.fill_in()
+    wos.fill_in(harvest_id=active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -601,6 +603,45 @@ def test_fill_in_no_wos(
         assert pub.wos_json is None
 
     assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+    """
+    Ensure that only publications that have been updated since the active
+    harvest started will be filled in.
+    """
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Publication(
+                    doi="10.1111/older",
+                    wos_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    wos_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois):
+        queried_dois.append(dois)
+        return dois
+
+    monkeypatch.setattr(wos, "publications_from_dois", _capture_dois)
+
+    wos.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == [["10.1111/newer"]], (
+        "only publications updated after the selected harvest created_at should be queried"
+    )
 
 
 @pytest.mark.skipif(wos_key is None, reason="no Web of Science key")

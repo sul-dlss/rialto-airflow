@@ -528,7 +528,7 @@ def test_fill_in_filters_publications_using_harvest_created_at(
                 Publication(
                     doi="10.1111/older",
                     dim_json=None,
-                    updated_at=datetime.datetime(2026, 4, 20, 0, 0, 0),
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
                 ),
                 Publication(
                     doi="10.1111/newer",
@@ -542,7 +542,12 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
     def _capture_dois(dois, batch_size=200):
         queried_dois.extend(dois)
-        yield from ()
+        yield {
+            "doi": "10.1111/newer",
+            "title": "Harvested Newer Publication",
+            "type": "article",
+            "publication_year": 2026,
+        }
 
     monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
 
@@ -551,3 +556,15 @@ def test_fill_in_filters_publications_using_harvest_created_at(
     assert queried_dois == ["10.1111/newer"], (
         "only publications updated after the selected harvest created_at should be queried"
     )
+
+    with test_incremental_session.begin() as session:
+        newer_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/newer").first()
+        )
+        older_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/older").first()
+        )
+
+        assert newer_pub.dim_json is not None
+        assert newer_pub.dim_json["title"] == "Harvested Newer Publication"
+        assert older_pub.dim_json is None

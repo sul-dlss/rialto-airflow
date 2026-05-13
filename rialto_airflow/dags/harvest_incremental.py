@@ -114,7 +114,7 @@ def harvest_incremental():
         """
         Fill in OpenAlex data for DOIs from other publication sources.
         """
-        openalex.fill_in()
+        openalex.fill_in(harvest_id)
 
     @task()
     def fill_in_dimensions(harvest_id):

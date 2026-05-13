@@ -4,6 +4,7 @@ import pytest
 
 import pyalex
 import requests
+
 from rialto_airflow.harvest_incremental import openalex
 from rialto_airflow.schema.rialto import Publication, Harvest, Author
 
@@ -165,6 +166,7 @@ def test_fill_in(
     mock_incremental_publication,
     mock_rialto_db_name,
     caplog,
+    active_harvest_id,
     monkeypatch,
 ):
     caplog.set_level(logging.INFO)
@@ -179,7 +181,7 @@ def test_fill_in(
         }
     ]
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks(records))
-    openalex.fill_in()
+    openalex.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -203,13 +205,14 @@ def test_fill_in_no_openalex(
     mock_incremental_publication,
     mock_rialto_db_name,
     caplog,
+    active_harvest_id,
     monkeypatch,
 ):
     caplog.set_level(logging.INFO)
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([]))
-    openalex.fill_in()
+    openalex.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -226,6 +229,7 @@ def test_fill_in_no_doi(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
+    active_harvest_id,
     caplog,
     monkeypatch,
 ):
@@ -237,7 +241,7 @@ def test_fill_in_no_doi(
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"title": "example"}]))
-    openalex.fill_in()
+    openalex.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (
@@ -255,6 +259,7 @@ def test_fill_in_none_doi(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
+    active_harvest_id,
     caplog,
     monkeypatch,
 ):
@@ -265,7 +270,7 @@ def test_fill_in_none_doi(
 
     # set up Works to return no records
     monkeypatch.setattr(openalex, "Works", lambda: MockWorks([{"doi": None}]))
-    openalex.fill_in()
+    openalex.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = session.query(Publication).where(Publication.doi is None).first()
@@ -273,6 +278,45 @@ def test_fill_in_none_doi(
 
     assert "unable to determine what DOI to update" in caplog.text
     assert "filled in 0 publications" in caplog.text
+
+
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+    """
+    Ensure that only publications that have been updated since the active
+    harvest started will be filled in.
+    """
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Publication(
+                    doi="10.1111/older",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(doi):
+        queried_dois.append(doi)
+        return doi
+
+    monkeypatch.setattr(openalex, "normalize_doi", _capture_dois)
+
+    openalex.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == ["10.1111/newer"], (
+        "only publications updated after the selected harvest created_at should be queried"
+    )
 
 
 def test_comma():

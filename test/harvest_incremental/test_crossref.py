@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 
@@ -187,12 +188,52 @@ def test_unexpected_json(caplog, requests_mock):
     assert "Unexpected JSON response {'foo': 'bar'}" in caplog.text
 
 
+def test_fill_in_filters_publications_using_harvest_created_at(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+    """
+    Ensure that only publications that have been updated since the active
+    harvest started will be filled in.
+    """
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Publication(
+                    doi="10.1111/older",
+                    crossref_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    crossref_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois):
+        queried_dois.append(dois)
+        return []
+
+    monkeypatch.setattr(crossref, "get_dois", _capture_dois)
+
+    crossref.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == [["10.1111/newer"]], (
+        "only publications updated after the selected harvest created_at should be queried"
+    )
+
+
 def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
 
@@ -206,7 +247,7 @@ def test_fill_in(
     ]
     monkeypatch.setattr(crossref, "get_dois", lambda _: records)
 
-    crossref.fill_in()
+    crossref.fill_in(active_harvest_id)
 
     with test_incremental_session.begin() as session:
         pub = (

@@ -142,7 +142,7 @@ def harvest_incremental():
         """
         Fill in Crossref data for DOIs from other publication sources.
         """
-        crossref.fill_in()
+        crossref.fill_in(harvest_id)
 
     @task_group()
     def fill_in(harvest_id):

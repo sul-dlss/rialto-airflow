@@ -10,20 +10,24 @@ import requests
 from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME
+from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME, Harvest
 from rialto_airflow.utils import normalize_doi
 
 RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
 
 
-def fill_in() -> None:
+def fill_in(harvest_id) -> None:
     """Harvest Crossref data for DOIs from other publication sources."""
     count = 0
+    harvest_created_at = (
+        select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
+    )
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
             .where(Publication.crossref_json.is_(None))
+            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=1000)
         )
 

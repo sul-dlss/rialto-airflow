@@ -281,7 +281,6 @@ def fill_in(harvest_id: int) -> None:
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
             .where(Publication.dim_json.is_(None))
-            .where(Publication.updated_at.is_not(None))
             .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=100)
         )

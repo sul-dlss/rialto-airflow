@@ -15,6 +15,22 @@ wos_key = os.environ.get("AIRFLOW_VAR_WOS_KEY")
 
 
 @pytest.fixture
+def fixed_datetime(monkeypatch):
+    """
+    Mock datetime.datetime.now to return a fixed date.
+    """
+
+    class FixedDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+            return fixed_now.astimezone(tz)
+
+    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
+    return FixedDatetime
+
+
+@pytest.fixture
 def mock_wos(monkeypatch):
     """
     Mock our function for fetching publications by orcid from Web of Science.
@@ -310,7 +326,7 @@ def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
 
 
 def test_publications_from_orcid_includes_load_time_when_previous_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -320,15 +336,6 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
         queries.append(query_params)
         yield from ()
 
-    class FixedDatetime(datetime.datetime):
-        # sets up a mock datetime class that returns a fixed current date so that we can assert on the loadTimeSpan value
-        # that is calculated based on the current date and the previous harvest date.
-        @classmethod
-        def now(cls, tz=None):
-            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-            return fixed_now.astimezone(tz)
-
-    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
     monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
     list(
         wos.publications_from_orcid(
@@ -343,7 +350,7 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
 
 
 def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_days(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -353,15 +360,6 @@ def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_da
         queries.append(query_params)
         yield from ()
 
-    class FixedDatetime(datetime.datetime):
-        # sets up a mock datetime class that returns a fixed current date so that we can assert on the loadTimeSpan value
-        # that is calculated based on the current date and the previous harvest date.
-        @classmethod
-        def now(cls, tz=None):
-            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-            return fixed_now.astimezone(tz)
-
-    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
     monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
     list(
         wos.publications_from_orcid(
@@ -377,7 +375,7 @@ def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_da
 
 
 def test_publications_from_orcid_does_not_call_api_when_0_days(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -385,13 +383,6 @@ def test_publications_from_orcid_does_not_call_api_when_0_days(
         queries.append(query_params)
         yield from ()
 
-    class FixedDatetime(datetime.datetime):
-        @classmethod
-        def now(cls, tz=None):
-            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-            return fixed_now.astimezone(tz)
-
-    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
     monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
     list(
         wos.publications_from_orcid(

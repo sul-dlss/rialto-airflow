@@ -157,6 +157,30 @@ def fill_in(harvest_id: int) -> None:
     logging.info(f"filled in {count} publications")
 
 
+def format_wos_timespan(days: int) -> str:
+    """
+    Format the number of days into a string suitable for the WoS API loadTimeSpan parameter.
+    If the number of days is more than 6, it must be expressed in weeks (W) or years (Y).
+    - <= 6 days: use days (D)
+    - > 6 days and <= 52 weeks: use weeks (W)
+    - > 52 weeks: use years (Y)
+    Note: there is a month parameter (M) but we don't need it since we can go up to 52 weeks
+    """
+    if days <= 6:
+        return f"{days}D"
+
+    weeks = (
+        (days + 6) // 7
+    )  # drop any remainder since the API expects whole weeks, but round up to the next week
+    if weeks <= 52:
+        return f"{weeks}W"
+
+    years = (
+        (days + 364) // 365
+    )  # drop any remainder since the API expects whole years, but round up to the next year
+    return f"{years}Y"
+
+
 def publications_from_orcid(orcid, harvest_date=None) -> Generator[dict, None, None]:
     """
     A generator that returns new or updated publications associated with a given ORCID, taking the last harvest date into account.
@@ -169,10 +193,12 @@ def publications_from_orcid(orcid, harvest_date=None) -> Generator[dict, None, N
     query_params["usrQuery"] = f"AI={orcid}"
     if harvest_date is not None:
         # construct a date limiter that is relative to the current date, since WOK does not allow use of the modifiedTimeSpan limiter
-        # date limiter should use the number of days since the start of the previous finished harvest + "D", e.g. "7D"
+        # date limiter should use the number of days since the start of the previous finished harvest
+        # WoS API requires us to send the number of days as weeks or years if the number of days is more than 6 or the number of weeks is more than 52.
         number_of_days = days_since(harvest_date)
-        if number_of_days > 0:
-            query_params["loadTimeSpan"] = f"{number_of_days}D"
+        if number_of_days <= 0:
+            return
+        query_params["loadTimeSpan"] = format_wos_timespan(number_of_days)
     yield from _wos_api(query_params=query_params)
 
 

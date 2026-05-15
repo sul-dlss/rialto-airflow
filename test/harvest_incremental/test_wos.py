@@ -15,6 +15,22 @@ wos_key = os.environ.get("AIRFLOW_VAR_WOS_KEY")
 
 
 @pytest.fixture
+def fixed_datetime(monkeypatch):
+    """
+    Mock datetime.datetime.now to return a fixed date.
+    """
+
+    class FixedDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+            return fixed_now.astimezone(tz)
+
+    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
+    return FixedDatetime
+
+
+@pytest.fixture
 def mock_wos(monkeypatch):
     """
     Mock our function for fetching publications by orcid from Web of Science.
@@ -310,7 +326,7 @@ def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
 
 
 def test_publications_from_orcid_includes_load_time_when_previous_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -320,15 +336,6 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
         queries.append(query_params)
         yield from ()
 
-    class FixedDatetime(datetime.datetime):
-        # sets up a mock datetime class that returns a fixed current date so that we can assert on the loadTimeSpan value
-        # that is calculated based on the current date and the previous harvest date.
-        @classmethod
-        def now(cls, tz=None):
-            fixed_now = cls(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-            return fixed_now.astimezone(tz)
-
-    monkeypatch.setattr(wos.datetime, "datetime", FixedDatetime)
     monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
     list(
         wos.publications_from_orcid(
@@ -340,6 +347,53 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
     )
 
     assert queries[0]["loadTimeSpan"] == "6D"
+
+
+def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_days(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
+):
+    queries = []
+
+    def mock_wos_api(query_params):
+        # catch the query so that we can assert on it later,
+        # return an empty result set since we're just testing that the date filter is included when there is a previous harvest.
+        queries.append(query_params)
+        yield from ()
+
+    monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
+    list(
+        wos.publications_from_orcid(
+            "0000-0002-2317-1967",
+            harvest_date=datetime.datetime(
+                2026, 4, 24, 0, 0, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+    )
+
+    # 2026-05-01 - 2026-04-24 = 7 days -> 1W
+    assert queries[0]["loadTimeSpan"] == "1W"
+
+
+def test_publications_from_orcid_does_not_call_api_when_0_days(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
+):
+    queries = []
+
+    def mock_wos_api(query_params):
+        queries.append(query_params)
+        yield from ()
+
+    monkeypatch.setattr(wos, "_wos_api", mock_wos_api)
+    list(
+        wos.publications_from_orcid(
+            "0000-0002-2317-1967",
+            harvest_date=datetime.datetime(
+                2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+    )
+
+    assert len(queries) == 0
 
 
 def test_harvest_stops_when_author_limit_is_exceeded(
@@ -820,3 +874,26 @@ def test_get_pmid_returns_none_when_identifiers_not_dict():
 def test_get_pmid_returns_none_on_attribute_error():
     pub = {"dynamic_data": {"cluster_related": None}}
     assert wos.get_pmid(pub) is None
+
+
+@pytest.mark.parametrize(
+    "days,expected",
+    [
+        (0, "0D"),
+        (1, "1D"),
+        (6, "6D"),
+        (7, "1W"),
+        (8, "2W"),
+        (13, "2W"),
+        (14, "2W"),
+        (15, "3W"),
+        (364, "52W"),
+        (365, "1Y"),
+        (366, "2Y"),
+        (729, "2Y"),
+        (730, "2Y"),
+        (731, "3Y"),
+    ],
+)
+def test_format_wos_timespan(days, expected):
+    assert wos.format_wos_timespan(days) == expected

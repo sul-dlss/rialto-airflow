@@ -1,5 +1,6 @@
 from sqlalchemy import select
 
+from rialto_airflow.schema.harvest import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import PublicationsByDepartment
 
@@ -68,3 +69,26 @@ def test_write_publications_by_department(
 
         assert "started writing publications_by_department table" in caplog.text
         assert "finished writing publications_by_department table" in caplog.text
+
+
+def test_limit_openalex_only(
+    snapshot, dataset, tmp_path, test_session, test_reports_session
+):
+    # ensure one of the publications only has openalex metadata
+    with test_session.begin() as session:
+        pub = (
+            session.query(Publication).where(Publication.doi == "10.000/000001").first()
+        )
+        pub.sulpub_json = None
+        pub.dim_json = None
+        pub.wos_json = None
+        pub.pubmed_json = None
+        session.add(pub)
+        session.flush()
+
+    publication.export_publications_by_department(snapshot)
+
+    with test_reports_session.begin() as session:
+        pubs = session.query(PublicationsByDepartment).all()
+        assert len(pubs) == 1
+        assert pubs[0].doi == "10.000/000002"

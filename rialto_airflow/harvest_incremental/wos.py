@@ -303,6 +303,11 @@ def _wos_api(
         logging.debug(f"No results found for {params}")
         return
 
+    if results["Data"]["Records"]["records"] == "":
+        # Sometimes RecordsFound can be > 0 but records is an empty string.
+        logging.debug(f"No records found in results for {params}")
+        return
+
     yield from results["Data"]["Records"]["records"]["REC"]
 
     # get subsequent results using the Query ID

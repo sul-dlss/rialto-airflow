@@ -517,6 +517,31 @@ def test_empty_payload(
     assert "got empty string instead of JSON" in caplog.text
 
 
+def test_empty_records_string_is_skipped(
+    caplog,
+    requests_mock,
+):
+    """
+    A 200 OK response can report RecordsFound > 0 while still returning an empty
+    string for records. That should be treated like no records and skipped.
+    """
+    caplog.set_level(logging.DEBUG)
+    requests_mock.get(
+        re.compile(r"https://wos-api\.clarivate\.com/api/wos.*"),
+        json={
+            "QueryResult": {"RecordsFound": 1, "QueryID": "query-id"},
+            "Data": {"Records": {"records": ""}},
+        },
+        status_code=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    results = list(wos.publications_from_orcid("0000-0003-1654-6027"))
+
+    assert results == []
+    assert "No records found in results" in caplog.text
+
+
 def test_bad_wos_json(
     test_incremental_session,
     caplog,

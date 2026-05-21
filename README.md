@@ -277,3 +277,6 @@ The following API keys are actually the same in all environments because they ar
 The following API keys should be different in each environment (i.e. local dev has a different key than stage and a different key than prod), even though they are all pulling from the same data, in order to better isolate usage and avoid hitting usage limits:
 
 - WoS
+
+
+The Dimensions API key is associated with a Dimensions account for the rialto-team mailing.  To adjust the API key, visit https://app.dimensions.ai/ and login with the account, and then go to "General Settings" in "My Account".  The account login credentials are in vault at puppet/application/rialto-airflow/dimensions-account-username and puppet/application/rialto-airflow/dimensions-account-password

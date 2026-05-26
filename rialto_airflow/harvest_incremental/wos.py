@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import datetime
+from collections.abc import Mapping
 from itertools import batched
 from time import sleep
 
@@ -27,7 +28,7 @@ from rialto_airflow.utils import (
     normalize_wos_id,
 )
 
-Params = Dict[str, Union[int, str]]
+Params = Mapping[str, Union[int, str]]
 
 
 def harvest(limit=None) -> None:

@@ -8,7 +8,7 @@ from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
-from typing import Generator, Optional, Dict, Union
+from typing import Generator, Optional, Union
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from urllib3.util import Retry

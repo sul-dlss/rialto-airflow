@@ -2,12 +2,13 @@ import logging
 import os
 import re
 import datetime
+from collections.abc import Mapping
 from itertools import batched
 from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
-from typing import Generator, Optional, Dict, Union
+from typing import Generator, Optional, Union
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from urllib3.util import Retry
@@ -27,7 +28,7 @@ from rialto_airflow.utils import (
     normalize_wos_id,
 )
 
-Params = Dict[str, Union[int, str]]
+Params = Mapping[str, Union[int, str]]
 
 
 def harvest(limit=None) -> None:

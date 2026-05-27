@@ -164,13 +164,14 @@ def test_harvest(
     mock_rialto_db_name,
     mock_wos,
     monkeypatch,
+    active_harvest_id,
 ):
     """
     With some authors loaded and a mocked WoS API make sure that a
     publication is matched up to the authors using the ORCID.
     """
     # harvest from Web of Science
-    wos.harvest()
+    wos.harvest(active_harvest_id)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -190,12 +191,13 @@ def test_harvest_when_doi_exists(
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_wos,
+    active_harvest_id,
 ):
     """
     When a publication and its authors already exist in the database make sure that the wos_json is updated.
     """
     # harvest from web of science
-    wos.harvest()
+    wos.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -212,10 +214,14 @@ def test_harvest_when_doi_exists(
 
 
 def test_log_message(
-    mock_incremental_authors, mock_rialto_db_name, mock_many_wos, caplog
+    mock_incremental_authors,
+    mock_rialto_db_name,
+    mock_many_wos,
+    caplog,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
-    wos.harvest(limit=50)
+    wos.harvest(active_harvest_id, limit=50)
     assert "Reached limit of 50 publications or authors, stopping" in caplog.text
 
 
@@ -225,14 +231,21 @@ def test_harvest_with_previous_harvest_dates(
     mock_rialto_db_name,
     mock_wos,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
+        # active_harvest_id was created by a fixture and has
+        # a created_at of datetime(2026, 4, 27, 16, 38, 10)
+
+        # create a harvest previous to the fixture, which is finished and should
+        # be returned when looking up the previous harvest
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
+
         # Make sure Authors are similar to those loaded in production, with created_at and updated_at dates.
         session.query(Author).where(Author.orcid.is_not(None)).update(
             {
@@ -250,8 +263,8 @@ def test_harvest_with_previous_harvest_dates(
         yield from ()
 
     monkeypatch.setattr(wos, "publications_from_orcid", _capture_harvest_date)
-    wos.harvest()
-    assert set(harvest_dates) == {datetime.datetime(2026, 4, 27, 16, 38, 10)}, (
+    wos.harvest(active_harvest_id)
+    assert set(harvest_dates) == {datetime.datetime(2026, 4, 20, 16, 38, 10)}, (
         "formatted previous harvest date passed to publications_from_orcid"
     )
 
@@ -261,12 +274,14 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     mock_incremental_authors,
     mock_rialto_db_name,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
+        # create harvest previous to the active_harvest_id
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 25, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
         session.query(Author).where(
@@ -293,7 +308,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
 
     monkeypatch.setattr(wos, "publications_from_orcid", _capture_harvest_date)
 
-    wos.harvest()
+    wos.harvest(active_harvest_id)
 
     assert harvest_dates, (
         "publications_from_orcid should be called with harvest_date for ORCID authors"
@@ -302,7 +317,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
         "publications_from_orcid should be called with harvest_date for ORCID authors"
     )
     assert len(harvest_dates) == 2, "two ORCID authors should be harvested"
-    assert harvest_dates == [None, datetime.datetime(2026, 4, 25, 16, 38, 10)], (
+    assert harvest_dates == [None, datetime.datetime(2026, 4, 20, 16, 38, 10)], (
         "recently updated author should omit previous harvest date while older updated author should keep it"
     )
 
@@ -401,6 +416,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    active_harvest_id,
 ):
     queried_orcids = []
 
@@ -412,7 +428,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     monkeypatch.setattr(wos, "publications_from_orcid", _capture_orcid)
 
     caplog.set_level(logging.INFO)
-    wos.harvest(limit=1)
+    wos.harvest(active_harvest_id, limit=1)
 
     assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
     assert "Reached limit of 1 publications or authors, stopping" in caplog.text
@@ -424,6 +440,7 @@ def test_customization_error(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     """
     A 500 error (with a specific JSON error payload) we've seen from WoS.
@@ -437,7 +454,7 @@ def test_customization_error(
         headers={"Content-Type": "application/json"},
     )
 
-    wos.harvest(limit=50)
+    wos.harvest(active_harvest_id, limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert re.search("500 Server Error.*Customization error", caplog.text)
@@ -449,6 +466,7 @@ def test_not_found_error(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     """
     A 404 error from WoS should be logged, but should not stop harvesting.
@@ -461,7 +479,7 @@ def test_not_found_error(
         headers={"Content-Type": "application/text"},
     )
 
-    wos.harvest(limit=50)
+    wos.harvest(active_harvest_id, limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -476,6 +494,7 @@ def test_server_error(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     """
     A 500 error from WoS should be logged, but should not stop harvesting.
@@ -488,7 +507,7 @@ def test_server_error(
         headers={"Content-Type": "application/text"},
     )
 
-    wos.harvest(limit=50)
+    wos.harvest(active_harvest_id, limit=50)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
     assert (
@@ -504,13 +523,14 @@ def test_empty_payload(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     """
     A 200 OK from WoS with an empty JSON payload should be skipped over.
     """
     requests_mock.get(re.compile(".*"), text="", status_code=200)
 
-    wos.harvest(limit=50)
+    wos.harvest(active_harvest_id, limit=50)
 
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, "no publications loaded"
@@ -548,6 +568,7 @@ def test_bad_wos_json(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     """
     A 200 OK from WoS with an empty JSON payload should be skipped over.
@@ -555,7 +576,7 @@ def test_bad_wos_json(
     requests_mock.get(re.compile(".*"), text="ffff", status_code=200)
 
     with pytest.raises(requests.exceptions.JSONDecodeError):
-        wos.harvest(limit=50)
+        wos.harvest(active_harvest_id, limit=50)
 
     assert "uhoh, instead of JSON we got: ffff" in caplog.text
 

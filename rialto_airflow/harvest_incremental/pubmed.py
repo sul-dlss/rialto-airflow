@@ -58,7 +58,7 @@ http.mount(
 )
 
 
-def harvest(limit=None) -> None:
+def harvest(harvest_id, limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them from pubmed.
     """
@@ -66,7 +66,8 @@ def harvest(limit=None) -> None:
     author_count = 0
     stop = False
 
-    previous_harvest = Harvest.get_previous()
+    harvest = Harvest.get_by_id(harvest_id)
+    previous_harvest = harvest.get_previous()
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID

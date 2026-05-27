@@ -1,5 +1,5 @@
-import datetime
 import pytest
+from datetime import datetime, timezone
 
 from sqlalchemy import inspect
 
@@ -17,6 +17,7 @@ def test_create_persists_harvest(test_incremental_session, mock_rialto_db_name):
         assert persisted is not None
         assert persisted.finished_at is None
         assert persisted.created_at is not None
+        assert persisted.is_full is False
 
 
 def test_get_by_id_returns_detached_harvest(
@@ -32,32 +33,79 @@ def test_get_by_id_returns_detached_harvest(
 
     assert fetched_harvest is not None
     assert fetched_harvest.id == harvest_id
+    assert fetched_harvest.is_full is False
     assert inspect(fetched_harvest).detached is True
 
 
-def test_get_previous_returns_latest_finished_harvest(
-    test_incremental_session, mock_rialto_db_name
-):
+def test_get_previous(test_incremental_session, mock_rialto_db_name):
+
+    # set up three harvests, that started in order
     with test_incremental_session.begin() as session:
-        session.add(Harvest())
-        older_finished = Harvest(
-            finished_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        h1 = Harvest(
+            created_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 1, 4, tzinfo=timezone.utc),
         )
-        newer_finished = Harvest(
-            finished_at=datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
+        h2 = Harvest(
+            created_at=datetime(2024, 1, 8, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 8, 4, tzinfo=timezone.utc),
         )
-        session.add_all([older_finished, newer_finished])
+        h3 = Harvest(
+            created_at=datetime(2024, 1, 15, 0, tzinfo=timezone.utc),
+        )
+
+        session.add_all([h1, h2, h3])
         session.flush()
-        newer_finished_id = newer_finished.id
 
-    previous = Harvest.get_previous()
+        h1_id = h1.id
+        h2_id = h2.id
+        h3_id = h3.id
 
+    harvest = Harvest.get_by_id(h1_id)
+    previous = harvest.get_previous()
+    assert previous is None
+
+    harvest = Harvest.get_by_id(h2_id)
+    previous = harvest.get_previous()
     assert previous is not None
-    assert previous.id == newer_finished_id
+    assert previous.id == h1_id
+    assert inspect(previous).detached is True
+
+    harvest = Harvest.get_by_id(h3_id)
+    previous = harvest.get_previous()
+    assert previous is not None
+    assert previous.id == h2_id
     assert inspect(previous).detached is True
 
 
-def test_complete_sets_finished_at(test_incremental_session, mock_rialto_db_name):
+def test_get_previous_for_full_harvest(test_incremental_session, mock_rialto_db_name):
+    """
+    Full harvests never have a previous harvest, only incremental ones do. This
+    allows harvesting logic to not limit the scope of collected metadata.
+    """
+
+    # set up three harvests, that started in order
+    with test_incremental_session.begin() as session:
+        h1 = Harvest(
+            created_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 1, 4, tzinfo=timezone.utc),
+        )
+        h2 = Harvest(
+            created_at=datetime(2024, 1, 8, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2024, 1, 8, 4, tzinfo=timezone.utc),
+            is_full=True,
+        )
+        session.add_all([h1, h2])
+        session.flush()
+        harvest_id = h2.id
+
+    harvest = Harvest.get_by_id(harvest_id)
+    assert harvest is not None
+
+    previous = harvest.get_previous()
+    assert previous is None
+
+
+def test_complete(test_incremental_session, mock_rialto_db_name):
     harvest = Harvest.create()
 
     harvest.complete()
@@ -68,16 +116,11 @@ def test_complete_sets_finished_at(test_incremental_session, mock_rialto_db_name
         assert completed.finished_at is not None
 
 
-def test_get_by_id_returns_none_for_missing_harvest(
+def test_get_by_id_raises_for_missing_harvest(
     test_incremental_session, mock_rialto_db_name
 ):
-    assert Harvest.get_by_id(999999) is None
-
-
-def test_get_previous_returns_none_when_no_finished_harvests(
-    test_incremental_session, mock_rialto_db_name
-):
-    assert Harvest.get_previous() is None
+    with pytest.raises(ValueError, match="999999"):
+        Harvest.get_by_id(999999)
 
 
 def test_complete_raises_value_error_for_missing_harvest(

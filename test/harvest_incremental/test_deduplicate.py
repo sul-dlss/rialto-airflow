@@ -392,3 +392,45 @@ def test_remove_duplicates(test_incremental_session, dataset2, mock_rialto_db_na
     """
     total_dupes = deduplicate.remove_duplicates()
     assert total_dupes == 2, "two duplicates have been removed"
+
+
+def test_remove_orphan_publications(
+    test_incremental_session, dataset_incremental, mock_rialto_db_name, caplog
+):
+    """
+    Ensure that publications that are NOT associated with an author are pruned
+    from the publication table.
+    """
+    with test_incremental_session.begin() as session:
+        pubs = session.query(Publication).all()
+        assert len(pubs) == 1
+        pubs[0].authors = []
+        session.add(pubs[0])
+
+    deduplicate.remove_orphan_publications()
+
+    with test_incremental_session.begin() as session:
+        pubs = session.query(Publication).all()
+        assert len(pubs) == 0
+
+    assert "Removed 1 publications with no authors" in caplog.text
+
+
+def test_do_not_remove_linked_publications(
+    test_incremental_session, dataset_incremental, mock_rialto_db_name, caplog
+):
+    """
+    Ensure that publications that are associated with an author are NOT pruned
+    from the publication table.
+    """
+    with test_incremental_session.begin() as session:
+        pubs = session.query(Publication).all()
+        assert len(pubs) == 1
+
+    deduplicate.remove_orphan_publications()
+
+    with test_incremental_session.begin() as session:
+        pubs = session.query(Publication).all()
+        assert len(pubs) == 1
+
+    assert "Removed 0 publications with no authors" in caplog.text

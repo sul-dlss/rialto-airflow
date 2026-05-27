@@ -215,3 +215,14 @@ def merge_pubs(*, pubs, session) -> int:
         session.execute(delete(Publication).where(Publication.id == pub.id))
         count_deleted += 1
     return count_deleted
+
+
+def remove_orphan_publications() -> int:
+    with get_session(RIALTO_DB_NAME).begin() as session:
+        result = session.execute(
+            delete(Publication).where(
+                ~Publication.id.in_(select(pub_author_association.c.publication_id))
+            )
+        )
+        logging.info(f"Removed {result.rowcount} publications with no authors.")
+        return result.rowcount

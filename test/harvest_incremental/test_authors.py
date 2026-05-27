@@ -4,8 +4,18 @@ import logging
 import pandas
 import pytest
 
-from rialto_airflow.harvest_incremental.authors import load_authors_table
-from rialto_airflow.schema.rialto import Author, Publication
+from sqlalchemy import update
+
+from rialto_airflow.harvest_incremental.authors import (
+    clear_pub_author_links,
+    load_authors_table,
+)
+from rialto_airflow.schema.rialto import (
+    Author,
+    Harvest,
+    Publication,
+    pub_author_association,
+)
 
 _CSV_FIELDNAMES = [
     "sunetid",
@@ -268,3 +278,52 @@ def test_load_null_cap_id(
             .cap_profile_id
             is None
         )
+
+
+def test_clear_pub_author_links(
+    test_incremental_session,
+    dataset_incremental,
+    mock_rialto_db_name,
+    active_harvest_id,
+):
+    """
+    Links between publications and authors should be preserved when doing
+    incremental harvests (Harvest.is_full=False)
+    """
+    with test_incremental_session.begin() as session:
+        link_count = session.query(pub_author_association).count()
+        assert link_count == 2, "there are pub/author links"
+
+    clear_pub_author_links(active_harvest_id)
+
+    with test_incremental_session.begin() as session:
+        link_count = session.query(pub_author_association).count()
+        assert link_count == 2, "there still are pub/author links"
+
+
+def test_clear_pub_author_links_full_harvest(
+    test_incremental_session,
+    dataset_incremental,
+    mock_rialto_db_name,
+    active_harvest_id,
+):
+    """
+    Links between publications and authors should be removed when doing
+    incremental harvests (Harvest.is_full=True)
+    """
+    with test_incremental_session.begin() as session:
+        link_count = session.query(pub_author_association).count()
+        assert link_count == 2, "there are pub/author links"
+
+        session.execute(
+            update(Harvest).where(Harvest.id == active_harvest_id).values(is_full=True)
+        )
+
+    clear_pub_author_links(active_harvest_id)
+
+    harvest = Harvest.get_by_id(active_harvest_id)
+    assert harvest.is_full is True
+
+    with test_incremental_session.begin() as session:
+        link_count = session.query(pub_author_association).count()
+        assert link_count == 0, "there are no pub/author links"

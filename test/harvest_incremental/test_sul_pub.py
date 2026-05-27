@@ -49,6 +49,7 @@ def test_harvest(
     mock_rialto_db_name,
     caplog,
     requests_mock,
+    active_harvest_id,
 ):
     caplog.set_level(logging.DEBUG)
 
@@ -56,7 +57,7 @@ def test_harvest(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest("example.org", "fake-key")
+    sul_pub.harvest("example.org", "fake-key", active_harvest_id)
 
     # make sure there are publications in the database
     with test_incremental_session.begin() as session:
@@ -94,14 +95,16 @@ def test_harvest_with_previous_harvest(
     mock_rialto_db_name,
     monkeypatch,
     caplog,
+    active_harvest_id,
 ):
     caplog.set_level(logging.DEBUG)
 
     with test_incremental_session.begin() as session:
+        # create previous harvest to active_harvest_id
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
 
@@ -114,9 +117,9 @@ def test_harvest_with_previous_harvest(
     monkeypatch.setattr(sul_pub, "publications", _capture_harvest_date)
 
     # harvest from sulpub
-    sul_pub.harvest("example.org", "fake-key")
+    sul_pub.harvest("example.org", "fake-key", active_harvest_id)
 
-    assert "2026-04-27" in harvest_dates
+    assert "2026-04-20" in harvest_dates
 
 
 def test_harvest_date(requests_mock):
@@ -154,6 +157,7 @@ def test_harvest_limit(
     mock_rialto_db_name,
     caplog,
     requests_mock,
+    active_harvest_id,
 ):
     """
     Confirm that the harvest limit we use in test envs is observed, and that a warning is
@@ -165,7 +169,7 @@ def test_harvest_limit(
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub with a limit of one publication
-    sul_pub.harvest("example.org", "fake-key", limit=1)
+    sul_pub.harvest("example.org", "fake-key", active_harvest_id, limit=1)
 
     # make sure a publication is in the database and linked to the authors
     with test_incremental_session.begin() as session:
@@ -195,12 +199,13 @@ def test_harvest_when_doi_exists(
     mock_incremental_authors,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest("example.org", "fake-key")
+    sul_pub.harvest("example.org", "fake-key", active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -226,12 +231,13 @@ def test_harvest_when_author_exists(
     mock_incremental_association,
     mock_rialto_db_name,
     requests_mock,
+    active_harvest_id,
 ):
     requests_mock.get("/publications.json", json=response)
     requests_mock.get("/publications.json?page=2", json={"records": []})
 
     # harvest from sulpub
-    sul_pub.harvest("example.org", "fake-key")
+    sul_pub.harvest("example.org", "fake-key", active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:

@@ -25,7 +25,7 @@ from rialto_airflow.utils import (
 )
 
 
-def harvest(limit: None | int = None) -> None:
+def harvest(harvest_id: int, limit: None | int = None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
@@ -33,12 +33,14 @@ def harvest(limit: None | int = None) -> None:
     author_count = 0
     stop = False
 
-    with get_session(RIALTO_DB_NAME).begin() as select_session:
-        previous_harvest = Harvest.get_previous()
+    harvest = Harvest.get_by_id(harvest_id)
+    previous_harvest = harvest.get_previous()
+    if previous_harvest is not None:
+        previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
+    else:
         previous_harvest_date = None
-        if previous_harvest is not None:
-            previous_harvest_date = previous_harvest.created_at.strftime("%Y-%m-%d")
 
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()

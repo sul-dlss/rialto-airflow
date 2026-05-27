@@ -18,13 +18,15 @@ from rialto_airflow.schema.rialto import (
 from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
 
-def harvest(host, key, per_page=1000, limit=None):
+def harvest(host, key, active_harvest_id, per_page=1000, limit=None):
 
     # look for a previous harvest to use
-    prev_harvest = Harvest.get_previous()
+    harvest = Harvest.get_by_id(active_harvest_id)
+    previous_harvest = harvest.get_previous()
+
     prev_harvest_date = (
-        prev_harvest.created_at.strftime("%Y-%m-%d")
-        if prev_harvest is not None
+        previous_harvest.created_at.strftime("%Y-%m-%d")
+        if previous_harvest is not None
         else None
     )
 

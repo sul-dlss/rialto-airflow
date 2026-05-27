@@ -31,23 +31,20 @@ from rialto_airflow.utils import (
 Params = Mapping[str, Union[int, str]]
 
 
-def harvest(limit=None) -> None:
+def harvest(harvest_id, limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them.
     """
+
+    # get the previous harvest
+    harvest = Harvest.get_by_id(harvest_id)
+    previous_harvest = harvest.get_previous()
+
     pub_count = 0
     author_count = 0
     stop = False
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
-        previous_harvest = Harvest.get_previous()
-        previous_harvest_date = None
-        if previous_harvest is not None:
-            previous_harvest_date = previous_harvest.created_at
-            logging.info(
-                f"previous harvest found, so only harvesting publications loaded since {previous_harvest_date}"
-            )
-
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
@@ -65,13 +62,16 @@ def harvest(limit=None) -> None:
             # if the author was created or updated (e.g. adding an ORCID) after the last harvest,
             # we want to get all their publications, not just ones since the last harvest timestamp.
             # create a variable that can be mutated just for this author loop.
-            author_harvest_date = previous_harvest_date
             if previous_harvest is not None:
                 if (
                     author.updated_at is not None
                     and author.updated_at >= previous_harvest.created_at
                 ):
                     author_harvest_date = None
+                else:
+                    author_harvest_date = previous_harvest.created_at
+            else:
+                author_harvest_date = None
 
             for wos_pub in publications_from_orcid(
                 author.orcid, harvest_date=author_harvest_date

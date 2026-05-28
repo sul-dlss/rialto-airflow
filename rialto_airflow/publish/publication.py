@@ -3,6 +3,7 @@ import zipfile
 import os
 from sqlalchemy import func, select, types, text
 from sqlalchemy.dialects.postgresql import insert
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 
 from rialto_airflow.database import create_engine, db_uri, get_session
 from rialto_airflow.distiller import (
@@ -18,7 +19,7 @@ from rialto_airflow.distiller import (
     first_author_orcid,
     last_author_orcid,
 )
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
     Author,
     Funder,
     Publication,
@@ -37,15 +38,16 @@ from rialto_airflow.utils import downloads_dir, piped
 # we need it again in the future.  This PR also removed the related CSV writing tests in test_publication.py
 
 
-def export_publications(database_name: str) -> int:
+def export_publications() -> int:
     """
     Export publications information to the reports publications table
     """
 
+    # breakpoint()
     logging.info("started writing publications table")
     count = 0
 
-    with get_session(database_name).begin() as select_session:
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         # This query joins the publication and funder tables
         # Since we want one row per publication, and a publication can
         # have multiple funders, the booleans associated with whether they
@@ -116,14 +118,14 @@ def export_publications(database_name: str) -> int:
     return count
 
 
-def export_publications_by_school(database_name: str) -> int:
+def export_publications_by_school() -> int:
     """
     Export publications information to the publications_by_school table.
     """
     logging.info("started writing publications_by_school table")
     count = 0
 
-    with get_session(database_name).begin() as select_session:
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(
                 Publication.apc,
@@ -180,14 +182,14 @@ def export_publications_by_school(database_name: str) -> int:
     return count
 
 
-def export_publications_by_department(database_name: str) -> int:
+def export_publications_by_department() -> int:
     """
     Export publications information to the publications_by_department table.
     """
     logging.info("started writing publications_by_department table")
     count = 0
 
-    with get_session(database_name).begin() as select_session:
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(
                 Publication.apc,
@@ -246,14 +248,14 @@ def export_publications_by_department(database_name: str) -> int:
     return count
 
 
-def export_publications_by_author(database_name: str) -> int:
+def export_publications_by_author() -> int:
     """
     Export publication and author information to the publications_by_author table.
     """
     logging.info("started writing publications_by_author table")
     count = 0
 
-    with get_session(database_name).begin() as select_session:
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(
                 Publication.apc,

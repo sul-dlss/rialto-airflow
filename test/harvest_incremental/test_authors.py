@@ -3,9 +3,12 @@ import logging
 
 import pandas
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from rialto_airflow.harvest_incremental.authors import load_authors_table
+from rialto_airflow.harvest_incremental import authors as authors_module
 from rialto_airflow.schema.rialto import Author, Publication
+from psycopg2 import Error as Psycopg2Error
 
 _CSV_FIELDNAMES = [
     "sunetid",
@@ -281,17 +284,17 @@ def test_load_dupe_cap_id_merge_with_existing_sunet(
     """
     with test_incremental_session.begin() as session:
         active_author = Author(
-            sunet="tmitch11",
-            cap_profile_id="374967",
+            sunet="test11",
+            cap_profile_id="99999",
             first_name="Thomas",
-            last_name="Mitchell",
+            last_name="Tester",
             status=True,
         )
         inactive_author = Author(
-            sunet="tmitch1",
-            cap_profile_id="350622",
+            sunet="test1",
+            cap_profile_id="12345",
             first_name="Thomas",
-            last_name="Mitchell",
+            last_name="Tester",
             status=False,
         )
         active_pub = Publication(
@@ -307,13 +310,13 @@ def test_load_dupe_cap_id_merge_with_existing_sunet(
         writer.writeheader()
         writer.writerow(
             {
-                "sunetid": "tmitch11",
+                "sunetid": "test11",
                 "first_name": "Thomas",
-                "last_name": "Mitchell",
-                "full_name": "Thomas Mitchell",
+                "last_name": "Tester",
+                "full_name": "Thomas Tester",
                 "orcidid": "",
                 "orcid_update_scope": "false",
-                "cap_profile_id": "350622",
+                "cap_profile_id": "12345",
                 "role": "registry",
                 "academic_council": "false",
                 "primary_affiliation": "",
@@ -330,16 +333,201 @@ def test_load_dupe_cap_id_merge_with_existing_sunet(
     load_authors_table(tmp_path)
     assert "processed=1 new=0 updated=1 ignored=0" in caplog.text
     assert (
-        "Updated inactive author sunet=tmitch1 with active author sunet=tmitch11 for cap_profile_id=350622"
+        "Updated inactive author sunet=test1 with active author sunet=test11 for cap_profile_id=12345"
         in caplog.text
     )
 
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
-        author = session.query(Author).where(Author.sunet == "tmitch11").one()
-        assert author.cap_profile_id == "350622"
+        author = session.query(Author).where(Author.sunet == "test11").one()
+        assert author.cap_profile_id == "12345"
         assert author.status is True
         assert len(author.publications) == 2
+
+
+def test_load_dupe_cap_id_existing_active_conflict(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
+    """
+    If both the sunet row and the cap_profile_id row already exist as active
+    records, the incoming active row should be ignored.
+    """
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Author(
+                    sunet="test11",
+                    cap_profile_id="99999",
+                    first_name="Thomas",
+                    last_name="Tester",
+                    status=True,
+                ),
+                Author(
+                    sunet="test1",
+                    cap_profile_id="12345",
+                    first_name="Thomas",
+                    last_name="Tester",
+                    status=True,
+                ),
+            ]
+        )
+
+    with open(authors_csv, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sunetid": "test11",
+                "first_name": "Thomas",
+                "last_name": "Tester",
+                "full_name": "Thomas Tester",
+                "orcidid": "",
+                "orcid_update_scope": "false",
+                "cap_profile_id": "12345",
+                "role": "registry",
+                "academic_council": "false",
+                "primary_affiliation": "",
+                "primary_school": "School of Medicine",
+                "primary_department": "Neurology and Neurological Sciences",
+                "primary_division": "Pediatric Neurology",
+                "all_schools": "School of Medicine",
+                "all_departments": "Neurology and Neurological Sciences|Pediatrics",
+                "all_divisions": "Pediatric Neurology",
+                "active": "true",
+            }
+        )
+
+    load_authors_table(tmp_path)
+
+    assert "processed=1 new=0 updated=0 ignored=1" in caplog.text
+    assert (
+        "Unable to insert active author when there is already an active author with cap_profile_id 12345"
+        in caplog.text
+    )
+
+    with test_incremental_session.begin() as session:
+        assert session.query(Author).count() == 2
+
+
+def test_load_dupe_cap_id_existing_inactive_conflict(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
+    """
+    If both the sunet row and the cap_profile_id row already exist and the
+    incoming row is inactive, it should be ignored.
+    """
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Author(
+                    sunet="test11",
+                    cap_profile_id="99999",
+                    first_name="Thomas",
+                    last_name="Tester",
+                    status=True,
+                ),
+                Author(
+                    sunet="test1",
+                    cap_profile_id="12345",
+                    first_name="Thomas",
+                    last_name="Tester",
+                    status=False,
+                ),
+            ]
+        )
+
+    with open(authors_csv, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sunetid": "test11",
+                "first_name": "Thomas",
+                "last_name": "Tester",
+                "full_name": "Thomas Tester",
+                "orcidid": "",
+                "orcid_update_scope": "false",
+                "cap_profile_id": "12345",
+                "role": "registry",
+                "academic_council": "false",
+                "primary_affiliation": "",
+                "primary_school": "School of Medicine",
+                "primary_department": "Neurology and Neurological Sciences",
+                "primary_division": "Pediatric Neurology",
+                "all_schools": "School of Medicine",
+                "all_departments": "Neurology and Neurological Sciences|Pediatrics",
+                "all_divisions": "Pediatric Neurology",
+                "active": "false",
+            }
+        )
+
+    load_authors_table(tmp_path)
+
+    assert "processed=1 new=0 updated=0 ignored=1" in caplog.text
+    assert (
+        "Ignored inactive author sunet=test11 with pre-existing cap_profile_id 12345 and a different sunet"
+        in caplog.text
+    )
+
+    with test_incremental_session.begin() as session:
+        assert session.query(Author).count() == 2
+
+
+def test_load_authors_table_re_raises_unexpected_integrity_error(
+    test_incremental_session, tmp_path, authors_csv, mock_rialto_db_name, monkeypatch
+):
+    """
+    Unexpected constraint failures should not be swallowed by the loader.
+    """
+
+    class FakeDiag:
+        constraint_name = "author_some_other_key"
+
+    class FakeOrig(Psycopg2Error):
+        diag = FakeDiag()
+
+    def boom(session, row_dict):
+        raise IntegrityError("stmt", {"row": row_dict}, FakeOrig())
+
+    monkeypatch.setattr(authors_module, "upsert_author", boom)
+
+    with open(authors_csv, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sunetid": "janes",
+                "first_name": "Jane",
+                "last_name": "Stanford",
+                "full_name": "Jane Stanford",
+                "orcidid": "",
+                "orcid_update_scope": "false",
+                "cap_profile_id": "12345",
+                "role": "staff",
+                "academic_council": "false",
+                "primary_affiliation": "Engineering",
+                "primary_school": "School of Engineering",
+                "primary_department": "Computer Science",
+                "primary_division": "Philanthropy Division",
+                "all_schools": "School of Engineering",
+                "all_departments": "Computer Science",
+                "all_divisions": "Philanthropy Division",
+                "active": "true",
+            }
+        )
+
+    with pytest.raises(IntegrityError):
+        load_authors_table(tmp_path)
+
+
+def test_check_headers_rejects_missing_required_headers(tmp_path):
+    authors_file = tmp_path / "authors.csv"
+    with open(authors_file, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["sunetid", "first_name", "last_name"])
+
+    with pytest.raises(ValueError, match="expected to include"):
+        authors_module.check_headers(str(authors_file))
 
 
 def test_load_dupe_cap_id(

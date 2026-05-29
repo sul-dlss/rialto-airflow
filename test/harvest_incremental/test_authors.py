@@ -271,6 +271,77 @@ def test_load_dupe_cap_id_update_inactive(
         )
 
 
+def test_load_dupe_cap_id_merge_with_existing_sunet(
+    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
+):
+    """
+    Regression test for issue 924: if incoming active row matches an existing
+    active sunet row and also an existing inactive cap_profile_id row, merge the
+    inactive row into the existing sunet row without violating unique sunet.
+    """
+    with test_incremental_session.begin() as session:
+        active_author = Author(
+            sunet="tmitch11",
+            cap_profile_id="374967",
+            first_name="Thomas",
+            last_name="Mitchell",
+            status=True,
+        )
+        inactive_author = Author(
+            sunet="tmitch1",
+            cap_profile_id="350622",
+            first_name="Thomas",
+            last_name="Mitchell",
+            status=False,
+        )
+        active_pub = Publication(
+            title="Active author publication", authors=[active_author]
+        )
+        inactive_pub = Publication(
+            title="Inactive author publication", authors=[inactive_author]
+        )
+        session.add_all([active_author, inactive_author, active_pub, inactive_pub])
+
+    with open(authors_csv, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sunetid": "tmitch11",
+                "first_name": "Thomas",
+                "last_name": "Mitchell",
+                "full_name": "Thomas Mitchell",
+                "orcidid": "",
+                "orcid_update_scope": "false",
+                "cap_profile_id": "350622",
+                "role": "registry",
+                "academic_council": "false",
+                "primary_affiliation": "",
+                "primary_school": "School of Medicine",
+                "primary_department": "Neurology and Neurological Sciences",
+                "primary_division": "Pediatric Neurology",
+                "all_schools": "School of Medicine",
+                "all_departments": "Neurology and Neurological Sciences|Pediatrics",
+                "all_divisions": "Pediatric Neurology",
+                "active": "true",
+            }
+        )
+
+    load_authors_table(tmp_path)
+    assert "processed=1 new=0 updated=1 ignored=0" in caplog.text
+    assert (
+        "Updated inactive author sunet=tmitch1 with active author sunet=tmitch11 for cap_profile_id=350622"
+        in caplog.text
+    )
+
+    with test_incremental_session.begin() as session:
+        assert session.query(Author).count() == 1
+        author = session.query(Author).where(Author.sunet == "tmitch11").one()
+        assert author.cap_profile_id == "350622"
+        assert author.status is True
+        assert len(author.publications) == 2
+
+
 def test_load_dupe_cap_id(
     test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):

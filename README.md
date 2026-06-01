@@ -280,3 +280,11 @@ The following API keys should be different in each environment (i.e. local dev h
 
 
 The Dimensions API key is associated with a Dimensions account for the rialto-team mailing.  To adjust the API key, visit https://app.dimensions.ai/ and login with the account, and then go to "General Settings" in "My Account".  The account login credentials are in vault at puppet/application/rialto-airflow/dimensions-account-username and puppet/application/rialto-airflow/dimensions-account-password
+
+The Web of Science API key is associated with Peter Mangiafico's Stanford account at developer.clarivate.com as the primary contact for Clarivate.  There is a key for RIALTO, which is separate from the sul-pub key.
+
+The OpenAlex API key is associated with Rochelle Lundy's Stanford account, as the primary contact for OpenAlex.
+
+The MAIS ORCID API key is granted by the MaIS team, see https://uit.stanford.edu/developers/apis/getting-started
+
+The Pubmed API key is free to create, you need an account at https://account.ncbi.nlm.nih.gov/   It's not clear which account the current pubmed API key is associated with.

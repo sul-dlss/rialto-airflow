@@ -2,7 +2,6 @@ import csv
 import logging
 
 from psycopg2 import Error as Psycopg2Error
-from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -53,11 +52,7 @@ def load_authors_table(data_dir) -> None:
                     )
 
                 elif constraint == "author_cap_profile_id_key":
-                    result = handle_duplicate_cap_profile_id(session, row, row_dict)
-                    if result is True:
-                        updated_authors += 1
-                    else:
-                        ignored_authors += 1
+                    raise e
 
         logging.info(
             f"processed={processed_authors} new={new_authors} updated={updated_authors} ignored={ignored_authors}"
@@ -108,57 +103,6 @@ def upsert_author(session: Session, row_dict: dict) -> str:
     session.add(author)
     session.commit()
     return "updated"
-
-
-def handle_duplicate_cap_profile_id(
-    session: Session, row: dict, row_dict: dict
-) -> bool:
-    """
-    Handle a cap_profile_id uniqueness conflict and return the number of errors
-    encountered.
-
-    If the author being added is inactive it is ignored.
-
-    If the author being added is active, and there is an inactive author with the same
-    cap_profile_id in the database already, the inactive author will be replaced
-    with the active one.
-
-    True will be returned if an author was updated, otherwise False.
-    """
-
-    cap_profile_id = row["cap_profile_id"]
-
-    if to_boolean(row["active"]) is False:
-        logging.warning(
-            f"Ignored inactive author sunet={row_dict['sunet']} with pre-existing cap_profile_id {cap_profile_id} and a different sunet"
-        )
-        return False
-
-    inactive_author = (
-        session.query(Author)
-        .where(Author.cap_profile_id == cap_profile_id)
-        .where(Author.status.is_(False))
-        .first()
-    )
-
-    if inactive_author is None:
-        logging.warning(
-            f"Unable to insert active author when there is already an active author with cap_profile_id {cap_profile_id}"
-        )
-        return False
-
-    old_sunet = inactive_author.sunet
-
-    session.execute(
-        update(Author).where(Author.id == inactive_author.id).values(row_dict)
-    )
-    session.commit()
-
-    logging.info(
-        f"Updated inactive author sunet={old_sunet} with active author sunet={row_dict['sunet']} for cap_profile_id={cap_profile_id}"
-    )
-
-    return True
 
 
 def check_headers(authors_file: str) -> None:

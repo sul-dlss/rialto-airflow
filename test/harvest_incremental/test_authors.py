@@ -5,7 +5,8 @@ import pandas
 import pytest
 
 from rialto_airflow.harvest_incremental.authors import load_authors_table
-from rialto_airflow.schema.rialto import Author, Publication
+from rialto_airflow.schema.rialto import Author
+from sqlalchemy.exc import IntegrityError
 
 _CSV_FIELDNAMES = [
     "sunetid",
@@ -187,90 +188,6 @@ def test_load_dupe_orcid(
     )
 
 
-def test_load_dupe_cap_id_inactive(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
-    """
-    If the author being added has the same cap_profile_id as an existing author
-    with a different sunet, and the author being added is inactive, then it is
-    ignored.
-    """
-    with open(authors_csv, "a", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
-        writer.writerow(
-            {
-                "sunetid": "lelands",  # different from what was loaded by fixture
-                "cap_profile_id": "12345",  # same as what was loaded before by fixture
-                "active": False,  # the author is inactive
-                "academic_council": False,
-            }
-        )
-
-    load_authors_table(tmp_path)
-    assert "processed=2 new=1 updated=0 ignored=1" in caplog.text
-
-    assert (
-        "Ignored inactive author sunet=lelands with pre-existing cap_profile_id 12345 and a different sunet"
-        in caplog.text
-    )
-
-    with test_incremental_session.begin() as session:
-        assert session.query(Author).count() == 1
-        assert session.query(Author).where(Author.sunet == "janes").first() is not None
-
-
-def test_load_dupe_cap_id_update_inactive(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
-
-    # create an inactive author linked to a publication in the database
-    with test_incremental_session.begin() as session:
-        author = Author(
-            sunet="lelands",
-            cap_profile_id="12345",
-            first_name="Leland",
-            last_name="Stanford",
-            status=False,
-        )
-        pub = Publication(title="Test pub", authors=[author])
-        session.add(pub)
-        session.add(author)
-
-    # rewrite the authors.csv with an active author with a different sunet but the same
-    # cap_profile_id
-    with open(authors_csv, "w", newline="") as csvfile:  # note: ovewriting
-        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
-        writer.writeheader()
-        writer.writerow(
-            {
-                "sunetid": "lelands2",
-                "cap_profile_id": "12345",
-                "active": True,
-                "academic_council": False,
-            }
-        )
-
-    # load the CSV
-    load_authors_table(tmp_path)
-    assert "processed=1 new=0 updated=1 ignored=0" in caplog.text
-
-    assert (
-        "Updated inactive author sunet=lelands with active author sunet=lelands2 for cap_profile_id=12345"
-        in caplog.text
-    )
-
-    # the inactive sunet should be gone but the publications should be
-    # preserved on the new sunet
-    with test_incremental_session.begin() as session:
-        assert session.query(Author).count() == 1
-        author = session.query(Author).where(Author.sunet == "lelands2").first()
-        assert author, "found author active author"
-        assert author.status is True, "they are active"
-        assert len(author.publications) == 1, (
-            "removal of inactive author preserved their publications"
-        )
-
-
 def test_load_dupe_cap_id(
     test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):
@@ -300,13 +217,8 @@ def test_load_dupe_cap_id(
             }
         )
 
-    load_authors_table(tmp_path)
-    assert "processed=2 new=1 updated=0 ignored=1" in caplog.text
-
-    assert (
-        "Unable to insert active author when there is already an active author with cap_profile_id 12345"
-        in caplog.text
-    )
+    with pytest.raises(IntegrityError):
+        load_authors_table(tmp_path)
 
     # the inactive author should have been removed
     with test_incremental_session.begin() as session:

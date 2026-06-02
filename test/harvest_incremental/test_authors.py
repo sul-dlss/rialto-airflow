@@ -5,8 +5,7 @@ import pandas
 import pytest
 
 from rialto_airflow.harvest_incremental.authors import load_authors_table
-from rialto_airflow.schema.rialto import Author
-from sqlalchemy.exc import IntegrityError
+from rialto_airflow.schema.rialto import Author, Publication
 
 _CSV_FIELDNAMES = [
     "sunetid",
@@ -191,38 +190,53 @@ def test_load_dupe_orcid(
 def test_load_dupe_cap_id(
     test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
 ):
-    """
-    Load an authors.csv with two active authors with the same cap_profile_id. We
-    should only keep the first one and ignore the second.
-    """
-    # write two rows with same cap_profile_id
-    # the first one is inactive and should be removed
-    with open(authors_csv, "w", newline="") as csvfile:  # ovewrite authors.csv
+
+    # create an inactive author linked to a publication in the database
+    with test_incremental_session.begin() as session:
+        author = Author(
+            sunet="lelands",
+            cap_profile_id="12345",
+            first_name="Leland",
+            last_name="Stanford",
+            status=False,
+        )
+        pub = Publication(title="Test pub", authors=[author])
+        session.add(pub)
+        session.add(author)
+
+    # rewrite the authors.csv with an active author with a different sunet but the same
+    # cap_profile_id
+    with open(authors_csv, "w", newline="") as csvfile:  # note: ovewriting
         writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
         writer.writeheader()
         writer.writerow(
             {
-                "sunetid": "lelands",
-                "cap_profile_id": "12345",  # same as what was loaded before by fixture
-                "active": True,
-                "academic_council": False,
-            }
-        )
-        writer.writerow(
-            {
                 "sunetid": "lelands2",
-                "cap_profile_id": "12345",  # same as what was loaded before by fixture
+                "cap_profile_id": "12345",
                 "active": True,
                 "academic_council": False,
             }
         )
 
-    with pytest.raises(IntegrityError):
-        load_authors_table(tmp_path)
+    # load the CSV
+    load_authors_table(tmp_path)
+    assert "processed=1 new=0 updated=1 ignored=0" in caplog.text
 
-    # the inactive author should have been removed
+    assert (
+        "Updated author sunet=lelands with author sunet=lelands2 for cap_profile_id=12345"
+        in caplog.text
+    )
+
+    # the old sunet should be gone but the publications should be
+    # preserved on the new sunet
     with test_incremental_session.begin() as session:
         assert session.query(Author).count() == 1
+        author = session.query(Author).where(Author.sunet == "lelands2").first()
+        assert author, "found new author"
+        assert author.status is True, "they are active"
+        assert len(author.publications) == 1, (
+            "removal of old author preserved their publications"
+        )
 
 
 def test_load_null_cap_id(

@@ -325,7 +325,7 @@ def test_comma():
     this starts working again we can stop ignoring them when looking them up by
     DOI when doing the fill-in process.
     """
-    with pytest.raises(pyalex.api.QueryError, match="Invalid query parameter"):
+    with pytest.raises(requests.exceptions.HTTPError, match="400 Client Error"):
         dois = "10.1103/physrevd.72,031101"
         pyalex.Works().filter(doi=dois).get()
 

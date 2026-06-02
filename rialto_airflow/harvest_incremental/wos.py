@@ -39,6 +39,10 @@ def harvest(harvest_id, limit=None) -> None:
     # get the previous harvest
     harvest = Harvest.get_by_id(harvest_id)
     previous_harvest = harvest.get_previous()
+    if previous_harvest is not None:
+        logging.info(f"Incremental harvest with {previous_harvest.created_at}")
+    else:
+        logging.info("Full harvest")
 
     pub_count = 0
     author_count = 0

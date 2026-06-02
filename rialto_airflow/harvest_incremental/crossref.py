@@ -19,17 +19,20 @@ RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
 def fill_in(harvest_id) -> None:
     """Harvest Crossref data for DOIs from other publication sources."""
     count = 0
-    harvest_created_at = (
-        select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
-    )
+
+    harvest = Harvest.get_by_id(harvest_id)
+
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
-            .where(Publication.crossref_json.is_(None))
-            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=1000)
         )
+
+        # unless the harvest is full limit to publications that have just been
+        # added as part of this harvest
+        if harvest.is_full is False:
+            stmt = stmt.where(Publication.updated_at >= harvest.created_at)
 
         for rows in select_session.execute(stmt).partitions():
             dois = [normalize_doi(row.doi) for row in rows]

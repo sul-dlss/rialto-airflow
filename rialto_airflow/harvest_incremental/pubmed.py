@@ -68,6 +68,10 @@ def harvest(harvest_id, limit=None) -> None:
 
     harvest = Harvest.get_by_id(harvest_id)
     previous_harvest = harvest.get_previous()
+    if previous_harvest is not None:
+        logging.info(f"Incremental harvest with {previous_harvest.created_at}")
+    else:
+        logging.info("Full harvest")
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID

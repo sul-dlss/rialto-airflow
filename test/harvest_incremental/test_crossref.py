@@ -4,8 +4,8 @@ import re
 
 import pandas
 
-from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.harvest_incremental import crossref
+from rialto_airflow.schema.rialto import Publication
 from test.utils import num_log_record_matches
 
 

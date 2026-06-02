@@ -23,12 +23,15 @@ def harvest(host, key, active_harvest_id, per_page=1000, limit=None):
     # look for a previous harvest to use
     harvest = Harvest.get_by_id(active_harvest_id)
     previous_harvest = harvest.get_previous()
-
     prev_harvest_date = (
         previous_harvest.created_at.strftime("%Y-%m-%d")
         if previous_harvest is not None
         else None
     )
+    if prev_harvest_date is not None:
+        logging.info(f"Incremental harvest with {prev_harvest_date}")
+    else:
+        logging.info("Full harvest")
 
     for sulpub_pub in publications(host, key, per_page, limit, prev_harvest_date):
         with get_session(RIALTO_DB_NAME).begin() as session:

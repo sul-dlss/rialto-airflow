@@ -12,11 +12,11 @@ from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
-    Harvest,
+    RIALTO_DB_NAME,
     Author,
+    Harvest,
     Publication,
     pub_author_association,
-    RIALTO_DB_NAME,
 )
 from rialto_airflow.utils import (
     normalize_doi,
@@ -274,20 +274,31 @@ def query_with_retry(q, retry=5):
 
 
 def fill_in(harvest_id: int) -> None:
-    """Harvest Dimensions data for DOIs from other publication sources."""
-    count = 0
-    with get_session(RIALTO_DB_NAME).begin() as select_session:
-        harvest_created_at = (
-            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
-        )
+    """
+    Harvest Dimensions data for DOIs from other publication sources.
 
+    During a full harvest all publications will have their Dimensions metadata refreshed, unless
+    they were fetched from Dimensions as part of the active harvest.
+
+    When doing an incremental harvest only publications that have been recently updated and
+    that lack Dimensions metadata will be fetched.
+    """
+    count = 0
+    harvest = Harvest.get_by_id(harvest_id)
+
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
-            .where(Publication.dim_json.is_(None))
-            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=100)
         )
+
+        if harvest.is_full:
+            stmt = stmt.where(Publication.dim_harvested.is_(None))
+        else:
+            stmt = stmt.where(Publication.updated_at >= harvest.created_at).where(
+                Publication.dim_json.is_(None)
+            )
 
         for rows in select_session.execute(stmt).partitions():
             dois = [row.doi for row in rows]

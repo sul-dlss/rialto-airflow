@@ -17,7 +17,14 @@ RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
 
 
 def fill_in(harvest_id) -> None:
-    """Harvest Crossref data for DOIs from other publication sources."""
+    """
+    Harvest Crossref data for DOIs from other publication sources.
+
+    If we are doing an incremental harvest we only need to update publications
+    that have been recently updated.
+
+    Full harvests will harvest all publications.
+    """
     count = 0
 
     harvest = Harvest.get_by_id(harvest_id)
@@ -29,9 +36,10 @@ def fill_in(harvest_id) -> None:
             .execution_options(yield_per=1000)
         )
 
-        # unless the harvest is full limit to publications that have just been
-        # added as part of this harvest
-        if harvest.is_full is False:
+        # if we are doing an incremental harvest we only need to update
+        # publications that have been recently updated.
+        # full harvests will update all publications
+        if not harvest.is_full:
             stmt = stmt.where(Publication.updated_at >= harvest.created_at)
 
         for rows in select_session.execute(stmt).partitions():

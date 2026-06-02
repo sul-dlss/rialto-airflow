@@ -67,8 +67,10 @@ def harvest_incremental():
         context = get_current_context()
         if context["params"]["full_harvest"]:
             harvest = Harvest.create(is_full=True)
+            logging.info(f"Created full harvest id={harvest.id}")
         else:
             harvest = Harvest.create()
+            logging.info(f"Created incremental harvest id={harvest.id}")
 
         return harvest.id
 

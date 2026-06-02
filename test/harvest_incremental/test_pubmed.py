@@ -716,6 +716,55 @@ def test_fill_in_filters_publications_using_harvest_created_at(
     assert "10.1111/old" not in queried_dois
 
 
+def test_fill_in_full_harvest(
+    test_incremental_session,
+    mock_rialto_db_name,
+    active_harvest_id,
+    monkeypatch,
+):
+    """
+    Ensure that fill_in only queries for publications that have been updated
+    after the harvest started.
+    """
+    with test_incremental_session.begin() as session:
+        harvest = Harvest.get_by_id(active_harvest_id)
+        harvest.is_full = True
+
+        # this publication was updated before the harvest started
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/old",
+                    updated_at=datetime.datetime(2026, 1, 1),
+                ),
+                Publication(
+                    doi="10.1111/new",
+                    updated_at=datetime.datetime(2026, 5, 1),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    pubmed_harvested=datetime.datetime.now(),
+                    updated_at=datetime.datetime(2026, 5, 1),
+                ),
+            ]
+        )
+
+    # capture the DOIs that are passed to pmids_from_dois
+    queried_dois = []
+
+    def mock_pmids_from_dois(dois):
+        queried_dois.extend(dois)
+        return []
+
+    monkeypatch.setattr(pubmed, "pmids_from_dois", mock_pmids_from_dois)
+
+    pubmed.fill_in(active_harvest_id)
+
+    # 10.1111/harvested is ignored since it was just harvested from pubmed
+    assert queried_dois == ["10.1111/old", "10.1111/new"]
+
+
 def test_get_doi():
     assert pubmed.get_doi(pubmed_json()) == "10.1182/bloodadvances.2022008893"
 

@@ -237,7 +237,7 @@ def test_fill_in_no_doi(
     monkeypatch,
 ):
     """
-    Test that Dimensions publication metadata lacking a DOI doesn't cause an
+    Test that OpenAlex publication metadata lacking a DOI doesn't cause an
     exception during fill-in.
     """
     caplog.set_level(logging.INFO)
@@ -319,6 +319,56 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
     assert queried_dois == ["10.1111/newer"], (
         "only publications updated after the selected harvest created_at should be queried"
+    )
+
+
+def test_fill_in_full_harvest(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+    """
+    Full harvest should harvest everything.
+    """
+
+    harvest = Harvest.get_by_id(active_harvest_id)
+    harvest.is_full = True
+    harvest.created_at = datetime.datetime(2026, 1, 1, 0, 0, 0)
+    harvest.completed_at = datetime.datetime(2026, 1, 2, 0, 0, 0)
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/older",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                    openalex_harvested=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(doi):
+        queried_dois.append(doi)
+        return doi
+
+    monkeypatch.setattr(openalex, "normalize_doi", _capture_dois)
+
+    openalex.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == ["10.1111/older", "10.1111/newer"], (
+        "All DOIs are filled in during full harvest"
     )
 
 

@@ -544,3 +544,74 @@ def test_fill_in_filters_publications_using_harvest_created_at(
         assert newer_pub.dim_json is not None
         assert newer_pub.dim_json["title"] == "Harvested Newer Publication"
         assert older_pub.dim_json is None
+
+
+def test_fill_in_full_harvest(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+
+    with test_incremental_session.begin() as session:
+        harvest = Harvest.get_by_id(active_harvest_id)
+        harvest.created_at = datetime.datetime(2025, 12, 31, 0, 0, 0)
+        harvest.completed_at = datetime.datetime(2025, 12, 31, 0, 0, 0)
+        harvest.is_full = True
+
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/older",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                    dim_harvested=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois, batch_size=200):
+        queried_dois.extend(dois)
+        yield from [
+            {
+                "doi": "10.1111/older",
+                "title": "Harvested Older Publication",
+                "type": "article",
+                "publication_year": 2026,
+            },
+            {
+                "doi": "10.1111/newer",
+                "title": "Harvested Newer Publication",
+                "type": "article",
+                "publication_year": 2026,
+            },
+        ]
+
+    monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
+
+    dimensions.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == ["10.1111/older", "10.1111/newer"], (
+        "Reharvest old and new publications that lack metadata"
+    )
+
+    with test_incremental_session.begin() as session:
+        newer_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/newer").first()
+        )
+        assert newer_pub.dim_json is not None
+
+        older_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/older").first()
+        )
+        assert older_pub.dim_json is not None

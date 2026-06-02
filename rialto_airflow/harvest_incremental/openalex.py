@@ -145,20 +145,32 @@ def publications_from_orcid(
 
 
 def fill_in(harvest_id: int) -> None:
-    """Harvest OpenAlex data for DOIs from other publication sources."""
-    count = 0
-    with get_session(RIALTO_DB_NAME).begin() as select_session:
-        harvest_created_at = (
-            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
-        )
+    """
+    Harvest OpenAlex data for DOIs from other publication sources.
 
+    During a full harvest all publications will have their OpenAlex metadata refreshed, unless
+    they were fetched from OpenAlex as part of the active harvest.
+
+    When doing an incremental harvest only publications that have been recently updated and
+    that lack OpenAlex metadata will be fetched.
+    """
+    count = 0
+
+    harvest = Harvest.get_by_id(harvest_id)
+
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
-            .where(Publication.openalex_json.is_(None))
-            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=50)
         )
+
+        if harvest.is_full:
+            stmt = stmt.where(Publication.openalex_harvested.is_(None))
+        else:
+            stmt = stmt.where(Publication.updated_at >= harvest.created_at).where(
+                Publication.openalex_json.is_(None)
+            )
 
         for rows in select_session.execute(stmt).partitions():
             # since the query uses yield_per=50 we will be looking up 50 DOIs at a time

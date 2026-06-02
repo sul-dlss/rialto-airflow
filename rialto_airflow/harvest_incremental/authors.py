@@ -2,6 +2,7 @@ import csv
 import logging
 
 from psycopg2 import Error as Psycopg2Error
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,7 +53,8 @@ def load_authors_table(data_dir) -> None:
                     )
 
                 elif constraint == "author_cap_profile_id_key":
-                    raise e
+                    handle_duplicate_cap_profile_id(session, row_dict)
+                    updated_authors += 1
 
         logging.info(
             f"processed={processed_authors} new={new_authors} updated={updated_authors} ignored={ignored_authors}"
@@ -103,6 +105,33 @@ def upsert_author(session: Session, row_dict: dict) -> str:
     session.add(author)
     session.commit()
     return "updated"
+
+
+def handle_duplicate_cap_profile_id(session: Session, row_dict: dict) -> None:
+    """
+    Resolve a cap_profile_id uniqueness conflict between the incoming row and
+    an existing author that already has that cap_profile_id. Overwrite the
+    existing row with the incoming values, which preserve the existing
+    author/publication relations.
+    """
+
+    cap_profile_id = row_dict["cap_profile_id"]
+
+    existing_author = (
+        session.query(Author).where(Author.cap_profile_id == cap_profile_id).one()
+    )
+
+    # save the old sunet before it gets updated, so we can log it below
+    old_sunet = existing_author.sunet
+
+    session.execute(
+        update(Author).where(Author.id == existing_author.id).values(row_dict)
+    )
+    session.commit()
+
+    logging.info(
+        f"Updated author sunet={old_sunet} with author sunet={row_dict['sunet']} for cap_profile_id={cap_profile_id}"
+    )
 
 
 def check_headers(authors_file: str) -> None:

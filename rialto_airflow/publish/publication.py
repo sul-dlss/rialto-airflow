@@ -22,6 +22,7 @@ from rialto_airflow.distiller import (
 from rialto_airflow.schema.rialto import (
     Author,
     Funder,
+    Harvest,
     Publication,
 )
 from rialto_airflow.schema.reports import (
@@ -349,6 +350,33 @@ TABLES = {
     "publications_by_school": PublicationsBySchool,
     "publications_by_author": PublicationsByAuthor,
 }
+
+
+def check_harvest_complete() -> bool:
+    """
+    Check that the most recent harvest is complete before allowing publication to proceed.
+    """
+    with get_session(RIALTO_DB_NAME).begin() as session:
+        most_recent_harvest = (
+            session.execute(select(Harvest).order_by(Harvest.created_at.desc()))
+            .scalars()
+            .first()
+        )
+
+        if not most_recent_harvest:
+            raise Exception(
+                "No harvest records found. Cannot proceed with publication."
+            )
+        elif most_recent_harvest.finished_at:
+            logging.info(
+                f"Most recent harvest (id={most_recent_harvest.id}) is complete. Proceeding with publication."
+            )
+            return True
+        else:
+            logging.info(
+                f"Most recent harvest (id={most_recent_harvest.id}) is not marked as finished. Skipping publication to reports."
+            )
+            return False
 
 
 def generate_download_files(data_dir) -> None:

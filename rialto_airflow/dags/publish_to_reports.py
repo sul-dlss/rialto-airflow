@@ -24,6 +24,10 @@ This DAG publishes data to postgres that is used to build dashboards
     default_args=default_args(),
 )
 def publish_to_reports():
+    @task.short_circuit
+    def check_harvest_complete():
+        return publication.check_harvest_complete()
+
     @task
     def publish_publications():
         publication.export_publications()
@@ -45,7 +49,8 @@ def publish_to_reports():
         publication.generate_download_files(data_dir)
 
     (
-        publish_publications()
+        check_harvest_complete()
+        >> publish_publications()
         >> publish_publications_by_school()
         >> publish_publications_by_department()
         >> publish_publications_by_author()

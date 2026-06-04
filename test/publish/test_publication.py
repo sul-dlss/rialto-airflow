@@ -1,6 +1,7 @@
 import pytest
 import zipfile
-from rialto_airflow.schema.rialto import Publication
+import datetime
+from rialto_airflow.schema.rialto import Publication, Harvest
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
 
@@ -136,3 +137,57 @@ def test_limit_openalex_only(
     with test_reports_session.begin() as session:
         pubs = session.query(Publications).all()
         assert len(pubs) == 0
+
+
+def test_check_harvest_complete_no_harvests(test_incremental_session, rialto_db_name):
+    with pytest.raises(Exception, match="No harvest records found"):
+        publication.check_harvest_complete()
+
+
+def test_check_harvest_complete_harvest_finished(
+    test_incremental_session, rialto_db_name
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=datetime.datetime(2026, 1, 1, 1, 0, 0),
+            )
+        )
+
+    assert publication.check_harvest_complete() is True
+
+
+def test_check_harvest_complete_harvest_not_finished(
+    test_incremental_session, rialto_db_name
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=None,
+            )
+        )
+
+    assert publication.check_harvest_complete() is False
+
+
+def test_check_harvest_complete_uses_most_recent(
+    test_incremental_session, rialto_db_name
+):
+    """When there are multiple harvests, only the most recent one is checked."""
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=datetime.datetime(2026, 1, 1, 1, 0, 0),
+            )
+        )
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 2, 1, 0, 0, 0),
+                finished_at=None,
+            )
+        )
+
+    assert publication.check_harvest_complete() is False

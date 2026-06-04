@@ -25,21 +25,25 @@ config.retry_http_codes = [429, 500, 503, 520]
 config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
 
 
-def harvest(limit=None) -> None:
+def harvest(harvest_id, limit=None) -> None:
     """
-    Walk through all the Author ORCIDs and generate publications for them.
+    Walk through all the Author ORCIDs and generate publications for them for
+    the given harvest.
     """
     pub_count = 0
     author_count = 0
     stop = False
 
-    with get_session(RIALTO_DB_NAME).begin() as select_session:
-        previous_harvest = Harvest.get_previous()
+    harvest = Harvest.get_by_id(harvest_id)
+    previous_harvest = harvest.get_previous()
+    if previous_harvest is not None:
+        previous_harvest_date = previous_harvest.created_at.isoformat()
+        logging.info(f"Incremental harvest with {previous_harvest_date}")
+    else:
         previous_harvest_date = None
-        if previous_harvest is not None:
-            previous_harvest_date = previous_harvest.created_at.isoformat()
+        logging.info("Full harvest")
 
-        logging.debug(f"previous harvest date is {previous_harvest_date}")
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID
         for author in (
             select_session.query(Author).where(Author.orcid.is_not(None)).all()
@@ -141,20 +145,32 @@ def publications_from_orcid(
 
 
 def fill_in(harvest_id: int) -> None:
-    """Harvest OpenAlex data for DOIs from other publication sources."""
-    count = 0
-    with get_session(RIALTO_DB_NAME).begin() as select_session:
-        harvest_created_at = (
-            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
-        )
+    """
+    Harvest OpenAlex data for DOIs from other publication sources.
 
+    During a full harvest all publications will have their OpenAlex metadata refreshed, unless
+    they were fetched from OpenAlex as part of the active harvest.
+
+    When doing an incremental harvest only publications that have been recently updated and
+    that lack OpenAlex metadata will be fetched.
+    """
+    count = 0
+
+    harvest = Harvest.get_by_id(harvest_id)
+
+    with get_session(RIALTO_DB_NAME).begin() as select_session:
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
-            .where(Publication.openalex_json.is_(None))
-            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=50)
         )
+
+        if harvest.is_full:
+            stmt = stmt.where(Publication.openalex_harvested.is_(None))
+        else:
+            stmt = stmt.where(Publication.updated_at >= harvest.created_at).where(
+                Publication.openalex_json.is_(None)
+            )
 
         for rows in select_session.execute(stmt).partitions():
             # since the query uses yield_per=50 we will be looking up 50 DOIs at a time

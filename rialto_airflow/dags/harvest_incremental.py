@@ -2,23 +2,23 @@ import datetime
 import logging
 from pathlib import Path
 
-from airflow.sdk import dag, task, task_group
-from airflow.models import Variable
+from airflow.models import Param, Variable
+from airflow.sdk import dag, task, task_group, get_current_context
 
 from rialto_airflow import funders
 from rialto_airflow.harvest_incremental import (
     authors,
     crossref,
+    deduplicate,
     dimensions,
+    distill,
     openalex,
+    pubmed,
     sul_pub,
     wos,
-    pubmed,
-    distill,
-    deduplicate,
 )
-from rialto_airflow.schema.rialto import Harvest, RIALTO_DB_NAME
 from rialto_airflow.honeybadger import default_args
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Harvest
 
 data_dir = Path(Variable.get("data_dir"))
 sul_pub_host = Variable.get("sul_pub_host")
@@ -49,6 +49,14 @@ else:
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,
     default_args=default_args(),
+    params={
+        "full_harvest": Param(
+            False,
+            type="boolean",
+            title="Run a full harvest",
+            description="Collect publications from data sources irrespective of when they were added/updated. This will effectively update all the platform metadata.",
+        )
+    },
 )
 def harvest_incremental():
     @task()
@@ -56,7 +64,14 @@ def harvest_incremental():
         """
         Create a Harvest record to track this run.
         """
-        harvest = Harvest.create()
+        context = get_current_context()
+        if context["params"]["full_harvest"]:
+            harvest = Harvest.create(is_full=True)
+            logging.info(f"Created full harvest id={harvest.id}")
+        else:
+            harvest = Harvest.create()
+            logging.info(f"Created incremental harvest id={harvest.id}")
+
         return harvest.id
 
     @task()
@@ -65,41 +80,42 @@ def harvest_incremental():
         Load the authors data from the authors CSV into the database.
         """
         authors.load_authors_table(data_dir)
+        authors.clear_pub_author_links(harvest_id)
 
     @task()
     def dimensions_harvest(harvest_id):
         """
         Fetch the data by ORCID from Dimensions.
         """
-        dimensions.harvest(limit=harvest_limit)
+        dimensions.harvest(harvest_id, limit=harvest_limit)
 
     @task()
     def openalex_harvest(harvest_id):
         """
         Fetch the data by ORCID from OpenAlex.
         """
-        openalex.harvest(limit=harvest_limit)
+        openalex.harvest(harvest_id, limit=harvest_limit)
 
     @task()
     def wos_harvest(harvest_id):
         """
         Fetch the data by ORCID from Web of Science.
         """
-        wos.harvest(limit=harvest_limit)
+        wos.harvest(harvest_id, limit=harvest_limit)
 
     @task()
     def sulpub_harvest(harvest_id):
         """
         Harvest data from SUL-Pub.
         """
-        sul_pub.harvest(sul_pub_host, sul_pub_key, limit=harvest_limit)
+        sul_pub.harvest(sul_pub_host, sul_pub_key, harvest_id, limit=harvest_limit)
 
     @task()
     def pubmed_harvest(harvest_id):
         """
         Fetch the data by ORCID from Pubmed.
         """
-        pubmed.harvest(limit=harvest_limit)
+        pubmed.harvest(harvest_id, limit=harvest_limit)
 
     @task_group()
     def harvest_pubs(harvest_id):
@@ -175,18 +191,24 @@ def harvest_incremental():
         """
         funders.link_publications(RIALTO_DB_NAME)
 
+    @task()
+    def remove_orphan_pubs(harvest_id):
+        """
+        Remove publications that have no linked authors.
+        """
+        deduplicate.remove_orphan_publications()
+
     @task_group()
     def post_process(harvest_id):
         dedupe = remove_duplicates(harvest_id)
         distill = distill_publications(harvest_id)
         link = link_funders(harvest_id)
-        dedupe >> [distill, link]
+        orphans = remove_orphan_pubs(harvest_id)
+        dedupe >> [distill, link] >> orphans
 
     @task()
     def complete(harvest_id):
         harvest = Harvest.get_by_id(harvest_id)
-        if harvest is None:
-            raise ValueError(f"Harvest {harvest_id} not found")
         harvest.complete()
 
     # link up dag tasks and task groups

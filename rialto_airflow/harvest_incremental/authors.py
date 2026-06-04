@@ -2,12 +2,17 @@ import csv
 import logging
 
 from psycopg2 import Error as Psycopg2Error
-from sqlalchemy import update
+from sqlalchemy import delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Author
+from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
+    Author,
+    Harvest,
+    pub_author_association,
+)
 from rialto_airflow.utils import rialto_authors_file
 
 
@@ -166,3 +171,18 @@ def to_boolean(value: str) -> bool:
 
 def to_array(value: str) -> list:
     return value.split("|") if value else []
+
+
+def clear_pub_author_links(harvest_id: int) -> None:
+    """
+    Remove links between authors and publications, which is useful when doing a
+    full harvest of the metadata, and wanting to pull in corrected links.
+    """
+    harvest = Harvest.get_by_id(harvest_id)
+    if not harvest.is_full:
+        return
+    with get_session(RIALTO_DB_NAME).begin() as session:
+        result = session.execute(delete(pub_author_association))
+        logging.info(
+            f"Cleared {result.rowcount} author/publication links for full harvest."
+        )

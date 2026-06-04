@@ -50,9 +50,9 @@ def test_harvest(
     mock_incremental_authors,
     mock_openalex,
     mock_rialto_db_name,
+    active_harvest_id,
 ):
-    # harvest from openalex
-    openalex.harvest()
+    openalex.harvest(active_harvest_id)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -73,9 +73,10 @@ def test_harvest_when_doi_exists(
     mock_incremental_authors,
     mock_openalex,
     mock_rialto_db_name,
+    active_harvest_id,
 ):
     # harvest from openalex
-    openalex.harvest()
+    openalex.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -100,9 +101,10 @@ def test_harvest_when_author_exists(
     mock_incremental_association,
     mock_openalex,
     mock_rialto_db_name,
+    active_harvest_id,
 ):
     # harvest from openalex
-    openalex.harvest()
+    openalex.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -142,9 +144,10 @@ def test_log_message(
     mock_many_openalex,
     mock_rialto_db_name,
     caplog,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
-    openalex.harvest(limit=50)
+    openalex.harvest(active_harvest_id, limit=50)
     assert "Reached limit of 50 publications or authors, stopping" in caplog.text
 
 
@@ -234,7 +237,7 @@ def test_fill_in_no_doi(
     monkeypatch,
 ):
     """
-    Test that Dimensions publication metadata lacking a DOI doesn't cause an
+    Test that OpenAlex publication metadata lacking a DOI doesn't cause an
     exception during fill-in.
     """
     caplog.set_level(logging.INFO)
@@ -316,6 +319,56 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
     assert queried_dois == ["10.1111/newer"], (
         "only publications updated after the selected harvest created_at should be queried"
+    )
+
+
+def test_fill_in_full_harvest(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+    """
+    Full harvest should harvest everything.
+    """
+
+    harvest = Harvest.get_by_id(active_harvest_id)
+    harvest.is_full = True
+    harvest.created_at = datetime.datetime(2026, 1, 1, 0, 0, 0)
+    harvest.completed_at = datetime.datetime(2026, 1, 2, 0, 0, 0)
+
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/older",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    openalex_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                    openalex_harvested=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(doi):
+        queried_dois.append(doi)
+        return doi
+
+    monkeypatch.setattr(openalex, "normalize_doi", _capture_dois)
+
+    openalex.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == ["10.1111/older", "10.1111/newer"], (
+        "All DOIs are filled in during full harvest"
     )
 
 
@@ -422,15 +475,24 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
     mock_incremental_authors,
     mock_rialto_db_name,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
+        # active_harvest_id was created by a fixture and has
+        # a created_at of datetime(2026, 4, 27, 16, 38, 10)
+
+        # create a harvest previous to the fixture, which is finished and should
+        # be returned when looking up the previous harvest
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
-        # Make sure Authors are similar to those loaded in production, with timestamps.
+
+        # ensure that the Authors in the database were created/updated prior
+        # to the previous harvest, which should cause the previous_harvest's
+        # created_at to be used when querying for publications
         session.query(Author).where(Author.orcid.is_not(None)).update(
             {
                 Author.created_at: datetime.datetime(2026, 4, 20, 0, 0, 0),
@@ -438,20 +500,24 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
             }
         )
 
+    # monkey patch publications_from_orcid to remember the harvest_date values
+    # that are given to it
     harvest_dates = []
 
     def _capture_harvest_date(orcid, harvest_date=None):
-        # capture the harvest_date that is passed to publications_from_orcid so that we can assert on it later
         harvest_dates.append(harvest_date)
         yield from ()
 
     monkeypatch.setattr(openalex, "publications_from_orcid", _capture_harvest_date)
 
-    openalex.harvest()
+    # run the harvest
+    openalex.harvest(active_harvest_id)
+
     assert harvest_dates, (
         "publications_from_orcid is passed the recent finished harvest date"
     )
-    assert set(harvest_dates) == {"2026-04-27T16:38:10"}, (
+
+    assert set(harvest_dates) == {"2026-04-20T16:38:10"}, (
         "formatted previous harvest date passed to publications_from_orcid"
     )
 
@@ -461,6 +527,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     mock_incremental_authors,
     mock_rialto_db_name,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
         session.add(
@@ -494,7 +561,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
 
     monkeypatch.setattr(openalex, "publications_from_orcid", _capture_harvest_date)
 
-    openalex.harvest()
+    openalex.harvest(active_harvest_id)
 
     assert harvest_dates, (
         "publications_from_orcid should be called with harvest_date for ORCID authors"
@@ -590,6 +657,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    active_harvest_id,
 ):
     queried_orcids = []
 
@@ -601,7 +669,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     monkeypatch.setattr(openalex, "publications_from_orcid", _capture_orcid)
 
     caplog.set_level(logging.INFO)
-    openalex.harvest(limit=1)
+    openalex.harvest(active_harvest_id, limit=1)
 
     assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
     assert "Reached limit of 1 publications or authors, stopping" in caplog.text

@@ -58,7 +58,7 @@ http.mount(
 )
 
 
-def harvest(limit=None) -> None:
+def harvest(harvest_id, limit=None) -> None:
     """
     Walk through all the Author ORCIDs and generate publications for them from pubmed.
     """
@@ -66,7 +66,12 @@ def harvest(limit=None) -> None:
     author_count = 0
     stop = False
 
-    previous_harvest = Harvest.get_previous()
+    harvest = Harvest.get_by_id(harvest_id)
+    previous_harvest = harvest.get_previous()
+    if previous_harvest is not None:
+        logging.info(f"Incremental harvest with {previous_harvest.created_at}")
+    else:
+        logging.info("Full harvest")
 
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # get all authors that have an ORCID
@@ -140,21 +145,31 @@ def harvest(limit=None) -> None:
 
 
 def fill_in(harvest_id: int) -> None:
-    """Harvest Pubmed data for DOIs from other publication sources."""
+    """
+    Harvest PubMed data for DOIs from other publication sources.
+
+    During a full harvest all publications will have their PubMed metadata refreshed, unless
+    they were fetched from PubMed as part of the active harvest.
+
+    When doing an incremental harvest only publications that have been recently updated and
+    that lack PubMed metadata will be fetched.
+    """
+    harvest = Harvest.get_by_id(harvest_id)
+
     count = 0
     with get_session(RIALTO_DB_NAME).begin() as select_session:
-        harvest_created_at = (
-            select(Harvest.created_at).where(Harvest.id == harvest_id).scalar_subquery()
-        )
-
         stmt = (
             select(Publication.doi)
             .where(Publication.doi.is_not(None))
-            .where(Publication.pubmed_json.is_(None))
-            .where(Publication.updated_at.is_not(None))
-            .where(Publication.updated_at > harvest_created_at)
             .execution_options(yield_per=50)
         )
+
+        if harvest.is_full:
+            stmt = stmt.where(Publication.pubmed_harvested.is_(None))
+        else:
+            stmt = stmt.where(Publication.updated_at >= harvest.created_at).where(
+                Publication.pubmed_json.is_(None)
+            )
 
         for rows in select_session.execute(stmt).partitions():
             # use a batch size of 50 DOIs at a time

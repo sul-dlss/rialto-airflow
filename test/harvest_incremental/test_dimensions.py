@@ -71,12 +71,13 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
     mock_incremental_authors,
     mock_rialto_db_name,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
         # Make sure Authors are similar to those loaded in production, with created_at dates.
@@ -96,12 +97,12 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
 
-    dimensions.harvest()
+    dimensions.harvest(active_harvest_id)
 
     assert harvest_dates, (
         "publications_from_orcid is passed the recent finished harvest date"
     )
-    assert set(harvest_dates) == {"2026-04-27"}, (
+    assert set(harvest_dates) == {"2026-04-20"}, (
         "formatted previous harvest date passed to publications_from_orcid"
     )
 
@@ -111,6 +112,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     mock_incremental_authors,
     mock_rialto_db_name,
     monkeypatch,
+    active_harvest_id,
 ):
     with test_incremental_session.begin() as session:
         session.add(
@@ -144,7 +146,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
 
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_harvest_date)
 
-    dimensions.harvest()
+    dimensions.harvest(active_harvest_id)
 
     assert harvest_dates, (
         "publications_from_orcid should be called with harvest_date for ORCID authors"
@@ -225,9 +227,10 @@ def test_harvest(
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_dimensions,
+    active_harvest_id,
 ):
     # harvest from dimensions
-    dimensions.harvest()
+    dimensions.harvest(active_harvest_id)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -247,9 +250,10 @@ def test_harvest_when_doi_exists(
     mock_incremental_authors,
     mock_rialto_db_name,
     mock_dimensions,
+    active_harvest_id,
 ):
     # harvest from dimensions
-    dimensions.harvest()
+    dimensions.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -273,9 +277,10 @@ def test_harvest_when_pub_author_association_exists(
     mock_incremental_association,
     mock_rialto_db_name,
     mock_dimensions,
+    active_harvest_id,
 ):
     # harvest from dimensions
-    dimensions.harvest()
+    dimensions.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -311,9 +316,10 @@ def test_log_message(
     mock_rialto_db_name,
     mock_many_dimensions,
     caplog,
+    active_harvest_id,
 ):
     caplog.set_level(logging.INFO)
-    dimensions.harvest(limit=50)
+    dimensions.harvest(active_harvest_id, limit=50)
     assert "Reached limit of 50 publications or authors, stopping" in caplog.text
 
 
@@ -322,6 +328,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     mock_rialto_db_name,
     caplog,
     monkeypatch,
+    active_harvest_id,
 ):
     queried_orcids = []
 
@@ -333,7 +340,7 @@ def test_harvest_stops_when_author_limit_is_exceeded(
     monkeypatch.setattr(dimensions, "publications_from_orcid", _capture_orcid)
 
     caplog.set_level(logging.INFO)
-    dimensions.harvest(limit=1)
+    dimensions.harvest(active_harvest_id, limit=1)
 
     assert queried_orcids == ["https://orcid.org/0000-0000-0000-0001"]
     assert "Reached limit of 1 publications or authors, stopping" in caplog.text
@@ -537,3 +544,74 @@ def test_fill_in_filters_publications_using_harvest_created_at(
         assert newer_pub.dim_json is not None
         assert newer_pub.dim_json["title"] == "Harvested Newer Publication"
         assert older_pub.dim_json is None
+
+
+def test_fill_in_full_harvest(
+    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+):
+
+    with test_incremental_session.begin() as session:
+        harvest = Harvest.get_by_id(active_harvest_id)
+        harvest.created_at = datetime.datetime(2025, 12, 31, 0, 0, 0)
+        harvest.completed_at = datetime.datetime(2025, 12, 31, 0, 0, 0)
+        harvest.is_full = True
+
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/older",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2025, 12, 31, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/newer",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    dim_json=None,
+                    updated_at=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                    dim_harvested=datetime.datetime(2026, 4, 30, 0, 0, 0),
+                ),
+            ]
+        )
+
+    queried_dois = []
+
+    def _capture_dois(dois, batch_size=200):
+        queried_dois.extend(dois)
+        yield from [
+            {
+                "doi": "10.1111/older",
+                "title": "Harvested Older Publication",
+                "type": "article",
+                "publication_year": 2026,
+            },
+            {
+                "doi": "10.1111/newer",
+                "title": "Harvested Newer Publication",
+                "type": "article",
+                "publication_year": 2026,
+            },
+        ]
+
+    monkeypatch.setattr(dimensions, "publications_from_dois", _capture_dois)
+
+    dimensions.fill_in(harvest_id=active_harvest_id)
+
+    assert queried_dois == ["10.1111/older", "10.1111/newer"], (
+        "Reharvest old and new publications that lack metadata"
+    )
+
+    with test_incremental_session.begin() as session:
+        newer_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/newer").first()
+        )
+        assert newer_pub.dim_json is not None
+
+        older_pub = (
+            session.query(Publication).where(Publication.doi == "10.1111/older").first()
+        )
+        assert older_pub.dim_json is not None

@@ -319,13 +319,14 @@ def test_harvest(
     mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
+    active_harvest_id,
 ):
     """
     With some authors loaded and a mocked Pubmed API, make sure that
     publications are matched up to the authors using the ORCID.
     """
     # harvest from Pubmed
-    pubmed.harvest()
+    pubmed.harvest(active_harvest_id)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -341,9 +342,7 @@ def test_harvest(
 
 
 def test_incremental_harvest(
-    test_incremental_session,
-    mock_rialto_db_name,
-    requests_mock,
+    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
 ):
     """
     Ensure that a previous Harvest alters how pubmed IDs are fetched.
@@ -357,16 +356,19 @@ def test_incremental_harvest(
         mock_datetime.timezone = datetime.timezone
 
         with test_incremental_session.begin() as session:
+            # add a harvest previous to that of active_harvest_id
             session.add(
                 Harvest(
                     created_at=datetime.datetime(
-                        2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc
+                        2026, 4, 20, 16, 38, 10, tzinfo=datetime.timezone.utc
                     ),
                     finished_at=datetime.datetime(
-                        2026, 4, 28, 0, 0, 0, tzinfo=datetime.timezone.utc
+                        2026, 4, 21, 0, 0, 0, tzinfo=datetime.timezone.utc
                     ),
                 )
             )
+
+            # ensure that the author hasn't neen updated since the previous harvest
             session.add(
                 Author(
                     first_name="Jane",
@@ -386,23 +388,21 @@ def test_incremental_harvest(
             json={"esearchresult": {"count": 0}},
         )
 
-        # harvest from Pubmed
-        pubmed.harvest()
+        # harvest from Pubmed (with mocked datetime.now)
+        pubmed.harvest(active_harvest_id)
 
         assert requests_mock.called
         assert len(requests_mock.request_history) == 1
         req = requests_mock.request_history[0]
         assert req.qs["term"] == ["0000-0000-0000-0001[auid]"]
         assert req.qs["datetype"] == ["edat"]
-        assert req.qs["reldate"] == ["15"]
+        assert req.qs["reldate"] == ["22"]
         assert "mindate" not in req.qs
         assert "maxdate" not in req.qs
 
 
 def test_incremental_harvest_with_new_author(
-    test_incremental_session,
-    mock_rialto_db_name,
-    requests_mock,
+    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
 ):
     """
     Ensure that an updated Author causes a full harvest of their publications
@@ -410,12 +410,15 @@ def test_incremental_harvest_with_new_author(
     """
 
     with test_incremental_session.begin() as session:
+        # add a harvest previous to that of active_harvest_id
         session.add(
             Harvest(
-                created_at=datetime.datetime(2026, 4, 27, 16, 38, 10),
-                finished_at=datetime.datetime(2026, 4, 28, 0, 0, 0),
+                created_at=datetime.datetime(2026, 4, 20, 16, 38, 10),
+                finished_at=datetime.datetime(2026, 4, 21, 0, 0, 0),
             )
         )
+
+        # add an author that was updated since the previous harvest
         session.add(
             Author(
                 first_name="Jane",
@@ -432,7 +435,7 @@ def test_incremental_harvest_with_new_author(
     )
 
     # harvest from Pubmed
-    pubmed.harvest()
+    pubmed.harvest(active_harvest_id)
 
     assert requests_mock.called
     assert len(requests_mock.request_history) == 1
@@ -450,13 +453,14 @@ def test_harvest_publication_limit(
     mock_pubmed_fetch,
     mock_pubmed_search,
     caplog,
+    active_harvest_id,
 ):
     """
     With some authors loaded and a mocked Pubmed API and an artificially low
     harvest limit, confirm that processing stops as expected and logs appropriately.
     """
     # harvest from Pubmed with a limit of one publication
-    pubmed.harvest(1)
+    pubmed.harvest(active_harvest_id, 1)
 
     # make sure a publication is in the database and linked to the author
     with test_incremental_session.begin() as session:
@@ -486,6 +490,7 @@ def test_harvest_author_limit(
     mock_rialto_db_name,
     caplog,
     requests_mock,
+    active_harvest_id,
 ):
     """
     With some authors loaded and a mocked Pubmed API and an artificially low
@@ -503,7 +508,7 @@ def test_harvest_author_limit(
     )
 
     # harvest from Pubmed with a limit of one publication
-    pubmed.harvest(1)
+    pubmed.harvest(active_harvest_id, 1)
 
     assert "Reached limit of 1 authors stopping" in caplog.text
 
@@ -515,13 +520,14 @@ def test_harvest_no_pubmed_results(
     mock_pubmed_fetch,
     mock_pubmed_search_no_results,
     caplog,
+    active_harvest_id,
 ):
     """
     With some authors loaded and a Pubmed API mocked to never find anything, confirm that we
     log the unsuccessful searches appropriately.
     """
     caplog.set_level(logging.DEBUG)
-    pubmed.harvest()
+    pubmed.harvest(active_harvest_id)
     with test_incremental_session.begin() as session:
         assert session.query(Publication).count() == 0, (
             "no publications loaded because none found"
@@ -551,12 +557,13 @@ def test_harvest_when_doi_exists(
     mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
+    active_harvest_id,
 ):
     """
     When a publication and its authors already exist in the database make sure that the pubmed_json is updated.
     """
     # harvest from Pubmed
-    pubmed.harvest()
+    pubmed.harvest(active_harvest_id)
 
     # ensure that the existing publication for the DOI was updated
     with test_incremental_session.begin() as session:
@@ -707,6 +714,55 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
     assert "10.1111/new" in queried_dois
     assert "10.1111/old" not in queried_dois
+
+
+def test_fill_in_full_harvest(
+    test_incremental_session,
+    mock_rialto_db_name,
+    active_harvest_id,
+    monkeypatch,
+):
+    """
+    Ensure that fill_in only queries for publications that have been updated
+    after the harvest started.
+    """
+    with test_incremental_session.begin() as session:
+        harvest = Harvest.get_by_id(active_harvest_id)
+        harvest.is_full = True
+
+        # this publication was updated before the harvest started
+        session.add_all(
+            [
+                harvest,
+                Publication(
+                    doi="10.1111/old",
+                    updated_at=datetime.datetime(2026, 1, 1),
+                ),
+                Publication(
+                    doi="10.1111/new",
+                    updated_at=datetime.datetime(2026, 5, 1),
+                ),
+                Publication(
+                    doi="10.1111/harvested",
+                    pubmed_harvested=datetime.datetime.now(),
+                    updated_at=datetime.datetime(2026, 5, 1),
+                ),
+            ]
+        )
+
+    # capture the DOIs that are passed to pmids_from_dois
+    queried_dois = []
+
+    def mock_pmids_from_dois(dois):
+        queried_dois.extend(dois)
+        return []
+
+    monkeypatch.setattr(pubmed, "pmids_from_dois", mock_pmids_from_dois)
+
+    pubmed.fill_in(active_harvest_id)
+
+    # 10.1111/harvested is ignored since it was just harvested from pubmed
+    assert queried_dois == ["10.1111/old", "10.1111/new"]
 
 
 def test_get_doi():
@@ -981,14 +1037,13 @@ def test_pubmed_search_json_decode_error_recovers_on_retry(requests_mock, caplog
 
 
 def test_pubmed_incremental_zero_days_coverage(
-    test_incremental_session,
-    mock_rialto_db_name,
-    requests_mock,
+    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
 ):
     """
     Specifically cover the case where number_of_days <= 0.
     """
-    now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    # the current time from the active_harvest_id's created_at
+    now = datetime.datetime(2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc)
 
     # Last harvest was 10 days ago
     last_harvest_time = now - datetime.timedelta(days=10)
@@ -1021,7 +1076,7 @@ def test_pubmed_incremental_zero_days_coverage(
             mock_days_since.return_value = 0
 
             # harvest from Pubmed
-            pubmed.harvest()
+            pubmed.harvest(active_harvest_id)
 
     # Verify PubMed was NOT called
     assert not requests_mock.called

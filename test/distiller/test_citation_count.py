@@ -1,9 +1,9 @@
 from rialto_airflow.distiller.citation_count import citation_count
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 
-def test_sulpub_fields(test_session, sulpub_json):
-    with test_session.begin() as session:
+def test_sulpub_fields(test_incremental_session, sulpub_json):
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/sulpub",
             title="My Sulpub Life",

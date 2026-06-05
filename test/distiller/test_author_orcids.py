@@ -3,7 +3,7 @@ from rialto_airflow.distiller import (
     first_author_orcid,
     last_author_orcid,
 )
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 
 def test_author_orcids(pub_with_authors):

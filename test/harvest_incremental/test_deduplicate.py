@@ -94,9 +94,7 @@ def dataset(
         session.add(pub2)
 
 
-def test_openalex_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_openalex_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that the publication with an OpenAlex duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
@@ -125,9 +123,7 @@ def test_openalex_deduplicate(
         assert "Deleted 1 publication rows from OpenAlex." in caplog.text
 
 
-def test_dimensions_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_dimensions_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that the publication with a Dimensions duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
@@ -156,9 +152,7 @@ def test_dimensions_deduplicate(
         assert "Deleted 1 publication rows from Dimensions." in caplog.text
 
 
-def test_pubmed_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_pubmed_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
@@ -186,9 +180,7 @@ def test_pubmed_deduplicate(
         assert "Deleted 1 publication rows with duplicate pubmed_id." in caplog.text
 
 
-def test_sulpub_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_sulpub_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that the publication with an sulpub duplicate is found and the duplicates removed.
     Authors should be moved to the remaining record.
@@ -217,9 +209,7 @@ def test_sulpub_deduplicate(
         assert "Deleted 1 publication rows from sulpub." in caplog.text
 
 
-def test_wos_id_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_wos_id_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that publications with a duplicate wos_id are found and merged.
     Authors should be moved to the remaining record.
@@ -243,9 +233,7 @@ def test_wos_id_deduplicate(
         assert "Deleted 1 publication rows with duplicate wos_id." in caplog.text
 
 
-def test_pubmed_id_deduplicate(
-    test_incremental_session, dataset, mock_rialto_db_name, caplog
-):
+def test_pubmed_id_deduplicate(test_incremental_session, dataset, caplog):
     """
     Test that publications with a duplicate pubmed_id are found and merged.
     Authors should be moved to the remaining record.
@@ -386,7 +374,7 @@ def dataset2(
         session.add(pub3)
 
 
-def test_remove_duplicates(test_incremental_session, dataset2, mock_rialto_db_name):
+def test_remove_duplicates(test_incremental_session, dataset2):
     """
     Test that remove_duplicates returns the total number of duplicates removed.
     """
@@ -395,7 +383,7 @@ def test_remove_duplicates(test_incremental_session, dataset2, mock_rialto_db_na
 
 
 def test_remove_orphan_publications(
-    test_incremental_session, dataset_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset_incremental, caplog
 ):
     """
     Ensure that publications that are NOT associated with an author are pruned
@@ -417,7 +405,7 @@ def test_remove_orphan_publications(
 
 
 def test_do_not_remove_linked_publications(
-    test_incremental_session, dataset_incremental, mock_rialto_db_name, caplog
+    test_incremental_session, dataset_incremental, caplog
 ):
     """
     Ensure that publications that are associated with an author are NOT pruned

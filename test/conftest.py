@@ -7,131 +7,28 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
-from rialto_airflow import harvest_incremental
-from rialto_airflow.database import create_schema, engine_setup
-from rialto_airflow.publish import publication
-from rialto_airflow.schema import harvest as harvest_schema
-from rialto_airflow.schema import rialto as rialto_schema
-from rialto_airflow.schema import reports as reports_schema
-from rialto_airflow.snapshot import Snapshot
+# load this early so we can rewire the database name to the test database name
+import rialto_airflow.schema.rialto
+
+rialto_airflow.schema.rialto.RIALTO_DB_NAME = "rialto_incremental_test"
+
+from rialto_airflow import cli  # noqa: E402
+from rialto_airflow.database import create_schema, engine_setup  # noqa: E402
+from rialto_airflow.publish import publication  # noqa: E402
+from rialto_airflow.schema import rialto as rialto_schema  # noqa: E402
+from rialto_airflow.schema import reports as reports_schema  # noqa: E402
 
 dotenv.load_dotenv()
-
-
-@pytest.fixture
-def test_engine(monkeypatch):
-    """
-    This pytest fixture will ensure that the rialto_test database exists and has
-    the database schema configured. If the database exists it will be dropped
-    and readded.
-    """
-    db_host = "postgresql+psycopg2://airflow:airflow@localhost:5432"
-    monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
-
-    db_name = "rialto_test"
-    db_uri = f"{db_host}/{db_name}"
-
-    if database_exists(db_uri):
-        drop_database(db_uri)
-
-    create_database(db_uri)
-
-    # note: rialto_airflow.database.create_schema wants the database name not uri
-    create_schema(db_name, harvest_schema.HarvestSchemaBase)
-
-    # it's handy seeing SQL statements in the log when testing
-    return engine_setup(db_name, echo=True)
-
-
-@pytest.fixture
-def test_conn(test_engine):
-    """
-    Returns a sqlalchemy connection for the test database.
-    """
-    return test_engine.connect()
-
-
-@pytest.fixture
-def test_session(test_engine):
-    """
-    Returns a sqlalchemy session for the test database.
-    """
-    try:
-        yield sessionmaker(test_engine)
-    finally:
-        close_all_sessions()
 
 
 @pytest.fixture
 def mock_rialto_db_name(monkeypatch):
     # TODO: hopefully these can go away once incremental harvesting replaces the
     # full snapshot harvesting, and we don't need to juggle the databases
-    monkeypatch.setattr(rialto_schema, "RIALTO_DB_NAME", "rialto_incremental_test")
-    monkeypatch.setattr(
-        harvest_incremental.dimensions, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.sul_pub, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.authors, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.crossref, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.deduplicate, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.distill, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.openalex, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.pubmed, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.wos, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
-    monkeypatch.setattr(
-        harvest_incremental.dimensions, "RIALTO_DB_NAME", "rialto_incremental_test"
-    )
+    monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
+    monkeypatch.setattr(cli, "RIALTO_DB_NAME", "rialto_incremental_test")
 
-
-@pytest.fixture
-def mock_authors(test_session):
-    with test_session.begin() as session:
-        session.bulk_save_objects(
-            [
-                harvest_schema.Author(
-                    sunet="janes",
-                    cap_profile_id="12345",
-                    orcid="https://orcid.org/0000-0000-0000-0001",
-                    first_name="Jane",
-                    last_name="Stanford",
-                    status=True,
-                ),
-                harvest_schema.Author(
-                    sunet="lelands",
-                    cap_profile_id="123456",
-                    orcid="https://orcid.org/0000-0000-0000-0002",
-                    first_name="Leland",
-                    last_name="Stanford",
-                    status=True,
-                ),
-                # this user intentionally lacks an ORCID to help test code that
-                # ignores harvesting for users that lack an ORCID
-                harvest_schema.Author(
-                    sunet="lelelandjr",
-                    cap_profile_id="1234567",
-                    orcid=None,
-                    first_name="Leland",
-                    last_name="Stanford",
-                    status=True,
-                ),
-            ]
-        )
+    return "rialto_incremental_test"
 
 
 @pytest.fixture
@@ -196,36 +93,6 @@ def mock_incremental_association(
 
 
 @pytest.fixture
-def mock_publication(test_session):
-    with test_session.begin() as session:
-        pub = harvest_schema.Publication(
-            doi="10.1515/9781503624153",
-            sulpub_json={"sulpub": "data"},
-            wos_json={"wos": "data"},
-            dim_json={"dimensions": "data"},
-        )
-        session.add(pub)
-        return pub
-
-
-@pytest.fixture
-def mock_association(test_session, mock_publication, mock_authors):
-    with test_session.begin() as session:
-        session.execute(
-            insert(harvest_schema.pub_author_association).values(
-                # TODO: should the IDs be looked up in case they aren't always 1?
-                publication_id=1,
-                author_id=1,
-            )
-        )
-
-
-@pytest.fixture
-def snapshot(tmp_path):
-    return Snapshot.create(data_dir=tmp_path, database_name="rialto_test")
-
-
-@pytest.fixture
 def test_incremental_engine(monkeypatch):
     """
     This pytest fixture will ensure that the rialto_incremental_test database exists and has
@@ -251,7 +118,7 @@ def test_incremental_engine(monkeypatch):
 
 
 @pytest.fixture
-def test_incremental_session(test_incremental_engine):
+def test_incremental_session(test_incremental_engine, mock_rialto_db_name):
     """
     Returns a sqlalchemy session for the test database.
     """
@@ -568,150 +435,6 @@ def crossref_json():
         "DOI": "10.000/000001",
         "ISSN": ["1234-5678"],
     }
-
-
-@pytest.fixture
-def dataset(
-    test_session,
-    dim_json,
-    openalex_json,
-    wos_json,
-    sulpub_json,
-    pubmed_json,
-    crossref_json,
-):
-    """
-    This fixture will create two publications, four authors, and two funders.
-    It is designed to test the various types of reports we want to output, where
-    sometimes we want all the publications, and others we want the unique
-    publications by school and department.
-
-    The first publication is authored by all 4 authors, and funded by both
-    funders. The second publication is authored by the first author, and funded by
-    the first funder.
-
-    The first two authors are from the Department of Social Sciences in the
-    School of Humanities and Sciences. The last two authors are both from the
-    School of Engineering, but one is in the Department of Mechanical Engineering,
-    and the other is in Electric Enginering.
-    """
-
-    with test_session.begin() as session:
-        pub = harvest_schema.Publication(
-            doi="10.000/000001",
-            title="My Life",
-            apc=123,
-            open_access="gold",
-            pub_year=2023,
-            dim_json=dim_json,
-            openalex_json=openalex_json,
-            wos_json=wos_json,
-            sulpub_json=sulpub_json,
-            pubmed_json=pubmed_json,
-            crossref_json=crossref_json,
-            types=["Article", "Preprint"],
-            publisher="Science Publisher Inc.",
-            academic_council_authored=True,
-            faculty_authored=True,
-            journal_name="Proceedings of the National Academy of Sciences of the United States of America",
-        )
-
-        pub2 = harvest_schema.Publication(
-            doi="10.000/000002",
-            title="My Life Part 2",
-            apc=500,
-            open_access="green",
-            pub_year=2024,
-            dim_json=dim_json,
-            openalex_json=None,
-            wos_json=wos_json,
-            sulpub_json=sulpub_json,
-            pubmed_json=pubmed_json,
-            types=["Article", "Preprint"],
-            academic_council_authored=True,
-            faculty_authored=True,
-        )
-
-        author1 = harvest_schema.Author(
-            first_name="Jane",
-            last_name="Stanford",
-            sunet="janes",
-            cap_profile_id="1234",
-            orcid="0298098343",
-            primary_school="School of Humanities and Sciences",
-            primary_dept="Social Sciences",
-            role="faculty",
-            schools=[
-                "Vice Provost for Undergraduate Education",
-                "School of Humanities and Sciences",
-            ],
-            departments=["Inter-Departmental Programs", "Social Sciences"],
-            academic_council=True,
-        )
-
-        author2 = harvest_schema.Author(
-            first_name="Leland",
-            last_name="Stanford",
-            sunet="lelands",
-            cap_profile_id="12345",
-            orcid="02980983434",
-            primary_school="School of Humanities and Sciences",
-            primary_dept="Social Sciences",
-            role="staff",
-            schools=[
-                "School of Humanities and Sciences",
-            ],
-            departments=["Social Sciences"],
-            academic_council=False,
-        )
-
-        author3 = harvest_schema.Author(
-            first_name="Frederick",
-            last_name="Olmstead",
-            sunet="folms",
-            cap_profile_id="123456",
-            orcid="02980983422",
-            primary_school="School of Engineering",
-            primary_dept="Mechanical Engineering",
-            role="faculty",
-            schools=["School of Engineering"],
-            departments=["Mechanical Engineering"],
-            academic_council=False,
-        )
-
-        author4 = harvest_schema.Author(
-            first_name="Frederick",
-            last_name="Terman",
-            sunet="fterm",
-            cap_profile_id="1234567",
-            orcid="029809834222",
-            primary_school="School of Engineering",
-            primary_dept="Electrical Engineering",
-            role="faculty",
-            schools=["School of Engineering"],
-            departments=["Electrical Engineering"],
-            academic_council=True,
-        )
-
-        funder1 = harvest_schema.Funder(
-            name="National Institutes of Health", grid_id="12345", federal=True
-        )
-        funder2 = harvest_schema.Funder(
-            name="Andrew Mellon Foundation", grid_id="123456", federal=False
-        )
-
-        pub.authors.append(author1)
-        pub.authors.append(author2)
-        pub.authors.append(author3)
-        pub.authors.append(author4)
-        pub.funders.append(funder1)
-        pub.funders.append(funder2)
-
-        pub2.authors.append(author1)
-        pub2.funders.append(funder1)
-
-        session.add(pub)
-        session.add(pub2)
 
 
 @pytest.fixture

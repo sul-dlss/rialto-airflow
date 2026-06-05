@@ -161,7 +161,6 @@ def test_orcid_publications_with_bad_orcid():
 def test_harvest(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_wos,
     monkeypatch,
     active_harvest_id,
@@ -189,7 +188,6 @@ def test_harvest_when_doi_exists(
     test_incremental_session,
     existing_publication,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_wos,
     active_harvest_id,
 ):
@@ -215,7 +213,6 @@ def test_harvest_when_doi_exists(
 
 def test_log_message(
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_many_wos,
     caplog,
     active_harvest_id,
@@ -228,7 +225,6 @@ def test_log_message(
 def test_harvest_with_previous_harvest_dates(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_wos,
     monkeypatch,
     active_harvest_id,
@@ -272,7 +268,6 @@ def test_harvest_with_previous_harvest_dates(
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     active_harvest_id,
 ):
@@ -323,7 +318,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
 
 
 def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, monkeypatch
 ):
     queries = []
 
@@ -341,7 +336,7 @@ def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
 
 
 def test_publications_from_orcid_includes_load_time_when_previous_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
+    test_incremental_session, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -365,7 +360,7 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
 
 
 def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_days(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
+    test_incremental_session, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -390,7 +385,7 @@ def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_da
 
 
 def test_publications_from_orcid_does_not_call_api_when_0_days(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, fixed_datetime
+    test_incremental_session, monkeypatch, fixed_datetime
 ):
     queries = []
 
@@ -413,7 +408,6 @@ def test_publications_from_orcid_does_not_call_api_when_0_days(
 
 def test_harvest_stops_when_author_limit_is_exceeded(
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,
@@ -438,7 +432,6 @@ def test_customization_error(
     test_incremental_session,
     caplog,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -464,7 +457,6 @@ def test_not_found_error(
     test_incremental_session,
     caplog,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -492,7 +484,6 @@ def test_server_error(
     test_incremental_session,
     caplog,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -521,7 +512,6 @@ def test_empty_payload(
     test_incremental_session,
     caplog,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -566,7 +556,6 @@ def test_bad_wos_json(
     test_incremental_session,
     caplog,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -647,7 +636,6 @@ def test_get_doi(caplog):
 def test_fill_in(
     test_incremental_session,
     mock_no_wos_publication,
-    mock_rialto_db_name,
     mock_wos_doi,
     caplog,
     active_harvest_id,
@@ -683,7 +671,6 @@ def test_fill_in_no_wos(
     test_incremental_session,
     mock_incremental_publication,
     mock_no_wos_publication,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,
@@ -706,7 +693,7 @@ def test_fill_in_no_wos(
 
 
 def test_fill_in_filters_publications_using_harvest_created_at(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+    test_incremental_session, monkeypatch, active_harvest_id
 ):
     """
     Ensure that only publications that have been updated since the active
@@ -945,9 +932,7 @@ def test_format_wos_timespan(days, expected):
     assert wos.format_wos_timespan(days) == expected
 
 
-def test_fill_in_full_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
-):
+def test_fill_in_full_harvest(test_incremental_session, monkeypatch, active_harvest_id):
 
     with test_incremental_session.begin() as session:
         harvest = Harvest.get_by_id(active_harvest_id)

@@ -88,9 +88,7 @@ def authors_csv(tmp_path):
     return fixture_file
 
 
-def test_load_authors_table(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
+def test_load_authors_table(test_incremental_session, tmp_path, caplog, authors_csv):
     """
     Make sure we can load the authors.csv.
     """
@@ -121,9 +119,7 @@ def test_load_authors_table(
     assert "processed=1 new=1 updated=0 ignored=0" in caplog.text
 
 
-def test_update_by_sunet(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
+def test_update_by_sunet(test_incremental_session, tmp_path, caplog, authors_csv):
     """
     Make sure that author updates work correctly. Reloading the same data should
     not change the author.updated_at value. Any changes to author's data should
@@ -167,9 +163,7 @@ def test_update_by_sunet(
         assert author.updated_at >= updated_at, "updated_at should reflect the change"
 
 
-def test_load_dupe_orcid(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
+def test_load_dupe_orcid(test_incremental_session, tmp_path, caplog, authors_csv):
     caplog.set_level(logging.DEBUG)
     # add a row with a duplicate ORCID to the CSV
     with open(authors_csv, "a", newline="") as csvfile:
@@ -197,9 +191,7 @@ def test_load_dupe_orcid(
     )
 
 
-def test_load_dupe_cap_id(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
+def test_load_dupe_cap_id(test_incremental_session, tmp_path, caplog, authors_csv):
 
     # create an inactive author linked to a publication in the database
     with test_incremental_session.begin() as session:
@@ -249,9 +241,7 @@ def test_load_dupe_cap_id(
         )
 
 
-def test_load_null_cap_id(
-    test_incremental_session, tmp_path, caplog, authors_csv, mock_rialto_db_name
-):
+def test_load_null_cap_id(test_incremental_session, tmp_path, caplog, authors_csv):
     """
     Test that we can load authors with no cap_profile_id.
     """
@@ -283,7 +273,6 @@ def test_load_null_cap_id(
 def test_clear_pub_author_links(
     test_incremental_session,
     dataset_incremental,
-    mock_rialto_db_name,
     active_harvest_id,
 ):
     """
@@ -304,7 +293,6 @@ def test_clear_pub_author_links(
 def test_clear_pub_author_links_full_harvest(
     test_incremental_session,
     dataset_incremental,
-    mock_rialto_db_name,
     active_harvest_id,
 ):
     """

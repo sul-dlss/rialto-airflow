@@ -38,7 +38,7 @@ def remove_duplicates() -> int:
 def remove_openalex_duplicates() -> int:
     logging.debug("Removing any duplicate OpenAlex publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
-        # Find all duplicate OpenAlex publications in the snapshot
+        # Find all duplicate OpenAlex publications
         duplicates = session.execute(
             select(func.count(), Publication.openalex_json["id"])
             .where(Publication.doi.is_(None))
@@ -69,7 +69,7 @@ def remove_openalex_duplicates() -> int:
 def remove_dimensions_duplicates() -> int:
     logging.debug("Removing any duplicate Dimensions publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
-        # Find all duplicate Dimensions publications in the snapshot
+        # Find all duplicate Dimensions publications
         duplicates = session.execute(
             select(func.count(), Publication.dim_json["id"])
             .where(Publication.doi.is_(None))
@@ -100,7 +100,7 @@ def remove_dimensions_duplicates() -> int:
 def remove_sulpub_duplicates() -> int:
     logging.debug("Removing any duplicate sulpub publications.")
     with get_session(RIALTO_DB_NAME).begin() as session:
-        # Find all duplicate sulpub publications in the snapshot
+        # Find all duplicate sulpub publications
         duplicates = session.execute(
             select(func.count(), Publication.sulpub_json["sulpubid"])
             .where(Publication.doi.is_(None))

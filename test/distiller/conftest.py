@@ -1,6 +1,6 @@
 import pytest
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 # Note: the sulpub_json, dim_json, openalex_json and wos_json fixtures here
 # override the similarly named fixtures available in test/conftest.py

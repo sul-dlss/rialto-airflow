@@ -1,10 +1,10 @@
 from rialto_airflow.distiller.pages import pages, _openalex_pages
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 
-def test_openalex(test_session, openalex_json):
+def test_openalex(test_incremental_session, openalex_json):
     # Add a publication with fields only sourced from OpenAlex
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/000003",
             title="My OpenAlex Life",
@@ -40,9 +40,9 @@ def test_openalex_pages_end_only():
     assert pages == "9"
 
 
-def test_sulpub_fields(test_session, sulpub_json):
+def test_sulpub_fields(test_incremental_session, sulpub_json):
     # Add a publication with fields sourced from sulpub
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/sulpub",
             title="My Sulpub Life",
@@ -63,9 +63,9 @@ def test_sulpub_fields(test_session, sulpub_json):
         assert pages(pub_row) == "1-7"
 
 
-def test_dimensions_fields(test_session, dim_json_fields):
+def test_dimensions_fields(test_incremental_session, dim_json_fields):
     # Add a publication with fields sourced from Dimensions
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/000003",
             title="My Dimensions Life",

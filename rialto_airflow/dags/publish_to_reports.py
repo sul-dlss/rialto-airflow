@@ -6,7 +6,6 @@ from airflow.models import Variable
 from airflow.timetables.trigger import CronTriggerTimetable
 
 from rialto_airflow.honeybadger import default_args
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.publish import publication
 
 data_dir = Path(Variable.get("data_dir"))
@@ -25,41 +24,36 @@ This DAG publishes data to postgres that is used to build dashboards
     default_args=default_args(),
 )
 def publish_to_reports():
-    @task()
-    def get_snapshot():
-        snapshot = Snapshot.get_latest(data_dir)
-        if snapshot is None:
-            raise Exception(f"Unable to find completed snapshot in {data_dir}")
-        else:
-            return snapshot
+    @task.short_circuit
+    def check_harvest_complete():
+        return publication.check_harvest_complete()
 
     @task
-    def publish_publications(snapshot):
-        publication.export_publications(snapshot)
+    def publish_publications():
+        publication.export_publications()
 
     @task
-    def publish_publications_by_school(snapshot):
-        publication.export_publications_by_school(snapshot)
+    def publish_publications_by_school():
+        publication.export_publications_by_school()
 
     @task
-    def publish_publications_by_department(snapshot):
-        publication.export_publications_by_department(snapshot)
+    def publish_publications_by_department():
+        publication.export_publications_by_department()
 
     @task
-    def publish_publications_by_author(snapshot):
-        publication.export_publications_by_author(snapshot)
+    def publish_publications_by_author():
+        publication.export_publications_by_author()
 
     @task
     def generate_download_files(data_dir):
         publication.generate_download_files(data_dir)
 
-    snapshot = get_snapshot()
-
     (
-        publish_publications(snapshot)
-        >> publish_publications_by_school(snapshot)
-        >> publish_publications_by_department(snapshot)
-        >> publish_publications_by_author(snapshot)
+        check_harvest_complete()
+        >> publish_publications()
+        >> publish_publications_by_school()
+        >> publish_publications_by_department()
+        >> publish_publications_by_author()
         >> generate_download_files(data_dir)
     )
 

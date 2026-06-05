@@ -1,15 +1,21 @@
+import pytest
 from sqlalchemy import select
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import PublicationsByDepartment
 
 
+@pytest.fixture
+def rialto_db_name(monkeypatch):
+    monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
 def test_write_publications_by_department(
-    test_reports_session, snapshot, dataset, caplog
+    test_reports_session, dataset_incremental, rialto_db_name, caplog
 ):
-    result = publication.export_publications_by_department(snapshot)
-    assert result == 4
+    result = publication.export_publications_by_department()
+    assert result == 1
 
     with test_reports_session.begin() as session:
         rows = session.execute(
@@ -17,54 +23,18 @@ def test_write_publications_by_department(
                 PublicationsByDepartment.primary_department
             )
         ).all()
-        assert len(rows) == 4
+        assert len(rows) == 1
 
         row = rows[0][0]
         assert bool(row.academic_council_authored) is True
         assert row.apc == 123
         assert row.doi == "10.000/000001"
         assert bool(row.faculty_authored) is True
-        assert bool(row.federally_funded) is True
-        assert row.open_access == "gold"
-        assert row.primary_school == "School of Engineering"
-        assert row.primary_department == "Electrical Engineering"
-        assert row.pub_year == 2023
-        assert row.types == "Article|Preprint"
-
-        row = rows[1][0]
-        assert bool(row.academic_council_authored) is True
-        assert row.apc == 123
-        assert row.doi == "10.000/000001"
-        assert bool(row.faculty_authored) is True
-        assert bool(row.federally_funded) is True
-        assert row.open_access == "gold"
-        assert row.primary_school == "School of Engineering"
-        assert row.primary_department == "Mechanical Engineering"
-        assert row.pub_year == 2023
-        assert row.types == "Article|Preprint"
-
-        row = rows[2][0]
-        assert bool(row.academic_council_authored) is True
-        assert row.apc == 123
-        assert row.doi == "10.000/000001"
-        assert bool(row.faculty_authored) is True
-        assert bool(row.federally_funded) is True
+        assert bool(row.federally_funded) is False
         assert row.open_access == "gold"
         assert row.primary_school == "School of Humanities and Sciences"
         assert row.primary_department == "Social Sciences"
         assert row.pub_year == 2023
-        assert row.types == "Article|Preprint"
-
-        row = rows[3][0]
-        assert bool(row.academic_council_authored) is True
-        assert row.apc == 500
-        assert row.doi == "10.000/000002"
-        assert bool(row.faculty_authored) is True
-        assert bool(row.federally_funded) is True
-        assert row.open_access == "green"
-        assert row.primary_school == "School of Humanities and Sciences"
-        assert row.primary_department == "Social Sciences"
-        assert row.pub_year == 2024
         assert row.types == "Article|Preprint"
 
         assert "started writing publications_by_department table" in caplog.text
@@ -72,10 +42,14 @@ def test_write_publications_by_department(
 
 
 def test_limit_openalex_only(
-    snapshot, dataset, tmp_path, test_session, test_reports_session
+    dataset_incremental,
+    rialto_db_name,
+    tmp_path,
+    test_incremental_session,
+    test_reports_session,
 ):
     # ensure one of the publications only has openalex metadata
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
@@ -86,9 +60,8 @@ def test_limit_openalex_only(
         session.add(pub)
         session.flush()
 
-    publication.export_publications_by_department(snapshot)
+    publication.export_publications_by_department()
 
     with test_reports_session.begin() as session:
         pubs = session.query(PublicationsByDepartment).all()
-        assert len(pubs) == 1
-        assert pubs[0].doi == "10.000/000002"
+        assert len(pubs) == 0

@@ -1,31 +1,36 @@
 import pytest
 import zipfile
-from rialto_airflow.schema.harvest import Publication
+import datetime
+from rialto_airflow.schema.rialto import Publication, Harvest
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
 
 
-def test_dataset(test_session, dataset):
-    with test_session.begin() as session:
+@pytest.fixture
+def rialto_db_name(monkeypatch):
+    monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
+
+
+def test_dataset(test_incremental_session, dataset_incremental, rialto_db_name):
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
-        pub2 = (
-            session.query(Publication).where(Publication.doi == "10.000/000002").first()
-        )
         assert pub.title == "My Life"
-        assert pub2.title == "My Life Part 2"
-        assert len(pub.authors) == 4
-        assert len(pub.funders) == 2
+        assert len(pub.authors) == 2
+        assert len(pub.funders) == 0
 
 
-def test_export_publications(test_reports_session, snapshot, dataset, caplog):
+def test_export_publications(
+    test_reports_session, dataset_incremental, rialto_db_name, caplog
+):
+
     # generate the publications table
-    result = publication.export_publications(snapshot)
-    assert result == 2
+    result = publication.export_publications()
+    assert result == 1
 
     with test_reports_session.begin() as session:
-        assert session.query(Publications).count() == 2
+        assert session.query(Publications).count() == 1
 
     with test_reports_session.begin() as session:
         q = session.query(Publications).where(Publications.doi == "10.000/000001")
@@ -44,30 +49,15 @@ def test_export_publications(test_reports_session, snapshot, dataset, caplog):
         assert bool(db_rows[0].academic_council_authored) is True
         assert bool(db_rows[0].faculty_authored) is True
 
-    with test_reports_session.begin() as session:
-        q = session.query(Publications).where(Publications.doi == "10.000/000002")
-        db_rows = list(q.all())
-        assert len(db_rows) == 1
-        assert db_rows[0].apc == 500
-        assert db_rows[0].author_list_names == "Jane Stanford|Leland Stanford"
-        assert db_rows[0].types == "Article|Preprint"
-        assert db_rows[0].open_access == "green"
-        assert db_rows[0].title == "My Life Part 2"
-        assert bool(db_rows[0].academic_council_authored) is True
-        assert bool(db_rows[0].faculty_authored) is True
-
     assert "started writing publications table" in caplog.text
     assert "finished writing publications table" in caplog.text
 
 
-@pytest.fixture
-def rialto_reports_db_name(monkeypatch):
-    monkeypatch.setattr(publication, "RIALTO_REPORTS_DB_NAME", "rialto_reports_test")
-
-
-def test_generate_download_files(tmp_path, test_reports_session, snapshot, dataset):
+def test_generate_download_files(
+    tmp_path, test_reports_session, rialto_db_name, dataset_incremental
+):
     # create the reports database
-    publication.export_publications(snapshot)
+    publication.export_publications()
 
     # generate the download files
     downloads_dir = tmp_path / "downloads"
@@ -106,8 +96,8 @@ def test_generate_download_files(tmp_path, test_reports_session, snapshot, datas
     # Check that 'true' not 't' exists for the first publication
     with open(csv_file, "r") as f:
         lines = f.readlines()
-        assert len(lines) >= 2
-        assert "true,true,true" in lines[1]
+        assert len(lines) == 2  # one publication + header
+        assert "false,true,true" in lines[1]
 
     with open(dictionary_file, "r") as f:
         dictionary = f.read()
@@ -118,16 +108,20 @@ def test_generate_download_files(tmp_path, test_reports_session, snapshot, datas
         assert "title,String,Title of the publication" in dictionary
 
 
-def test_no_downloads_dir(snapshot, tmp_path, test_reports_session):
+def test_no_downloads_dir(tmp_path, test_reports_session):
     with pytest.raises(Exception, match="downloads directory missing at"):
         publication.generate_download_files(tmp_path)
 
 
 def test_limit_openalex_only(
-    snapshot, dataset, tmp_path, test_session, test_reports_session
+    dataset_incremental,
+    tmp_path,
+    test_incremental_session,
+    test_reports_session,
+    rialto_db_name,
 ):
     # ensure one of the publications only has openalex metadata
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
@@ -138,9 +132,62 @@ def test_limit_openalex_only(
         session.add(pub)
         session.flush()
 
-    publication.export_publications(snapshot)
+    publication.export_publications()
 
     with test_reports_session.begin() as session:
         pubs = session.query(Publications).all()
-        assert len(pubs) == 1
-        assert pubs[0].doi == "10.000/000002"
+        assert len(pubs) == 0
+
+
+def test_check_harvest_complete_no_harvests(test_incremental_session, rialto_db_name):
+    with pytest.raises(Exception, match="No harvest records found"):
+        publication.check_harvest_complete()
+
+
+def test_check_harvest_complete_harvest_finished(
+    test_incremental_session, rialto_db_name
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=datetime.datetime(2026, 1, 1, 1, 0, 0),
+            )
+        )
+
+    assert publication.check_harvest_complete() is True
+
+
+def test_check_harvest_complete_harvest_not_finished(
+    test_incremental_session, rialto_db_name
+):
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=None,
+            )
+        )
+
+    assert publication.check_harvest_complete() is False
+
+
+def test_check_harvest_complete_uses_most_recent(
+    test_incremental_session, rialto_db_name
+):
+    """When there are multiple harvests, only the most recent one is checked."""
+    with test_incremental_session.begin() as session:
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 1, 1, 0, 0, 0),
+                finished_at=datetime.datetime(2026, 1, 1, 1, 0, 0),
+            )
+        )
+        session.add(
+            Harvest(
+                created_at=datetime.datetime(2026, 2, 1, 0, 0, 0),
+                finished_at=None,
+            )
+        )
+
+    assert publication.check_harvest_complete() is False

@@ -452,6 +452,8 @@ def dataset_incremental(
     using the rialto schema models.
     """
     with test_incremental_session.begin() as session:
+        now = datetime.datetime.now()
+
         pub = rialto_schema.Publication(
             doi="10.000/000001",
             title="My Life",
@@ -459,10 +461,15 @@ def dataset_incremental(
             open_access="gold",
             pub_year=2023,
             dim_json=dim_json,
+            dim_harvested=now,
             openalex_json=openalex_json,
+            openalex_harvested=now,
             wos_json=wos_json,
+            wos_harvested=now,
             sulpub_json=sulpub_json,
+            sulpub_harvested=now,
             pubmed_json=pubmed_json,
+            pubmed_harvested=now,
             crossref_json=crossref_json,
             types=["Article", "Preprint"],
             publisher="Science Publisher Inc.",

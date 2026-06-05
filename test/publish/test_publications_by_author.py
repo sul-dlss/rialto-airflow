@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy import select
 
-from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import PublicationsByAuthor
+from rialto_airflow.schema.rialto import Publication
 
 
 @pytest.fixture
@@ -100,10 +100,10 @@ def test_limit_openalex_only(
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
-        pub.sulpub_json = None
-        pub.dim_json = None
-        pub.wos_json = None
-        pub.pubmed_json = None
+        pub.sulpub_harvested = None
+        pub.dim_harvested = None
+        pub.wos_harvested = None
+        pub.pubmed_harvested = None
         session.add(pub)
         session.flush()
 

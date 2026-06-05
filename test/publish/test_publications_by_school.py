@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from sqlalchemy import select
 
@@ -51,10 +53,11 @@ def test_limit_openalex_only(
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
         )
-        pub.sulpub_json = None
-        pub.dim_json = None
-        pub.wos_json = None
-        pub.pubmed_json = None
+        pub.openalex_harvested = datetime.datetime.now()
+        pub.sulpub_harvested = None
+        pub.dim_harvested = None
+        pub.wos_harvested = None
+        pub.pubmed_harvested = None
         session.add(pub)
         session.flush()
 

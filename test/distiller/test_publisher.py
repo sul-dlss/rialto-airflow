@@ -1,7 +1,7 @@
 import pytest
 
-from rialto_airflow.schema.harvest import Publication, Author
-from rialto_airflow.harvest.distill import distill
+from rialto_airflow.schema.rialto import Publication, Author
+from rialto_airflow.harvest_incremental.distill import distill
 from rialto_airflow.distiller import publisher, journal_name, journal_issn
 
 # When there is no OpenAlex publisher information we try to look it up in
@@ -116,11 +116,13 @@ def test_dimensions_publisher_journal():
     assert journal_name(pub) == "Nature"
 
 
-def test_author_based_fields(test_session, snapshot, openalex_json, dim_json):
+def test_author_based_fields(
+    test_incremental_session, mock_rialto_db_name, openalex_json, dim_json
+):
     """
     academic_council_authored should be true if any authors are academic council
     """
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.1515/9781503624153",
             openalex_json=openalex_json,
@@ -168,7 +170,7 @@ def test_author_based_fields(test_session, snapshot, openalex_json, dim_json):
         session.add(pub)
         session.add(pub2)
 
-    distill(snapshot)
+    distill()
 
     academic_pub = (
         session.query(Publication)

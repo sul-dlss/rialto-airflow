@@ -4,7 +4,7 @@ from rialto_airflow.distiller.abstract import (
     _rebuild_abstract,
     _crossref_abstract,
 )
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 
 
 def test_pubmed_abstract(pubmed_json):
@@ -69,9 +69,9 @@ def test_pubmed_fields_no_abstract():
     assert abstract is None
 
 
-def test_dimensions_fields(test_session, dim_json_fields):
+def test_dimensions_fields(test_incremental_session, dim_json_fields):
     # Add a publication with fields sourced from Dimensions
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/000003",
             title="My Dimensions Life",
@@ -94,9 +94,9 @@ def test_dimensions_fields(test_session, dim_json_fields):
     assert abstract(row) == "This is a sample Dimensions abstract."
 
 
-def test_openalex(test_session, openalex_json):
+def test_openalex(test_incremental_session, openalex_json):
     # Add a publication with fields only sourced from OpenAlex
-    with test_session.begin() as session:
+    with test_incremental_session.begin() as session:
         pub = Publication(
             doi="10.000/000003",
             title="My OpenAlex Life",

@@ -46,7 +46,6 @@ response = {
 def test_harvest(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     requests_mock,
     active_harvest_id,
@@ -92,7 +91,6 @@ def test_harvest(
 def test_harvest_with_previous_harvest(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     caplog,
     active_harvest_id,
@@ -154,7 +152,6 @@ def test_harvest_date(requests_mock):
 def test_harvest_limit(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     requests_mock,
     active_harvest_id,
@@ -197,7 +194,6 @@ def test_harvest_when_doi_exists(
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):
@@ -229,7 +225,6 @@ def test_harvest_when_author_exists(
     mock_incremental_publication,
     mock_incremental_authors,
     mock_incremental_association,
-    mock_rialto_db_name,
     requests_mock,
     active_harvest_id,
 ):

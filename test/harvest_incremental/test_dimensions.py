@@ -69,7 +69,6 @@ def test_publication_fields():
 def test_harvest_passes_previous_harvest_date_to_orcid_query(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     active_harvest_id,
 ):
@@ -110,7 +109,6 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     active_harvest_id,
 ):
@@ -157,7 +155,7 @@ def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     )
 
 
-def test_publications_from_orcid(mock_rialto_db_name):
+def test_publications_from_orcid():
     pubs = list(
         dimensions.publications_from_orcid(
             "0000-0002-2317-1967",
@@ -169,7 +167,7 @@ def test_publications_from_orcid(mock_rialto_db_name):
 
 
 def test_publications_from_orcid_omits_previous_harvest_date_when_none_exists(
-    test_incremental_session, mock_rialto_db_name, monkeypatch
+    test_incremental_session, monkeypatch
 ):
     queries = []
 
@@ -225,7 +223,6 @@ def mock_dimensions(monkeypatch):
 def test_harvest(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_dimensions,
     active_harvest_id,
 ):
@@ -248,7 +245,6 @@ def test_harvest_when_doi_exists(
     test_incremental_session,
     mock_incremental_publication,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_dimensions,
     active_harvest_id,
 ):
@@ -275,7 +271,6 @@ def test_harvest_when_pub_author_association_exists(
     mock_incremental_publication,
     mock_incremental_authors,
     mock_incremental_association,
-    mock_rialto_db_name,
     mock_dimensions,
     active_harvest_id,
 ):
@@ -313,7 +308,6 @@ def mock_many_dimensions(monkeypatch):
 
 def test_log_message(
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_many_dimensions,
     caplog,
     active_harvest_id,
@@ -325,7 +319,6 @@ def test_log_message(
 
 def test_harvest_stops_when_author_limit_is_exceeded(
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,
@@ -378,7 +371,6 @@ def mock_dimensions_doi(monkeypatch):
 def test_fill_in(
     test_incremental_session,
     mock_no_dim_publication,
-    mock_rialto_db_name,
     mock_dimensions_doi,
     caplog,
     active_harvest_id,
@@ -407,7 +399,6 @@ def test_fill_in_no_dimensions(
     test_incremental_session,
     mock_incremental_publication,
     mock_no_dim_publication,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,
@@ -462,7 +453,6 @@ def test_researchers_error():
 def test_fill_in_no_doi(
     test_incremental_session,
     mock_no_dim_publication,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,
@@ -495,7 +485,7 @@ def test_fill_in_no_doi(
 
 
 def test_fill_in_filters_publications_using_harvest_created_at(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+    test_incremental_session, monkeypatch, active_harvest_id
 ):
 
     with test_incremental_session.begin() as session:
@@ -546,9 +536,7 @@ def test_fill_in_filters_publications_using_harvest_created_at(
         assert older_pub.dim_json is None
 
 
-def test_fill_in_full_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
-):
+def test_fill_in_full_harvest(test_incremental_session, monkeypatch, active_harvest_id):
 
     with test_incremental_session.begin() as session:
         harvest = Harvest.get_by_id(active_harvest_id)

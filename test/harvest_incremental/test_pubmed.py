@@ -316,7 +316,6 @@ def test_pubmed_fetch_publications_expects_list():
 def test_harvest(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
     active_harvest_id,
@@ -342,7 +341,7 @@ def test_harvest(
 
 
 def test_incremental_harvest(
-    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
+    test_incremental_session, requests_mock, active_harvest_id
 ):
     """
     Ensure that a previous Harvest alters how pubmed IDs are fetched.
@@ -402,7 +401,7 @@ def test_incremental_harvest(
 
 
 def test_incremental_harvest_with_new_author(
-    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
+    test_incremental_session, requests_mock, active_harvest_id
 ):
     """
     Ensure that an updated Author causes a full harvest of their publications
@@ -449,7 +448,6 @@ def test_incremental_harvest_with_new_author(
 def test_harvest_publication_limit(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
     caplog,
@@ -487,7 +485,6 @@ def test_harvest_publication_limit(
 def test_harvest_author_limit(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     requests_mock,
     active_harvest_id,
@@ -516,7 +513,6 @@ def test_harvest_author_limit(
 def test_harvest_no_pubmed_results(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search_no_results,
     caplog,
@@ -554,7 +550,6 @@ def test_harvest_when_doi_exists(
     test_incremental_session,
     existing_publication,
     mock_incremental_authors,
-    mock_rialto_db_name,
     mock_pubmed_fetch,
     mock_pubmed_search,
     active_harvest_id,
@@ -582,7 +577,6 @@ def test_harvest_when_doi_exists(
 def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     active_harvest_id,
     caplog,
     monkeypatch,
@@ -614,7 +608,6 @@ def test_fill_in(
 def test_fill_in_no_pubmed(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     active_harvest_id,
     caplog,
     monkeypatch,
@@ -639,7 +632,6 @@ def test_fill_in_no_pubmed(
 def test_fill_in_no_doi(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     active_harvest_id,
     caplog,
     monkeypatch,
@@ -677,7 +669,6 @@ def test_fill_in_no_doi(
 
 def test_fill_in_filters_publications_using_harvest_created_at(
     test_incremental_session,
-    mock_rialto_db_name,
     active_harvest_id,
     monkeypatch,
 ):
@@ -718,7 +709,6 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 
 def test_fill_in_full_harvest(
     test_incremental_session,
-    mock_rialto_db_name,
     active_harvest_id,
     monkeypatch,
 ):
@@ -1037,7 +1027,7 @@ def test_pubmed_search_json_decode_error_recovers_on_retry(requests_mock, caplog
 
 
 def test_pubmed_incremental_zero_days_coverage(
-    test_incremental_session, mock_rialto_db_name, requests_mock, active_harvest_id
+    test_incremental_session, requests_mock, active_harvest_id
 ):
     """
     Specifically cover the case where number_of_days <= 0.

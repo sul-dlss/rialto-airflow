@@ -57,7 +57,7 @@ def _crossref_abstract(crossref_json: dict) -> str | None:
 
     # strip all of the tags from abstract (gets rid of the <jats> tags, <p> tags, and remove
     # any <jats:title> tag at the beginning)
-    soup = BeautifulSoup(abstract_text.split("title>")[-1])
+    soup = BeautifulSoup(abstract_text.split("title>")[-1], "html.parser")
     return soup.get_text(strip=False).strip()
 
 

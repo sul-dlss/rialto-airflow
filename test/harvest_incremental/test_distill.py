@@ -7,11 +7,7 @@ from rialto_airflow.schema.rialto import Publication
 # the test/distill directory.
 
 
-def test_distill(
-    test_incremental_session,
-    dataset_incremental,
-    mock_rialto_db_name,
-):
+def test_distill(test_incremental_session, dataset_incremental):
     with test_incremental_session.begin() as session:
         distill()
 
@@ -64,11 +60,7 @@ def test_faculty_authored():
     assert _faculty_authored(pub) is True
 
 
-def test_distill_conditional(
-    test_incremental_session,
-    dataset_incremental,
-    mock_rialto_db_name,
-):
+def test_distill_conditional(test_incremental_session, dataset_incremental):
     with test_incremental_session.begin() as session:
         # 1. Initial distillation
         distilled_count = distill()

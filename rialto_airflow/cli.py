@@ -1,16 +1,14 @@
-import os
 import csv
 import sys
-from pathlib import Path
 
 import dotenv
 import typer
 from typing_extensions import Annotated
 from sqlalchemy import select
 
-from rialto_airflow.snapshot import Snapshot
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import Author
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME
+from rialto_airflow.schema.rialto import Author
 
 
 dotenv.load_dotenv()
@@ -18,13 +16,11 @@ app = typer.Typer()
 
 
 @app.command()
-def publications(sunet: str, db_name: Annotated[str, typer.Option()] = "") -> None:
+def publications(sunet: str) -> None:
     """
     List publications for an Author with a given SUNET.
     """
-    db_name = _get_db_name(db_name)
-
-    with get_session(db_name).begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         author = (
             session.execute(select(Author).where(Author.sunet == sunet))
             .scalars()
@@ -87,20 +83,9 @@ def authors(db_name: Annotated[str, typer.Option()] = "") -> None:
     """
     List the SUNET IDs for authors in the database.
     """
-    db_name = _get_db_name(db_name)
-
-    with get_session(db_name).begin() as session:
+    with get_session(RIALTO_DB_NAME).begin() as session:
         for author in session.query(Author).all():
             print(author.sunet)
-
-
-def _get_db_name(db_name: str) -> str:
-    if db_name == "":
-        data_dir = os.environ.get("AIRFLOW_VAR_DATA_DIR", "data")
-        snapshot = Snapshot.get_latest(data_dir=Path(data_dir))
-        return snapshot.database_name
-    else:
-        return db_name
 
 
 if __name__ == "__main__":

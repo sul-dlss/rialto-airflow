@@ -1,17 +1,13 @@
 import pytest
 import zipfile
 import datetime
+
 from rialto_airflow.schema.rialto import Publication, Harvest
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
 
 
-@pytest.fixture
-def rialto_db_name(monkeypatch):
-    monkeypatch.setattr(publication, "RIALTO_DB_NAME", "rialto_incremental_test")
-
-
-def test_dataset(test_incremental_session, dataset_incremental, rialto_db_name):
+def test_dataset(test_incremental_session, dataset_incremental):
     with test_incremental_session.begin() as session:
         pub = (
             session.query(Publication).where(Publication.doi == "10.000/000001").first()
@@ -21,9 +17,7 @@ def test_dataset(test_incremental_session, dataset_incremental, rialto_db_name):
         assert len(pub.funders) == 0
 
 
-def test_export_publications(
-    test_reports_session, dataset_incremental, rialto_db_name, caplog
-):
+def test_export_publications(test_reports_session, dataset_incremental, caplog):
 
     # generate the publications table
     result = publication.export_publications()
@@ -53,9 +47,7 @@ def test_export_publications(
     assert "finished writing publications table" in caplog.text
 
 
-def test_generate_download_files(
-    tmp_path, test_reports_session, rialto_db_name, dataset_incremental
-):
+def test_generate_download_files(tmp_path, test_reports_session, dataset_incremental):
     # create the reports database
     publication.export_publications()
 
@@ -118,7 +110,6 @@ def test_limit_openalex_only(
     tmp_path,
     test_incremental_session,
     test_reports_session,
-    rialto_db_name,
 ):
     # ensure one of the publications only has openalex metadata
     with test_incremental_session.begin() as session:
@@ -139,14 +130,12 @@ def test_limit_openalex_only(
         assert len(pubs) == 0
 
 
-def test_check_harvest_complete_no_harvests(test_incremental_session, rialto_db_name):
+def test_check_harvest_complete_no_harvests(test_incremental_session):
     with pytest.raises(Exception, match="No harvest records found"):
         publication.check_harvest_complete()
 
 
-def test_check_harvest_complete_harvest_finished(
-    test_incremental_session, rialto_db_name
-):
+def test_check_harvest_complete_harvest_finished(test_incremental_session):
     with test_incremental_session.begin() as session:
         session.add(
             Harvest(
@@ -158,9 +147,7 @@ def test_check_harvest_complete_harvest_finished(
     assert publication.check_harvest_complete() is True
 
 
-def test_check_harvest_complete_harvest_not_finished(
-    test_incremental_session, rialto_db_name
-):
+def test_check_harvest_complete_harvest_not_finished(test_incremental_session):
     with test_incremental_session.begin() as session:
         session.add(
             Harvest(
@@ -172,9 +159,7 @@ def test_check_harvest_complete_harvest_not_finished(
     assert publication.check_harvest_complete() is False
 
 
-def test_check_harvest_complete_uses_most_recent(
-    test_incremental_session, rialto_db_name
-):
+def test_check_harvest_complete_uses_most_recent(test_incremental_session):
     """When there are multiple harvests, only the most recent one is checked."""
     with test_incremental_session.begin() as session:
         session.add(

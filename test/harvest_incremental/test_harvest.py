@@ -6,7 +6,7 @@ from sqlalchemy import inspect
 from rialto_airflow.schema.rialto import Harvest
 
 
-def test_create_persists_harvest(test_incremental_session, mock_rialto_db_name):
+def test_create_persists_harvest(test_incremental_session):
     harvest = Harvest.create()
 
     assert harvest.id is not None
@@ -20,9 +20,7 @@ def test_create_persists_harvest(test_incremental_session, mock_rialto_db_name):
         assert persisted.is_full is False
 
 
-def test_get_by_id_returns_detached_harvest(
-    test_incremental_session, mock_rialto_db_name
-):
+def test_get_by_id_returns_detached_harvest(test_incremental_session):
     with test_incremental_session.begin() as session:
         harvest = Harvest()
         session.add(harvest)
@@ -37,7 +35,7 @@ def test_get_by_id_returns_detached_harvest(
     assert inspect(fetched_harvest).detached is True
 
 
-def test_get_previous(test_incremental_session, mock_rialto_db_name):
+def test_get_previous(test_incremental_session):
 
     # set up three harvests, that started in order
     with test_incremental_session.begin() as session:
@@ -77,7 +75,7 @@ def test_get_previous(test_incremental_session, mock_rialto_db_name):
     assert inspect(previous).detached is True
 
 
-def test_get_previous_for_full_harvest(test_incremental_session, mock_rialto_db_name):
+def test_get_previous_for_full_harvest(test_incremental_session):
     """
     Full harvests never have a previous harvest, only incremental ones do. This
     allows harvesting logic to not limit the scope of collected metadata.
@@ -105,7 +103,7 @@ def test_get_previous_for_full_harvest(test_incremental_session, mock_rialto_db_
     assert previous is None
 
 
-def test_complete(test_incremental_session, mock_rialto_db_name):
+def test_complete(test_incremental_session):
     harvest = Harvest.create()
 
     harvest.complete()
@@ -116,16 +114,12 @@ def test_complete(test_incremental_session, mock_rialto_db_name):
         assert completed.finished_at is not None
 
 
-def test_get_by_id_raises_for_missing_harvest(
-    test_incremental_session, mock_rialto_db_name
-):
+def test_get_by_id_raises_for_missing_harvest(test_incremental_session):
     with pytest.raises(ValueError, match="999999"):
         Harvest.get_by_id(999999)
 
 
-def test_complete_raises_value_error_for_missing_harvest(
-    test_incremental_session, mock_rialto_db_name
-):
+def test_complete_raises_value_error_for_missing_harvest(test_incremental_session):
     harvest = Harvest(id=999999)
     with pytest.raises(ValueError, match="Harvest 999999 not found"):
         harvest.complete()

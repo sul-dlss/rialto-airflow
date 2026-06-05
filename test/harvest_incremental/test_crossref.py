@@ -189,7 +189,7 @@ def test_unexpected_json(caplog, requests_mock):
 
 
 def test_fill_in_filters_publications_using_harvest_created_at(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+    test_incremental_session, monkeypatch, active_harvest_id
 ):
     """
     Ensure that only publications that have been updated since the active
@@ -230,7 +230,6 @@ def test_fill_in_filters_publications_using_harvest_created_at(
 def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,

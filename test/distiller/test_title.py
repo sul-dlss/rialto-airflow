@@ -1,4 +1,4 @@
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.distiller import title
 
 

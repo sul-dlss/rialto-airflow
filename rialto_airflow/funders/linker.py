@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.harvest import (
+from rialto_airflow.schema.rialto import (
     Funder,
     Publication,
     pub_funder_association,

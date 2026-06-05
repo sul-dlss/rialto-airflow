@@ -1,7 +1,7 @@
 import pytest
 from typing import Any
 
-from rialto_airflow.schema.harvest import Publication
+from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.distiller.types import types, _normalize_type
 
 

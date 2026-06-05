@@ -49,7 +49,6 @@ def test_harvest(
     test_incremental_session,
     mock_incremental_authors,
     mock_openalex,
-    mock_rialto_db_name,
     active_harvest_id,
 ):
     openalex.harvest(active_harvest_id)
@@ -72,7 +71,6 @@ def test_harvest_when_doi_exists(
     mock_incremental_publication,
     mock_incremental_authors,
     mock_openalex,
-    mock_rialto_db_name,
     active_harvest_id,
 ):
     # harvest from openalex
@@ -100,7 +98,6 @@ def test_harvest_when_author_exists(
     mock_incremental_authors,
     mock_incremental_association,
     mock_openalex,
-    mock_rialto_db_name,
     active_harvest_id,
 ):
     # harvest from openalex
@@ -142,7 +139,6 @@ def mock_many_openalex(monkeypatch):
 def test_log_message(
     mock_incremental_authors,
     mock_many_openalex,
-    mock_rialto_db_name,
     caplog,
     active_harvest_id,
 ):
@@ -167,7 +163,6 @@ class MockWorks:
 def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     caplog,
     active_harvest_id,
     monkeypatch,
@@ -206,7 +201,6 @@ def test_fill_in(
 def test_fill_in_no_openalex(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     caplog,
     active_harvest_id,
     monkeypatch,
@@ -231,7 +225,6 @@ def test_fill_in_no_openalex(
 def test_fill_in_no_doi(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     active_harvest_id,
     caplog,
     monkeypatch,
@@ -261,7 +254,6 @@ def test_fill_in_no_doi(
 def test_fill_in_none_doi(
     test_incremental_session,
     mock_incremental_publication,
-    mock_rialto_db_name,
     active_harvest_id,
     caplog,
     monkeypatch,
@@ -284,7 +276,7 @@ def test_fill_in_none_doi(
 
 
 def test_fill_in_filters_publications_using_harvest_created_at(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
+    test_incremental_session, monkeypatch, active_harvest_id
 ):
     """
     Ensure that only publications that have been updated since the active
@@ -322,9 +314,7 @@ def test_fill_in_filters_publications_using_harvest_created_at(
     )
 
 
-def test_fill_in_full_harvest(
-    test_incremental_session, mock_rialto_db_name, monkeypatch, active_harvest_id
-):
+def test_fill_in_full_harvest(test_incremental_session, monkeypatch, active_harvest_id):
     """
     Full harvest should harvest everything.
     """
@@ -473,7 +463,6 @@ def test_source_by_issn_jsonerror(monkeypatch, caplog):
 def test_harvest_passes_previous_harvest_date_to_orcid_query(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     active_harvest_id,
 ):
@@ -525,7 +514,6 @@ def test_harvest_passes_previous_harvest_date_to_orcid_query(
 def test_harvest_omits_previous_harvest_date_for_recently_updated_authors(
     test_incremental_session,
     mock_incremental_authors,
-    mock_rialto_db_name,
     monkeypatch,
     active_harvest_id,
 ):
@@ -654,7 +642,6 @@ def test_publications_from_orcid_includes_from_updated_date_when_harvest_date_ex
 
 def test_harvest_stops_when_author_limit_is_exceeded(
     mock_incremental_authors,
-    mock_rialto_db_name,
     caplog,
     monkeypatch,
     active_harvest_id,

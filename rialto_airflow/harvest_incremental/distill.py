@@ -4,15 +4,13 @@ from typing import Optional
 from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session, utcnow
-from rialto_airflow.distiller import (
-    title,
-    pub_year,
-    open_access,
-    types,
-    publisher,
-    journal_name,
-    apc,
-)
+
+# Imported as a module (rather than `from rialto_airflow.distiller import ...`)
+# to sidestep a circular import: distiller.publisher and distiller.journal_name
+# import from rialto_airflow.harvest_incremental.openalex, whose package __init__
+# eagerly loads this module. Binding the module reference defers attribute lookup
+# to call time, by which point distiller is fully loaded.
+from rialto_airflow import distiller
 from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME
 
 
@@ -21,6 +19,7 @@ def distill() -> int:
     Walk through all publications in the database and set the title, pub_year,
     open_access columns using the harvested metadata.
     """
+
     with get_session(RIALTO_DB_NAME).begin() as select_session:
         # iterate through publictions 100 at a time
         count = 0
@@ -41,19 +40,19 @@ def distill() -> int:
 
             # populate new publication columns
             cols = {
-                "title": title(pub),
-                "pub_year": pub_year(pub),
-                "open_access": open_access(pub),
-                "types": types(pub),
-                "publisher": publisher(pub),
-                "journal_name": journal_name(pub),
+                "title": distiller.title(pub),
+                "pub_year": distiller.pub_year(pub),
+                "open_access": distiller.open_access(pub),
+                "types": distiller.types(pub),
+                "publisher": distiller.publisher(pub),
+                "journal_name": distiller.journal_name(pub),
                 "academic_council_authored": _academic_council(pub),
                 "faculty_authored": _faculty_authored(pub),
                 "distilled_at": utcnow(),
             }
 
             # pub_year and open_access in cols is needed to determine the apc
-            cols["apc"] = apc(pub, cols)
+            cols["apc"] = distiller.apc(pub, cols)
 
             # update the publication with the new columns
             with get_session(RIALTO_DB_NAME).begin() as update_session:

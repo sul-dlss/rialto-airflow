@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
@@ -221,7 +221,11 @@ def remove_orphan_publications() -> int:
     with get_session(RIALTO_DB_NAME).begin() as session:
         result = session.execute(
             delete(Publication).where(
-                ~Publication.id.in_(select(pub_author_association.c.publication_id))
+                ~exists(
+                    select(pub_author_association.c.publication_id).where(
+                        pub_author_association.c.publication_id == Publication.id
+                    )
+                )
             )
         )
         logging.info(f"Removed {result.rowcount} publications with no authors.")

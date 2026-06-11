@@ -24,6 +24,7 @@ This repository contains an Airflow setup for harvesting and analyzing Stanford 
     * Web of Science
     * PubMed
     * Crossref
+    * Altmetric
 7. *Deduplicate* publications, using their platform specific identifiers, currently just Web of Science and OpenAlex.
 8. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
 9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
@@ -288,3 +289,5 @@ The OpenAlex API key is associated with Rochelle Lundy's Stanford account, as th
 The MAIS ORCID API key is granted by the MaIS team, see https://uit.stanford.edu/developers/apis/getting-started
 
 The Pubmed API key is free to create, you need an account at https://account.ncbi.nlm.nih.gov/   It's not clear which account the current pubmed API key is associated with.
+
+The Altmetric key is associated with Ed Summers' Stanford account.

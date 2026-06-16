@@ -1,5 +1,5 @@
 Field,Type,Description
-id,Integer,RIALTO database primary key 
+id,Integer,RIALTO database primary key
 doi,String,DOI (Digital Object Identifier)
 academic_council_authored,Boolean,True if any Stanford author is a member of the Stanford Academic Council
 apc,Integer,"Article Processing Charge, in order of preference: (1) API ""paid"" price data from OpenAlex (typically comes from OpenAPC, a crowdsourced APC dataset where individual researchers and institutions can add APC data), (2) open dataset of APCs prepared by the ScholCom Lab at Simon Fraser University and available at  https://doi.org/10.7910/DVN/CR1MMV, (3) ""list"" price from OpenAlex. For any remaining publication, we estimate the APC based on the Open Access category: ""Gold""=$2,450; ""Hybrid""=$3,600; all other categories = $0."

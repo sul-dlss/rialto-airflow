@@ -61,6 +61,7 @@ jobs:
           AIRFLOW_VAR_MAIS_BASE_URL: ${{ secrets.AIRFLOW_VAR_MAIS_BASE_URL }}
           AIRFLOW_VAR_MAIS_CLIENT_ID: ${{ secrets.AIRFLOW_VAR_MAIS_CLIENT_ID }}
           AIRFLOW_VAR_MAIS_SECRET: ${{ secrets.AIRFLOW_VAR_MAIS_SECRET }}
+          AIRFLOW_VAR_ALTMETRIC_KEY: ${{ secrets.AIRFLOW_VAR_ALTMETRIC_KEY }}
           AIRFLOW_VAR_RIALTO_POSTGRES: "postgresql+psycopg2://airflow:airflow@localhost"
 
       - name: Upload coverage reports to Codecov

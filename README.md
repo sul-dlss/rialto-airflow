@@ -246,6 +246,25 @@ Or there is this mouthful if you want to run it in a running Docker environment:
 docker compose exec -u airflow -ti airflow-worker uv run rialto publications makeller
 ```
 
+You can also export all the harvested JSON for a particular provider (one of `sulpub`, `crossref`, `dim`, `wos`, `openalex`, `pubmed`) as newline-delimited JSON (JSON-L), one publication per line. It streams from the database so it can handle large result sets. Write to a file with `--output`/`-o`, or omit it to write to stdout:
+
+```
+uv run rialto export openalex --output openalex.jsonl
+```
+
+By default the commands connect to the database configured by the `AIRFLOW_VAR_RIALTO_POSTGRES` environment variable. Pass `--database-url`/`-d` (before the subcommand) to point any command at a different database, which makes it possible to run these commands locally against a remote database:
+
+```
+uv run rialto -d postgresql+psycopg2://user:password@host:5432 export openalex -o openalex.jsonl
+```
+
+If you have set up a [local tunnel](https://github.com/sul-dlss/rialto-airflow/wiki/Connecting-to-rialto%E2%80%90airflow-database) to the database from your laptop you should be able to do this:
+
+```
+uv run rialto -d postgresql+psycopg2://analyst:PASSWORD@locahost:9999 export openalex -o openalex.jsonl
+```
+
+
 ## Deployment
 
 Deployment to https://sul-rialto-airflow-XXXX.stanford.edu/ is handled like other SDR services using Capistrano. You'll need to have Ruby installed and then:

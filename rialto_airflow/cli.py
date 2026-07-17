@@ -1,5 +1,8 @@
 import csv
+import json
+import os
 import sys
+from typing import Optional
 
 import dotenv
 import typer
@@ -9,10 +12,38 @@ from sqlalchemy import select
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 from rialto_airflow.schema.rialto import Author
+from rialto_airflow.schema.rialto import Publication
 
 
 dotenv.load_dotenv()
 app = typer.Typer()
+
+# The names of the harvest providers, each of which is stored in a
+# <provider>_json column on the Publication table.
+PROVIDERS = ["sulpub", "crossref", "dim", "wos", "openalex", "pubmed"]
+
+
+@app.callback()
+def main(
+    database_url: Annotated[
+        Optional[str],
+        typer.Option(
+            "--database-url",
+            "-d",
+            help=(
+                "PostgreSQL connection URL to use, without the database name, e.g. "
+                "postgresql+psycopg2://user:password@host:5432 . This overrides the "
+                "AIRFLOW_VAR_RIALTO_POSTGRES environment variable and makes it "
+                "possible to run these commands against a remote database."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """
+    Command line utilities for working with the RIALTO database.
+    """
+    if database_url is not None:
+        os.environ["AIRFLOW_VAR_RIALTO_POSTGRES"] = database_url
 
 
 @app.command()
@@ -79,7 +110,53 @@ def publications(sunet: str) -> None:
 
 
 @app.command()
-def authors(db_name: Annotated[str, typer.Option()] = "") -> None:
+def export(
+    provider: str,
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="File to write the JSON-L to. Defaults to stdout.",
+        ),
+    ] = "-",
+) -> None:
+    """
+    Export the harvested JSON for a given provider as newline-delimited JSON
+    (JSON-L), one publication per line. PROVIDER must be one of: sulpub,
+    crossref, dim, wos, openalex, pubmed.
+    """
+    if provider not in PROVIDERS:
+        print(
+            f"Unknown provider {provider!r}. Choose from: {', '.join(PROVIDERS)}",
+            file=sys.stderr,
+        )
+        raise typer.Exit(code=1)
+
+    column = getattr(Publication, f"{provider}_json")
+
+    out = sys.stdout if output == "-" else open(output, "w")
+    try:
+        with get_session(RIALTO_DB_NAME).begin() as session:
+            # Stream just the JSON column. Setting yield_per as an execution
+            # option (before execute) makes SQLAlchemy use a server-side cursor,
+            # so rows are fetched in batches as we iterate rather than the whole
+            # result set being buffered into client memory up front.
+            stmt = (
+                select(column)
+                .where(column.is_not(None))
+                .execution_options(yield_per=1000)
+            )
+            for (data,) in session.execute(stmt):
+                out.write(json.dumps(data))
+                out.write("\n")
+    finally:
+        if out is not sys.stdout:
+            out.close()
+
+
+@app.command()
+def authors() -> None:
     """
     List the SUNET IDs for authors in the database.
     """

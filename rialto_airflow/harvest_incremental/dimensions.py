@@ -170,6 +170,7 @@ def publication_fields():
         "recent_citations",
         "supporting_grant_ids",
         "concepts",
+        "linkout",
     ]
 
 
@@ -207,6 +208,7 @@ def unpacked_pub_fields():
         "publisher",
         "recent_citations",
         "supporting_grant_ids",
+        "linkout",
     ]
 
 

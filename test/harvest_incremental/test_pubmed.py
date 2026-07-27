@@ -352,7 +352,7 @@ def test_incremental_harvest(
 
     with patch("rialto_airflow.utils.datetime") as mock_datetime:
         mock_datetime.datetime.now.return_value = now
-        mock_datetime.timezone = datetime.timezone
+        mock_datetime.UTC = datetime.UTC
 
         with test_incremental_session.begin() as session:
             # add a harvest previous to that of active_harvest_id
@@ -1040,7 +1040,7 @@ def test_pubmed_incremental_zero_days_coverage(
 
     with patch("rialto_airflow.utils.datetime") as mock_datetime:
         mock_datetime.datetime.now.return_value = now
-        mock_datetime.timezone = datetime.timezone
+        mock_datetime.UTC = datetime.UTC
 
         with test_incremental_session.begin() as session:
             session.add(

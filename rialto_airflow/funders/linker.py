@@ -126,9 +126,7 @@ def _find_or_create_dim_funder(session: Session, funder: dict) -> int | None:
     return funder_id
 
 
-def _find_or_create_openalex_funder(
-    session: Session, openalex_id: str
-) -> int | None:
+def _find_or_create_openalex_funder(session: Session, openalex_id: str) -> int | None:
     # if the funder is in the database aleady return it
     funder = session.execute(
         select(Funder).where(Funder.openalex_id == openalex_id)

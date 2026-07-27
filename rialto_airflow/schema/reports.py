@@ -1,4 +1,3 @@
-
 from sqlalchemy import Boolean, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 from sqlalchemy.types import DateTime

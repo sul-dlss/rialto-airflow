@@ -350,9 +350,7 @@ def test_publications_from_orcid_includes_load_time_when_previous_harvest(
     list(
         wos.publications_from_orcid(
             "0000-0002-2317-1967",
-            harvest_date=datetime.datetime(
-                2026, 4, 25, 0, 0, 0, tzinfo=datetime.UTC
-            ),
+            harvest_date=datetime.datetime(2026, 4, 25, 0, 0, 0, tzinfo=datetime.UTC),
         )
     )
 
@@ -374,9 +372,7 @@ def test_publications_from_orcid_includes_load_time_in_weeks_when_more_than_6_da
     list(
         wos.publications_from_orcid(
             "0000-0002-2317-1967",
-            harvest_date=datetime.datetime(
-                2026, 4, 24, 0, 0, 0, tzinfo=datetime.UTC
-            ),
+            harvest_date=datetime.datetime(2026, 4, 24, 0, 0, 0, tzinfo=datetime.UTC),
         )
     )
 
@@ -397,9 +393,7 @@ def test_publications_from_orcid_does_not_call_api_when_0_days(
     list(
         wos.publications_from_orcid(
             "0000-0002-2317-1967",
-            harvest_date=datetime.datetime(
-                2026, 5, 1, 0, 0, 0, tzinfo=datetime.UTC
-            ),
+            harvest_date=datetime.datetime(2026, 5, 1, 0, 0, 0, tzinfo=datetime.UTC),
         )
     )
 

@@ -209,9 +209,7 @@ def fill_in(harvest_id: int) -> None:
     logging.info(f"filled in {count} publications")
 
 
-def pmids_from_orcid(
-    orcid: str, previous_harvest: Harvest | None = None
-) -> list[str]:
+def pmids_from_orcid(orcid: str, previous_harvest: Harvest | None = None) -> list[str]:
     """
     Returns PMIDs associated with a given ORCID.
     """

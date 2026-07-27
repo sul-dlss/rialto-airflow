@@ -1,8 +1,8 @@
 import datetime
 from pathlib import Path
 
-from airflow.sdk import dag, task
 from airflow.models import Variable
+from airflow.sdk import dag, task
 from airflow.timetables.trigger import CronTriggerTimetable
 
 from rialto_airflow.honeybadger import default_args

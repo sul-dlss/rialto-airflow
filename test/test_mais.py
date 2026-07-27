@@ -1,14 +1,15 @@
-import dotenv
 import os
+from datetime import date
+from typing import Any
+
+import dotenv
 import pytest
 import requests
-from typing import Any, Union
 
-from datetime import date
 from rialto_airflow import mais
 
 ORCIDRecord = dict[str, Any]
-ORCIDStats = list[Union[str, int, float]]
+ORCIDStats = list[str | int | float]
 
 dotenv.load_dotenv()
 

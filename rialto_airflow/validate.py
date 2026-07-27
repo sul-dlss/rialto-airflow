@@ -1,6 +1,6 @@
-from dominate import document
-from dominate.tags import style, div, ol, li
 import pandas as pd
+from dominate import document
+from dominate.tags import div, li, ol, style
 
 
 def validate_orcid_tableau(authors_df, orcid_integration_sheet_df):
@@ -119,9 +119,8 @@ def validation_report(title: str, expected_calculations: list):
      """
         )
 
-    with doc:
-        with div(id="header").add(ol()):
-            for i in expected_calculations:
-                li(i)
+    with doc, div(id="header").add(ol()):
+        for i in expected_calculations:
+            li(i)
 
     return doc.render()

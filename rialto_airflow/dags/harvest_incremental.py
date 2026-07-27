@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from airflow.models import Param, Variable
-from airflow.sdk import dag, task, task_group, get_current_context
+from airflow.sdk import dag, get_current_context, task, task_group
 
 from rialto_airflow import funders
 from rialto_airflow.harvest_incremental import (

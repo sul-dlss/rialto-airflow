@@ -9,11 +9,11 @@ from urllib3.util import Retry
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
-    Harvest,
+    RIALTO_DB_NAME,
     Author,
+    Harvest,
     Publication,
     pub_author_association,
-    RIALTO_DB_NAME,
 )
 from rialto_airflow.utils import normalize_doi, normalize_pmid, normalize_wos_id
 
@@ -39,7 +39,7 @@ def harvest(host, key, active_harvest_id, per_page=1000, limit=None):
 
             # only write approved publications to the database
             if approved(sulpub_pub):
-                harvested_at = datetime.datetime.now(datetime.timezone.utc)
+                harvested_at = datetime.datetime.now(datetime.UTC)
                 wos_id = extract_wos_uid(sulpub_pub)
                 pubmed_id = extract_pmid(sulpub_pub)
                 # if when inserting the row we get a constraint violation

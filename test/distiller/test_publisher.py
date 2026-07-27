@@ -1,8 +1,8 @@
 import pytest
 
-from rialto_airflow.schema.rialto import Publication, Author
+from rialto_airflow.distiller import journal_issn, journal_name, publisher
 from rialto_airflow.harvest_incremental.distill import distill
-from rialto_airflow.distiller import publisher, journal_name, journal_issn
+from rialto_airflow.schema.rialto import Author, Publication
 
 # When there is no OpenAlex publisher information we try to look it up in
 # OpenAlex using an ISSN found in the other record metadata. This is why both publisher

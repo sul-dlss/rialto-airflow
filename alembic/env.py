@@ -1,10 +1,8 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-
 from rialto_airflow.database import db_uri
 from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME, ReportsSchemaBase
 

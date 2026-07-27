@@ -1,5 +1,6 @@
 import datetime
 import time
+
 from rialto_airflow.harvest_incremental.distill import distill
 from rialto_airflow.schema.rialto import Publication
 
@@ -31,7 +32,7 @@ def test_distill(test_incremental_session, dataset_incremental):
 
 def test_academic_council_authored():
     from rialto_airflow.harvest_incremental.distill import _academic_council
-    from rialto_airflow.schema.rialto import Publication, Author
+    from rialto_airflow.schema.rialto import Author, Publication
 
     pub = Publication()
     author1 = Author(first_name="A", last_name="B", academic_council=False)
@@ -48,7 +49,7 @@ def test_academic_council_authored():
 
 def test_faculty_authored():
     from rialto_airflow.harvest_incremental.distill import _faculty_authored
-    from rialto_airflow.schema.rialto import Publication, Author
+    from rialto_airflow.schema.rialto import Author, Publication
 
     pub = Publication()
     author1 = Author(first_name="A", last_name="B", role="staff")
@@ -82,7 +83,7 @@ def test_distill_conditional(test_incremental_session, dataset_incremental):
         # 3. Harvest update (set dim_harvested to now)
         # Wait a tiny bit to ensure the timestamp is different if the system is very fast
         time.sleep(0.1)
-        pub.dim_harvested = datetime.datetime.now(datetime.timezone.utc)
+        pub.dim_harvested = datetime.datetime.now(datetime.UTC)
         session.add(pub)
         session.commit()
 

@@ -129,8 +129,8 @@ def test_normalize_wos_id():
 
 def test_days_since():
     # Test with explicit end date
-    start = datetime.datetime(2026, 5, 1, tzinfo=datetime.timezone.utc)
-    end = datetime.datetime(2026, 5, 11, tzinfo=datetime.timezone.utc)
+    start = datetime.datetime(2026, 5, 1, tzinfo=datetime.UTC)
+    end = datetime.datetime(2026, 5, 11, tzinfo=datetime.UTC)
     assert utils.days_since(start, end) == 10
 
     # Test with default end date (now)
@@ -139,7 +139,7 @@ def test_days_since():
 
     # Test with different timezones
     # 2026-05-01 00:00:00 UTC
-    start_utc = datetime.datetime(2026, 5, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    start_utc = datetime.datetime(2026, 5, 1, 0, 0, 0, tzinfo=datetime.UTC)
     # 2026-05-11 05:00:00 UTC (which is midnight EST)
     end_est = datetime.datetime(
         2026, 5, 11, 0, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-5))

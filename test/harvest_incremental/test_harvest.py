@@ -1,6 +1,6 @@
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import inspect
 
 from rialto_airflow.schema.rialto import Harvest
@@ -40,15 +40,15 @@ def test_get_previous(test_incremental_session):
     # set up three harvests, that started in order
     with test_incremental_session.begin() as session:
         h1 = Harvest(
-            created_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
-            finished_at=datetime(2024, 1, 1, 4, tzinfo=timezone.utc),
+            created_at=datetime(2024, 1, 1, 0, tzinfo=UTC),
+            finished_at=datetime(2024, 1, 1, 4, tzinfo=UTC),
         )
         h2 = Harvest(
-            created_at=datetime(2024, 1, 8, 0, tzinfo=timezone.utc),
-            finished_at=datetime(2024, 1, 8, 4, tzinfo=timezone.utc),
+            created_at=datetime(2024, 1, 8, 0, tzinfo=UTC),
+            finished_at=datetime(2024, 1, 8, 4, tzinfo=UTC),
         )
         h3 = Harvest(
-            created_at=datetime(2024, 1, 15, 0, tzinfo=timezone.utc),
+            created_at=datetime(2024, 1, 15, 0, tzinfo=UTC),
         )
 
         session.add_all([h1, h2, h3])
@@ -84,12 +84,12 @@ def test_get_previous_for_full_harvest(test_incremental_session):
     # set up three harvests, that started in order
     with test_incremental_session.begin() as session:
         h1 = Harvest(
-            created_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
-            finished_at=datetime(2024, 1, 1, 4, tzinfo=timezone.utc),
+            created_at=datetime(2024, 1, 1, 0, tzinfo=UTC),
+            finished_at=datetime(2024, 1, 1, 4, tzinfo=UTC),
         )
         h2 = Harvest(
-            created_at=datetime(2024, 1, 8, 0, tzinfo=timezone.utc),
-            finished_at=datetime(2024, 1, 8, 4, tzinfo=timezone.utc),
+            created_at=datetime(2024, 1, 8, 0, tzinfo=UTC),
+            finished_at=datetime(2024, 1, 8, 4, tzinfo=UTC),
             is_full=True,
         )
         session.add_all([h1, h2])

@@ -1,7 +1,7 @@
 import csv
+
 import dotenv
 import pytest
-
 
 from rialto_airflow import mais
 from rialto_airflow.publish import orcid
@@ -9,7 +9,6 @@ from rialto_airflow.schema.reports import (
     AuthorOrcids,
     OrcidIntegrationStats,
 )
-
 
 dotenv.load_dotenv()
 

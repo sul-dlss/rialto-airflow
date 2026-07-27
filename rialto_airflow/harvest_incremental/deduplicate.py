@@ -1,13 +1,14 @@
 import logging
+
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
     Publication,
     pub_author_association,
     pub_funder_association,
-    RIALTO_DB_NAME,
 )
 
 

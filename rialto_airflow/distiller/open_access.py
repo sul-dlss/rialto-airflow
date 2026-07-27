@@ -1,5 +1,5 @@
-from .utils import JsonPathRule, FuncRule, first, json_path
 from .types import types
+from .utils import FuncRule, JsonPathRule, first, json_path
 
 
 def open_access(pub):

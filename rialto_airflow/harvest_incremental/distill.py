@@ -1,9 +1,6 @@
 import logging
-from typing import Optional
 
 from sqlalchemy import select, update
-
-from rialto_airflow.database import get_session, utcnow
 
 # Imported as a module (rather than `from rialto_airflow.distiller import ...`)
 # to sidestep a circular import: distiller.publisher and distiller.journal_name
@@ -11,7 +8,8 @@ from rialto_airflow.database import get_session, utcnow
 # eagerly loads this module. Binding the module reference defers attribute lookup
 # to call time, by which point distiller is fully loaded.
 from rialto_airflow import distiller
-from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME
+from rialto_airflow.database import get_session, utcnow
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Publication
 
 
 def distill() -> int:
@@ -69,7 +67,7 @@ def distill() -> int:
 # they simply look at the database models and not the JSON publication metadata
 
 
-def _academic_council(pub) -> Optional[bool]:
+def _academic_council(pub) -> bool | None:
     """
     Get the academic_council value for all authors and return True if any are academic_council
     """
@@ -82,5 +80,5 @@ def _academic_council(pub) -> Optional[bool]:
     return False
 
 
-def _faculty_authored(pub) -> Optional[bool]:
+def _faculty_authored(pub) -> bool | None:
     return any(author.role == "faculty" for author in pub.authors)

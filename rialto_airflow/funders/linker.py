@@ -1,21 +1,20 @@
 import logging
 import os
-from typing import Optional
 
 import requests
 from pyalex import Funders, config
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
 from rialto_airflow.database import get_session
+from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id
+from rialto_airflow.funders.ror_grid_dataset import convert_ror_to_grid
 from rialto_airflow.schema.rialto import (
     Funder,
     Publication,
     pub_funder_association,
 )
-from rialto_airflow.funders.dataset import is_federal, is_federal_grid_id
-from rialto_airflow.funders.ror_grid_dataset import convert_ror_to_grid
 
 config.max_retries = 5
 config.retry_backoff_factor = 0.1
@@ -105,7 +104,7 @@ def link_openalex_publications(database_name: str) -> int:
     return count
 
 
-def _find_or_create_dim_funder(session: Session, funder: dict) -> Optional[int]:
+def _find_or_create_dim_funder(session: Session, funder: dict) -> int | None:
     grid_id = funder.get("id")
     name = funder.get("name")
 
@@ -127,9 +126,7 @@ def _find_or_create_dim_funder(session: Session, funder: dict) -> Optional[int]:
     return funder_id
 
 
-def _find_or_create_openalex_funder(
-    session: Session, openalex_id: str
-) -> Optional[int]:
+def _find_or_create_openalex_funder(session: Session, openalex_id: str) -> int | None:
     # if the funder is in the database aleady return it
     funder = session.execute(
         select(Funder).where(Funder.openalex_id == openalex_id)
@@ -156,7 +153,7 @@ def _find_or_create_openalex_funder(
     return funder_id
 
 
-def _lookup_openalex_funder(openalex_id: str) -> Optional[dict]:
+def _lookup_openalex_funder(openalex_id: str) -> dict | None:
     """
     Look up funder in OpenAlex and return it after trying to map it to GRID ID
     and looking up whether it appears to be a federal funder.

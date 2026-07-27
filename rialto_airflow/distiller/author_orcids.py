@@ -1,7 +1,8 @@
 import itertools
 
-from .utils import JsonPathRule, FuncRule, all, first, json_path
 from rialto_airflow.utils import normalize_orcid
+
+from .utils import FuncRule, JsonPathRule, all, first, json_path
 
 
 def author_list_orcids(row) -> list[str]:

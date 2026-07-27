@@ -1,7 +1,7 @@
 import logging
 
-from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.distiller import pub_year
+from rialto_airflow.schema.rialto import Publication
 
 
 def test_sulpub(sulpub_json):

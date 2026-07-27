@@ -43,6 +43,33 @@ addopts = "-v --cov --cov-report=html --cov-report=term --log-level INFO --log-f
 [tool.coverage.run]
 omit = ["test/*"]
 
+[tool.ruff.lint]
+# ruff 0.16.0 enabled a number of new rules by default. These are ignored for
+# now and should be revisited. See: https://github.com/sul-dlss/rialto-airflow/issues/950
+ignore = [
+    "B006",    # mutable-argument-default
+    "B015",    # useless-comparison
+    "B017",    # assert-raises-exception
+    "BLE001",  # blind-except
+    "C403",    # unnecessary-list-comprehension-set
+    "C408",    # unnecessary-collection-call
+    "C414",    # unnecessary-double-cast-or-process
+    "DTZ001",  # call-datetime-without-tzinfo
+    "DTZ005",  # call-datetime-now-without-tzinfo
+    "DTZ011",  # call-date-today
+    "EXE001",  # shebang-not-executable
+    "LOG015",  # root-logger-call
+    "SIM102",  # collapsible-if
+    "SIM103",  # needless-bool
+    "SIM115",  # open-file-with-context-handler
+    "SIM118",  # in-dict-keys
+    "TRY002",  # raise-vanilla-class
+    "TRY004",  # type-check-without-type-error
+    "TRY201",  # verbose-raise
+    "TRY401",  # verbose-log-message
+    "UP045",   # non-pep604-annotation-optional
+]
+
 [dependency-groups]
 dev = [
     "apache-airflow==3.1.8",

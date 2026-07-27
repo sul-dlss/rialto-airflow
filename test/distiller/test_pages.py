@@ -1,4 +1,4 @@
-from rialto_airflow.distiller.pages import pages, _openalex_pages
+from rialto_airflow.distiller.pages import _openalex_pages, pages
 from rialto_airflow.schema.rialto import Publication
 
 

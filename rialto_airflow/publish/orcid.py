@@ -5,12 +5,12 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
+from rialto_airflow.mais import current_orcid_users, get_orcid_stats
 from rialto_airflow.schema.reports import (
     RIALTO_REPORTS_DB_NAME,
     AuthorOrcids,
     OrcidIntegrationStats,
 )
-from rialto_airflow.mais import current_orcid_users, get_orcid_stats
 from rialto_airflow.utils import rialto_active_authors_file
 
 

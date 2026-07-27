@@ -1,11 +1,10 @@
 import datetime
 
-from airflow.sdk import dag, task
 from airflow.models import Variable
+from airflow.sdk import dag, task
 
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.publish import orcid
-
 
 mais_base_url = Variable.get("mais_base_url")
 mais_token_url = Variable.get("mais_token_url")

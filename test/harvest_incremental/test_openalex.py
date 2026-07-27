@@ -1,13 +1,12 @@
 import datetime
 import logging
-import pytest
 
 import pyalex
+import pytest
 import requests
 
 from rialto_airflow.harvest_incremental import openalex
-from rialto_airflow.schema.rialto import Publication, Harvest, Author
-
+from rialto_airflow.schema.rialto import Author, Harvest, Publication
 from test.utils import num_log_record_matches
 
 

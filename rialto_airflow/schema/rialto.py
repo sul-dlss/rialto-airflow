@@ -1,14 +1,13 @@
 import datetime
-from typing import List, Optional
 
 from sqlalchemy import (
-    Table,
     Boolean,
     Column,
     ForeignKey,
     Index,
     Integer,
     String,
+    Table,
     select,
     text,
 )
@@ -21,8 +20,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.types import DateTime
 
-from rialto_airflow.database import get_session
-from rialto_airflow.database import utcnow
+from rialto_airflow.database import get_session, utcnow
 
 # permanent database for incrementally harvested data
 RIALTO_DB_NAME: str = "rialto"
@@ -57,49 +55,49 @@ class Publication(RialtoSchemaBase):
     __tablename__ = "publication"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    doi: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    title: Mapped[Optional[str]] = mapped_column(String)
-    pub_year: Mapped[Optional[int]] = mapped_column(Integer)
-    open_access: Mapped[Optional[str]] = mapped_column(String)
-    apc: Mapped[Optional[int]] = mapped_column(Integer)
-    dim_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    openalex_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    sulpub_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    wos_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    pubmed_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    crossref_json: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True))
-    wos_id: Mapped[Optional[str]] = mapped_column(String)
-    pubmed_id: Mapped[Optional[str]] = mapped_column(String)
-    openalex_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    dim_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    sulpub_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    wos_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    pubmed_harvested: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    distilled_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    doi: Mapped[str | None] = mapped_column(String, unique=True)
+    title: Mapped[str | None] = mapped_column(String)
+    pub_year: Mapped[int | None] = mapped_column(Integer)
+    open_access: Mapped[str | None] = mapped_column(String)
+    apc: Mapped[int | None] = mapped_column(Integer)
+    dim_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    openalex_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    sulpub_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    wos_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    pubmed_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    crossref_json: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    wos_id: Mapped[str | None] = mapped_column(String)
+    pubmed_id: Mapped[str | None] = mapped_column(String)
+    openalex_harvested: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    dim_harvested: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    sulpub_harvested: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    wos_harvested: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    pubmed_harvested: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    distilled_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, default=utcnow(), onupdate=utcnow()
     )
-    types: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
-    publisher: Mapped[Optional[str]] = mapped_column(String)
-    journal_name: Mapped[Optional[str]] = mapped_column(String)
-    academic_council_authored: Mapped[Optional[bool]] = mapped_column(
+    types: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    publisher: Mapped[str | None] = mapped_column(String)
+    journal_name: Mapped[str | None] = mapped_column(String)
+    academic_council_authored: Mapped[bool | None] = mapped_column(
         Boolean, default=False
     )
-    faculty_authored: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    authors: Mapped[List["Author"]] = relationship(
+    faculty_authored: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    authors: Mapped[list["Author"]] = relationship(
         "Author",
         secondary=pub_author_association,
         back_populates="publications",
         cascade="all, delete",
     )
-    funders: Mapped[List["Funder"]] = relationship(
+    funders: Mapped[list["Funder"]] = relationship(
         "Funder", secondary=pub_funder_association, back_populates="publications"
     )
 
-    def last_harvested(self) -> Optional[datetime.datetime]:
+    def last_harvested(self) -> datetime.datetime | None:
         """
         Returns the latest timestamp any source was harvested for this publication.
         """
@@ -139,26 +137,26 @@ class Author(RialtoSchemaBase):
     __tablename__ = "author"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    sunet: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    cap_profile_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    orcid: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    sunet: Mapped[str | None] = mapped_column(String, unique=True)
+    cap_profile_id: Mapped[str | None] = mapped_column(String, unique=True)
+    orcid: Mapped[str | None] = mapped_column(String, unique=True)
     first_name: Mapped[str] = mapped_column(String, nullable=False)
     last_name: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[Optional[bool]] = mapped_column(Boolean)
-    academic_council: Mapped[Optional[bool]] = mapped_column(Boolean)
-    role: Mapped[Optional[str]] = mapped_column(String)
-    schools: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
-    departments: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
-    primary_school: Mapped[Optional[str]] = mapped_column(String)
-    primary_dept: Mapped[Optional[str]] = mapped_column(String)
-    primary_division: Mapped[Optional[str]] = mapped_column(String)
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    status: Mapped[bool | None] = mapped_column(Boolean)
+    academic_council: Mapped[bool | None] = mapped_column(Boolean)
+    role: Mapped[str | None] = mapped_column(String)
+    schools: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    departments: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    primary_school: Mapped[str | None] = mapped_column(String)
+    primary_dept: Mapped[str | None] = mapped_column(String)
+    primary_division: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, default=utcnow(), onupdate=utcnow()
     )
-    publications: Mapped[List["Publication"]] = relationship(
+    publications: Mapped[list["Publication"]] = relationship(
         "Publication", secondary=pub_author_association, back_populates="authors"
     )
 
@@ -168,17 +166,17 @@ class Funder(RialtoSchemaBase):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    grid_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    ror_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    openalex_id: Mapped[Optional[str]] = mapped_column(String, unique=True)
-    federal: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    grid_id: Mapped[str | None] = mapped_column(String, unique=True)
+    ror_id: Mapped[str | None] = mapped_column(String, unique=True)
+    openalex_id: Mapped[str | None] = mapped_column(String, unique=True)
+    federal: Mapped[bool | None] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=utcnow()
     )
-    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, onupdate=utcnow()
     )
-    publications: Mapped[List["Publication"]] = relationship(
+    publications: Mapped[list["Publication"]] = relationship(
         "Publication", secondary=pub_funder_association, back_populates="funders"
     )
 
@@ -187,7 +185,7 @@ class Harvest(RialtoSchemaBase):
     __tablename__ = "harvest"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    finished_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    finished_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, nullable=True
     )
     created_at: Mapped[datetime.datetime] = mapped_column(
@@ -243,4 +241,4 @@ class Harvest(RialtoSchemaBase):
             harvest = session.get(Harvest, self.id)
             if harvest is None:
                 raise ValueError(f"Harvest {self.id} not found")
-            harvest.finished_at = datetime.datetime.now(datetime.timezone.utc)
+            harvest.finished_at = datetime.datetime.now(datetime.UTC)

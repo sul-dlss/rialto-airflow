@@ -148,7 +148,7 @@ def test_publication_last_harvested():
     pub = rialto.Publication()
     assert pub.last_harvested() is None
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     pub.openalex_harvested = now
     assert pub.last_harvested() == now
 
@@ -165,7 +165,7 @@ def test_publication_needs_distillation():
     pub = rialto.Publication()
     assert pub.needs_distillation() is True
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     pub.distilled_at = now
     pub.updated_at = now
     assert pub.needs_distillation() is False

@@ -1,7 +1,8 @@
 from typing import Any
 
-from .utils import JsonPathRule, FuncRule, first, json_path
 from rialto_airflow.utils import join_keys
+
+from .utils import FuncRule, JsonPathRule, first, json_path
 
 
 def author_list_names(row) -> list[Any]:

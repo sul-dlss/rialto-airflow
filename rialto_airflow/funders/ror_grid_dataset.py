@@ -1,5 +1,5 @@
-from pathlib import Path
 from functools import cache
+from pathlib import Path
 
 import pandas
 

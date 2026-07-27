@@ -1,29 +1,23 @@
 import logging
-import zipfile
 import os
-from sqlalchemy import func, select, types, text
+import zipfile
+
+from sqlalchemy import func, select, text, types
 from sqlalchemy.dialects.postgresql import insert
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 
 from rialto_airflow.database import create_engine, db_uri, get_session
 from rialto_airflow.distiller import (
     abstract,
+    author_list_names,
+    author_list_orcids,
+    citation_count,
+    first_author_name,
+    first_author_orcid,
+    issue,
+    last_author_name,
+    last_author_orcid,
     pages,
     volume,
-    issue,
-    citation_count,
-    author_list_names,
-    first_author_name,
-    last_author_name,
-    author_list_orcids,
-    first_author_orcid,
-    last_author_orcid,
-)
-from rialto_airflow.schema.rialto import (
-    Author,
-    Funder,
-    Harvest,
-    Publication,
 )
 from rialto_airflow.schema.reports import (
     RIALTO_REPORTS_DB_NAME,
@@ -31,6 +25,13 @@ from rialto_airflow.schema.reports import (
     PublicationsByAuthor,
     PublicationsByDepartment,
     PublicationsBySchool,
+)
+from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
+    Author,
+    Funder,
+    Harvest,
+    Publication,
 )
 from rialto_airflow.utils import downloads_dir, piped
 

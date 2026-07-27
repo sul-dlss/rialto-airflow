@@ -1,4 +1,4 @@
-from rialto_airflow.distiller import FuncRule, JsonPathRule, first, json_path
+from .utils import FuncRule, JsonPathRule, first, json_path
 
 
 def title(pub):

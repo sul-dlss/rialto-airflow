@@ -3,9 +3,9 @@ import datetime
 import pytest
 from sqlalchemy import select
 
-from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import PublicationsByDepartment
+from rialto_airflow.schema.rialto import Publication
 
 
 @pytest.fixture

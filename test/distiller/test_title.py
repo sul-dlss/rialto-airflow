@@ -1,5 +1,5 @@
-from rialto_airflow.schema.rialto import Publication
 from rialto_airflow.distiller import title
+from rialto_airflow.schema.rialto import Publication
 
 
 def test_title_sulpub(sulpub_json, dim_json, openalex_json, wos_json):

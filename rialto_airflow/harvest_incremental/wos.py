@@ -1,25 +1,24 @@
+import datetime
 import logging
 import os
 import re
-import datetime
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
 from itertools import batched
 from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
-from typing import Generator, Optional, Union
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from urllib3.util import Retry
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
     Author,
+    Harvest,
     Publication,
     pub_author_association,
-    RIALTO_DB_NAME,
-    Harvest,
 )
 from rialto_airflow.utils import (
     days_since,
@@ -28,7 +27,7 @@ from rialto_airflow.utils import (
     normalize_wos_id,
 )
 
-Params = Mapping[str, Union[int, str]]
+Params = Mapping[str, int | str]
 
 
 def harvest(harvest_id, limit=None) -> None:
@@ -90,7 +89,7 @@ def harvest(harvest_id, limit=None) -> None:
                 pubmed_id = get_pmid(wos_pub)
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
+                    harvested_at = datetime.datetime.now(datetime.UTC)
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -364,7 +363,7 @@ def _wos_api(
         first_record += count
 
 
-def get_json(resp: requests.Response) -> Optional[dict]:
+def get_json(resp: requests.Response) -> dict | None:
     try:
         return resp.json()
     except requests.exceptions.JSONDecodeError as e:
@@ -396,7 +395,7 @@ def check_status(resp: requests.Response, should_raise_for_status: bool) -> bool
     return True
 
 
-def get_pmid(pub) -> Optional[str]:
+def get_pmid(pub) -> str | None:
     """Extract and normalize the PubMed ID from a WOS record's identifiers list."""
     try:
         identifiers_field = (
@@ -416,7 +415,7 @@ def get_pmid(pub) -> Optional[str]:
     return None
 
 
-def get_doi(pub) -> Optional[str]:
+def get_doi(pub) -> str | None:
     try:
         identifiers_field = (
             pub.get("dynamic_data", {})

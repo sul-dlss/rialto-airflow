@@ -1,8 +1,9 @@
 import logging
+
 import pytest
 
-from rialto_airflow.schema.rialto import Author, Publication, Funder
 from rialto_airflow.harvest_incremental import deduplicate
+from rialto_airflow.schema.rialto import Author, Funder, Publication
 
 
 @pytest.fixture

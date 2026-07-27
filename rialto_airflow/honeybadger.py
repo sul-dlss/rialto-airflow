@@ -1,6 +1,7 @@
-from honeybadger import honeybadger
-from airflow.models import Variable
 import logging
+
+from airflow.models import Variable
+from honeybadger import honeybadger
 
 honeybadger.configure(
     api_key=Variable.get("honeybadger_api_key"),

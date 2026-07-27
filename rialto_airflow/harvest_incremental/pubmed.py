@@ -4,8 +4,8 @@ import logging
 import os
 import re
 import time
-from typing import Any, Optional
-from urllib3.util import Retry
+from typing import Any
+from xml.parsers.expat import ExpatError
 
 import requests
 import xmltodict
@@ -13,18 +13,17 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ChunkedEncodingError
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
-from xml.parsers.expat import ExpatError
+from urllib3.util import Retry
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
     Author,
+    Harvest,
     Publication,
     pub_author_association,
-    RIALTO_DB_NAME,
-    Harvest,
 )
 from rialto_airflow.utils import days_since, normalize_doi, normalize_pmid
-
 
 PUBMED_KEY = os.environ.get("AIRFLOW_VAR_PUBMED_KEY")
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov"
@@ -113,7 +112,7 @@ def harvest(harvest_id, limit=None) -> None:
                 pubmed_id = normalize_pmid(get_identifier(pubmed_pub, "pubmed"))
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
+                    harvested_at = datetime.datetime.now(datetime.UTC)
 
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
@@ -211,7 +210,7 @@ def fill_in(harvest_id: int) -> None:
 
 
 def pmids_from_orcid(
-    orcid: str, previous_harvest: Optional[Harvest] = None
+    orcid: str, previous_harvest: Harvest | None = None
 ) -> list[str]:
     """
     Returns PMIDs associated with a given ORCID.
@@ -285,7 +284,7 @@ def publications_from_pmids(pmids: list[str], retries=10) -> list[dict[Any, Any]
 
 
 def _pubmed_search_api(
-    query: str, previous_harvest: Optional[Harvest] = None, retries: int = 10
+    query: str, previous_harvest: Harvest | None = None, retries: int = 10
 ) -> list:
     """
     Return a list of pmids given a general search query.
@@ -337,7 +336,7 @@ def _pubmed_search_api(
 
 
 # get the DOI from the pubmed record
-def get_doi(pub) -> Optional[str]:
+def get_doi(pub) -> str | None:
     # this is the primary way to get the DOI from the pubmed record
     doi = get_identifier(pub, "doi")
     if doi:
@@ -361,7 +360,7 @@ def get_doi(pub) -> Optional[str]:
     return None
 
 
-def get_identifier(pub, identifier_name) -> Optional[str]:
+def get_identifier(pub, identifier_name) -> str | None:
     # look through the list of identifiers in the pubmed record
     try:
         ids = pub.get("PubmedData", {}).get("ArticleIdList", {}).get("ArticleId")

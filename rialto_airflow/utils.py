@@ -1,9 +1,9 @@
 import datetime
-import re
 import logging
+import re
 from functools import cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 def rialto_authors_file(data_dir):
@@ -206,18 +206,18 @@ def add_orcid(data: dict[Any, Any], orcid: str):
 
 
 def days_since(
-    start_date: datetime.datetime, end_date: Optional[datetime.datetime] = None
+    start_date: datetime.datetime, end_date: datetime.datetime | None = None
 ) -> int:
     """
     Returns the number of days between start_date and end_date.
     If end_date is None, it defaults to the current time.
     Both dates are converted to UTC for calculation.
     """
-    start_date = start_date.astimezone(datetime.timezone.utc)
+    start_date = start_date.astimezone(datetime.UTC)
 
     if end_date is None:
-        end_date = datetime.datetime.now(datetime.timezone.utc)
+        end_date = datetime.datetime.now(datetime.UTC)
     else:
-        end_date = end_date.astimezone(datetime.timezone.utc)
+        end_date = end_date.astimezone(datetime.UTC)
 
     return (end_date - start_date).days

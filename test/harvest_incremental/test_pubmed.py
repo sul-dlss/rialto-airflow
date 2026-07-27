@@ -2,10 +2,10 @@ import datetime
 import logging
 import re
 from unittest.mock import patch
+from xml.parsers.expat import ExpatError
 
 import pytest
 import requests
-from xml.parsers.expat import ExpatError
 
 from rialto_airflow.harvest_incremental import pubmed
 from rialto_airflow.schema.rialto import Author, Harvest, Publication
@@ -348,7 +348,7 @@ def test_incremental_harvest(
     """
 
     # Mock the current time to a fixed value
-    now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    now = datetime.datetime(2026, 5, 13, 12, 0, 0, tzinfo=datetime.UTC)
 
     with patch("rialto_airflow.utils.datetime") as mock_datetime:
         mock_datetime.datetime.now.return_value = now
@@ -359,10 +359,10 @@ def test_incremental_harvest(
             session.add(
                 Harvest(
                     created_at=datetime.datetime(
-                        2026, 4, 20, 16, 38, 10, tzinfo=datetime.timezone.utc
+                        2026, 4, 20, 16, 38, 10, tzinfo=datetime.UTC
                     ),
                     finished_at=datetime.datetime(
-                        2026, 4, 21, 0, 0, 0, tzinfo=datetime.timezone.utc
+                        2026, 4, 21, 0, 0, 0, tzinfo=datetime.UTC
                     ),
                 )
             )
@@ -374,10 +374,10 @@ def test_incremental_harvest(
                     last_name="Stanford",
                     orcid="0000-0000-0000-0001",
                     created_at=datetime.datetime(
-                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.UTC
                     ),
                     updated_at=datetime.datetime(
-                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+                        2026, 4, 1, 0, 0, 0, tzinfo=datetime.UTC
                     ),
                 )
             )
@@ -1033,7 +1033,7 @@ def test_pubmed_incremental_zero_days_coverage(
     Specifically cover the case where number_of_days <= 0.
     """
     # the current time from the active_harvest_id's created_at
-    now = datetime.datetime(2026, 4, 27, 16, 38, 10, tzinfo=datetime.timezone.utc)
+    now = datetime.datetime(2026, 4, 27, 16, 38, 10, tzinfo=datetime.UTC)
 
     # Last harvest was 10 days ago
     last_harvest_time = now - datetime.timedelta(days=10)

@@ -1,10 +1,11 @@
-import pytest
-import zipfile
 import datetime
+import zipfile
 
-from rialto_airflow.schema.rialto import Publication, Harvest
+import pytest
+
 from rialto_airflow.publish import publication
 from rialto_airflow.schema.reports import Publications
+from rialto_airflow.schema.rialto import Harvest, Publication
 
 
 def test_dataset(test_incremental_session, dataset_incremental):

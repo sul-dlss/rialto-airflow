@@ -1,5 +1,6 @@
-from .utils import JsonPathRule, FuncRule, all, json_path
 from rialto_airflow.utils import piped
+
+from .utils import FuncRule, JsonPathRule, all, json_path
 
 
 def journal_issn(pub) -> str | None:

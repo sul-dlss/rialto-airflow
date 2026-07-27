@@ -1,5 +1,6 @@
-from .utils import JsonPathRule, FuncRule, first
 from rialto_airflow.apc import get_apc
+
+from .utils import FuncRule, JsonPathRule, first
 
 
 def apc(pub, context):

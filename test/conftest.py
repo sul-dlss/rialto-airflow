@@ -12,11 +12,11 @@ import rialto_airflow.schema.rialto
 
 rialto_airflow.schema.rialto.RIALTO_DB_NAME = "rialto_incremental_test"
 
-from rialto_airflow import cli  # noqa: E402
-from rialto_airflow.database import create_schema, engine_setup  # noqa: E402
-from rialto_airflow.publish import publication  # noqa: E402
-from rialto_airflow.schema import rialto as rialto_schema  # noqa: E402
-from rialto_airflow.schema import reports as reports_schema  # noqa: E402
+from rialto_airflow import cli
+from rialto_airflow.database import create_schema, engine_setup
+from rialto_airflow.publish import publication
+from rialto_airflow.schema import reports as reports_schema
+from rialto_airflow.schema import rialto as rialto_schema
 
 dotenv.load_dotenv()
 

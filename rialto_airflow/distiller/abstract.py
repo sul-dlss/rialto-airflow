@@ -1,5 +1,6 @@
-from .utils import JsonPathRule, FuncRule, first, json_path
 from bs4 import BeautifulSoup
+
+from .utils import FuncRule, JsonPathRule, first, json_path
 
 
 def abstract(row):

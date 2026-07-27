@@ -1,7 +1,8 @@
+import csv
 import os
+
 import pandas as pd
 import pytest
-import csv
 
 from rialto_airflow import validate
 

@@ -1,15 +1,16 @@
 import logging
 from collections import defaultdict
 from datetime import date
-from typing import Any, Optional, Union
-from rialto_airflow.utils import normalize_orcid
+from typing import Any
 
 import requests
 from requests_oauthlib import OAuth2Session
 
+from rialto_airflow.utils import normalize_orcid
+
 # Type aliases for clarity
 ORCIDRecord = dict[str, Any]
-ORCIDStats = list[Union[str, int, float]]
+ORCIDStats = list[str | int | float]
 
 
 class TokenFetchError(LookupError):
@@ -64,7 +65,7 @@ def fetch_orcid_users(
     mais_client_secret: str,
     mais_token_url: str,
     base_url: str,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> list[ORCIDRecord]:
     """Fetches ORCID user records from the MAIS ORCID API, handling pagination."""
 
@@ -125,7 +126,7 @@ def current_orcid_users(
     mais_client_secret: str,
     mais_token_url: str,
     base_url: str,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> list[ORCIDRecord]:
     """Retrieves the current ORCID records from the MAIS ORCID API."""
 

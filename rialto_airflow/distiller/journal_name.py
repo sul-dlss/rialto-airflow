@@ -1,6 +1,7 @@
-from .utils import JsonPathRule, first
-from .journal_issn import journal_issn
 from rialto_airflow.harvest_incremental.openalex import source_by_issn
+
+from .journal_issn import journal_issn
+from .utils import JsonPathRule, first
 
 
 def journal_name(pub) -> str | None:

@@ -1,21 +1,21 @@
 import datetime
-from functools import cache
 import logging
 import os
+from collections.abc import Generator
+from functools import cache
 
-from pyalex import Authors, Sources, Works, config
 import requests
-from typing import Generator
+from pyalex import Authors, Sources, Works, config
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
+    RIALTO_DB_NAME,
     Author,
+    Harvest,
     Publication,
     pub_author_association,
-    RIALTO_DB_NAME,
-    Harvest,
 )
 from rialto_airflow.utils import normalize_doi, normalize_pmid
 
@@ -84,7 +84,7 @@ def harvest(harvest_id, limit=None) -> None:
                 pubmed_id = normalize_pmid(openalex_pub.get("ids", {}).get("pmid"))
 
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
+                    harvested_at = datetime.datetime.now(datetime.UTC)
                     # if there's a DOI constraint violation we need to update instead of insert
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -232,15 +232,7 @@ def _clean_dois_for_query(dois: list[str | None]) -> list[str]:
     for doi in dois:
         if doi is None:
             continue
-        if "," in doi:
-            unqueryable_dois.append(doi)
-            _doi_log_message(doi)
-            continue
-        elif doi.startswith("doi:"):
-            unqueryable_dois.append(doi)
-            _doi_log_message(doi)
-            continue
-        elif "pmcid:" in doi:
+        if "," in doi or doi.startswith("doi:") or "pmcid:" in doi:
             unqueryable_dois.append(doi)
             _doi_log_message(doi)
             continue

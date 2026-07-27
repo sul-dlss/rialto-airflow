@@ -82,7 +82,7 @@ def harvest(harvest_id: int, limit: None | int = None) -> None:
                     else None
                 )
                 with get_session(RIALTO_DB_NAME).begin() as insert_session:
-                    harvested_at = datetime.datetime.now(datetime.timezone.utc)
+                    harvested_at = datetime.datetime.now(datetime.UTC)
                     # if there's a DOI constraint violation, update the existing row's JSON
                     pub_id = insert_session.execute(
                         insert(Publication)
@@ -118,7 +118,7 @@ def publications_from_dois(dois: list, batch_size=200):
     """
     fields = " + ".join(publication_fields())
     for doi_batch in batched(dois, batch_size):
-        doi_list = ",".join(['"{}"'.format(doi) for doi in doi_batch])
+        doi_list = ",".join([f'"{doi}"' for doi in doi_batch])
         logging.debug(f"looking up: {doi_list}")
 
         q = f"""

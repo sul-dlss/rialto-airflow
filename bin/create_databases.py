@@ -1,11 +1,11 @@
 import logging
 
-from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 from rialto_airflow.database import (
     create_database,
     database_exists,
 )
+from rialto_airflow.schema.reports import RIALTO_REPORTS_DB_NAME
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME
 
 # "rialto" is the database updated by the harvest_incremental DAG
 PERMANENT_DATABASES: list[str] = [RIALTO_REPORTS_DB_NAME, RIALTO_DB_NAME]

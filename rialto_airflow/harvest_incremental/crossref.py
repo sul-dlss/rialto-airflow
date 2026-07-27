@@ -4,13 +4,12 @@ import re
 import time
 from collections.abc import Iterable
 from itertools import batched
-from typing import Dict
 
 import requests
 from sqlalchemy import select, update
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.rialto import Publication, RIALTO_DB_NAME, Harvest
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Harvest, Publication
 from rialto_airflow.utils import normalize_doi
 
 RIALTO_EMAIL = os.environ.get("AIRFLOW_VAR_CROSSREF_EMAIL")
@@ -96,7 +95,7 @@ def get_dois(dois: Iterable[str | None], tries=5) -> Iterable[dict]:
 
         logging.debug(f"Looking up DOIS {prefixed_dois}")
 
-        params: Dict[str, str | int | None] = {
+        params: dict[str, str | int | None] = {
             "filter": ",".join(prefixed_dois),
             "rows": len(prefixed_dois),
             "mailto": RIALTO_EMAIL,

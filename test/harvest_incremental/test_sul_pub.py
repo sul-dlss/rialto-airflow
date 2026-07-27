@@ -1,12 +1,9 @@
+import datetime
 import logging
 
-import datetime
-
-from rialto_airflow.schema.rialto import Harvest, Publication
 from rialto_airflow.harvest_incremental import sul_pub
-
+from rialto_airflow.schema.rialto import Harvest, Publication
 from test.utils import num_log_record_matches
-
 
 response = {
     "records": [

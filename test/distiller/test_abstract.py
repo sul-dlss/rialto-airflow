@@ -1,8 +1,8 @@
 from rialto_airflow.distiller.abstract import (
-    abstract,
+    _crossref_abstract,
     _pubmed_abstract,
     _rebuild_abstract,
-    _crossref_abstract,
+    abstract,
 )
 from rialto_airflow.schema.rialto import Publication
 

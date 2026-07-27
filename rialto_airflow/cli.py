@@ -2,18 +2,14 @@ import csv
 import json
 import os
 import sys
-from typing import Optional
+from typing import Annotated
 
 import dotenv
 import typer
-from typing_extensions import Annotated
 from sqlalchemy import select
 
 from rialto_airflow.database import get_session
-from rialto_airflow.schema.rialto import RIALTO_DB_NAME
-from rialto_airflow.schema.rialto import Author
-from rialto_airflow.schema.rialto import Publication
-
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Author, Publication
 
 dotenv.load_dotenv()
 app = typer.Typer()
@@ -26,7 +22,7 @@ PROVIDERS = ["sulpub", "crossref", "dim", "wos", "openalex", "pubmed"]
 @app.callback()
 def main(
     database_url: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--database-url",
             "-d",

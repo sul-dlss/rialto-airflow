@@ -3,7 +3,6 @@ import logging
 
 import pandas
 import pytest
-
 from sqlalchemy import update
 
 from rialto_airflow.harvest_incremental.authors import (

@@ -1,11 +1,11 @@
 import datetime
 import logging
-from functools import cache
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from functools import cache
+from typing import Any, Optional
 
 from jsonpath_ng.ext import parse
-
 
 """
 This module lets you define rules for extracting information from the JSON that
@@ -85,7 +85,7 @@ class FuncRule:
 
     col: str
     matcher: Callable
-    context: Optional[dict] = None
+    context: dict | None = None
 
 
 Rule = JsonPathRule | FuncRule
@@ -93,7 +93,7 @@ Rule = JsonPathRule | FuncRule
 RuleMatch = Optional[str | int | list]
 
 
-def first(pub: Any, rules: list[Rule]) -> Optional[str | list]:
+def first(pub: Any, rules: list[Rule]) -> str | list | None:
     """
     Examines a Publication row using a list of rules and returns the result of
     the first rule that matches. A rule could potentially return a list of
@@ -132,7 +132,7 @@ def all(pub: Any, rules: list[Rule]) -> list:
     return results
 
 
-def _jsonpath_match(rule: JsonPathRule, data) -> Optional[list | str | int]:
+def _jsonpath_match(rule: JsonPathRule, data) -> list | str | int | None:
     jpath = json_path(rule.matcher)
 
     # Sometimes a JSON Path can cause a KeyError if it attempts to access a
@@ -177,7 +177,7 @@ def _jsonpath_match(rule: JsonPathRule, data) -> Optional[list | str | int]:
     return result
 
 
-def _ensure_positive_number(value: str | int) -> Optional[int]:
+def _ensure_positive_number(value: str | int) -> int | None:
     result = None
     try:
         result = int(value)
@@ -189,7 +189,7 @@ def _ensure_positive_number(value: str | int) -> Optional[int]:
     return result
 
 
-def _ensure_valid_year(value: str | int) -> Optional[int]:
+def _ensure_valid_year(value: str | int) -> int | None:
     result = None
     try:
         result = int(value)
@@ -201,7 +201,7 @@ def _ensure_valid_year(value: str | int) -> Optional[int]:
     return result
 
 
-def _func_match(rule: FuncRule, data: dict) -> Optional[str | int]:
+def _func_match(rule: FuncRule, data: dict) -> str | int | None:
     if rule.context is not None:
         result = rule.matcher(data, rule.context)
     else:

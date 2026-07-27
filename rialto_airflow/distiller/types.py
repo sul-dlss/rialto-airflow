@@ -1,4 +1,4 @@
-from .utils import JsonPathRule, FuncRule, first, json_path
+from .utils import FuncRule, JsonPathRule, first, json_path
 
 
 def types(pub) -> list[str]:

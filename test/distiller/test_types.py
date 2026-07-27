@@ -1,8 +1,9 @@
-import pytest
 from typing import Any
 
+import pytest
+
+from rialto_airflow.distiller.types import _normalize_type, types
 from rialto_airflow.schema.rialto import Publication
-from rialto_airflow.distiller.types import types, _normalize_type
 
 
 def test_types(caplog):

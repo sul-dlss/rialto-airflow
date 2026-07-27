@@ -46,7 +46,7 @@ GEM
     net-ssh (7.3.3)
     ostruct (0.6.3)
     rake (13.4.2)
-    sshkit (1.25.0)
+    sshkit (1.25.1)
       base64
       logger
       net-scp (>= 1.1.2)
@@ -68,4 +68,4 @@ DEPENDENCIES
   rake
 
 BUNDLED WITH
-  4.0.16
+  4.0.17

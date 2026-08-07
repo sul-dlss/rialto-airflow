@@ -5,6 +5,7 @@ from collections.abc import Generator
 from functools import cache
 
 import requests
+from more_itertools import batched
 from pyalex import Authors, Sources, Works, config
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -144,6 +145,25 @@ def publications_from_orcid(
             yield from page
 
 
+def publications_from_dois(
+    dois: list[str | None], batch_size=50
+) -> Generator[dict, None, None]:
+    """
+    Get the publications metadata for the provided list of DOIs.
+    """
+    for doi_batch in batched(dois, batch_size):
+        # normalize and drop dois that are problematic for the openalex api
+        dois_filtered = _clean_dois_for_query([normalize_doi(doi) for doi in doi_batch])
+        if len(dois_filtered) == 0:
+            continue
+
+        # looking up multiple DOIs is supported by pipe separating them
+        dois_joined = "|".join(dois_filtered)
+
+        logging.debug(f"looking up DOIs {dois_joined}")
+        yield from Works().filter(doi=dois_joined).get()
+
+
 def fill_in(harvest_id: int) -> None:
     """
     Harvest OpenAlex data for DOIs from other publication sources.
@@ -173,17 +193,10 @@ def fill_in(harvest_id: int) -> None:
             )
 
         for rows in select_session.execute(stmt).partitions():
+            dois = [row.doi for row in rows]
+
             # since the query uses yield_per=50 we will be looking up 50 DOIs at a time
-            dois = [normalize_doi(row.doi) for row in rows]
-
-            # drop dois that are problematic for the openalex api
-            dois_filtered = _clean_dois_for_query(dois)
-
-            # looking up multiple DOIs is supported by pipe separating them
-            dois_joined = "|".join(dois_filtered)
-
-            logging.debug(f"looking up DOIs {dois_joined}")
-            for openalex_pub in Works().filter(doi=dois_joined).get():
+            for openalex_pub in publications_from_dois(dois, batch_size=50):
                 doi = normalize_doi(openalex_pub.get("doi"))
                 if doi is None:
                     logging.warning(

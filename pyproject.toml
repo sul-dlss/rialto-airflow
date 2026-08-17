@@ -14,8 +14,7 @@ package-mode = false
 
 dependencies = [
     "alembic>=1.16.5",
-    # TODO: remove when https://github.com/digital-science/dimcli/issues/95 is resolved
-    "dimcli @ git+https://github.com/edsu/dimcli@handle-202",
+    "dimcli",
     "jsonpath-ng>=1.7.0",
     "honeybadger>=0.21",
     "more-itertools",

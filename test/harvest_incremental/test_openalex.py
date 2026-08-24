@@ -159,6 +159,39 @@ class MockWorks:
         return self.records
 
 
+def test_publications_from_dois():
+    """
+    This is a live test of the OpenAlex API.
+    """
+    # use batch_size=1 to test batching for two DOIs
+    pubs = list(
+        openalex.publications_from_dois(
+            ["10.1038/nature12373", "10.1145/3442188.3445922"], batch_size=1
+        )
+    )
+    assert len(pubs) == 2
+    assert {openalex.normalize_doi(pub["doi"]) for pub in pubs} == {
+        "10.1038/nature12373",
+        "10.1145/3442188.3445922",
+    }
+
+
+def test_publications_from_dois_all_dois_dropped(monkeypatch):
+    """
+    A batch where every DOI is unqueryable shouldn't result in a lookup.
+    """
+    lookups = []
+
+    def _works():
+        lookups.append(True)
+        return MockWorks([])
+
+    monkeypatch.setattr(openalex, "Works", _works)
+
+    assert list(openalex.publications_from_dois(["doi:123", None])) == []
+    assert lookups == [], "no lookup was performed"
+
+
 def test_fill_in(
     test_incremental_session,
     mock_incremental_publication,

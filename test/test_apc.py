@@ -15,25 +15,40 @@ def test_missing():
     assert usd is None
 
 
+def test_issn_l():
+    """An ISSN that only appears in the dataset's issn_l column still matches."""
+    assert apc.get_apc(issn="0002-7189", year=2021) == 3000
+
+
+def test_truncates_converted_value():
+    """Converted APCs carry decimals in the dataset and are truncated to int."""
+    assert apc.get_apc(issn="2173-5735", year=2023) == 2712
+
+
 def test_warning(caplog):
-    assert apc.get_apc(issn="1440-1703", year=2019) == 3140
-    assert "more than one APC match for 1440-1703 and 2019" in caplog.text
+    # 0957-5820 is the issn_l of one journal and the issn1 of another, so it
+    # matches two rows for 2019 with differing APCs
+    assert apc.get_apc(issn="0957-5820", year=2019) == 3300
+    assert "more than one APC match for 0957-5820 and 2019" in caplog.text
 
 
 def test_negative(monkeypatch):
     def mock_dataset():
-        mock_file_content = """unique_id	Publisher	ISSN_1	ISSN_2	Journal	OA_status	APC_provided	APC_order	APC_USD	APC_USD-originalORconverted	APC_EUR	APC_EUR-originalORconverted	APC_GBP	APC_GBP-originalORconverted	APC_JPY	APC_JPY-originalORconverted	APC_CHF	APC_CHF-originalORconverted	APC_CAD	APC_CAD-originalORconverted	APC_date	APC_year	APC_source	Collector	Comment
-9009	MDPI	2813-0324		Computer Sciences & Mathematics Forum	Gold	no			_no_APC_provided		_no_APC_provided		_no_APC_provided		_no_APC_provided		_no_APC_provided		_no_APC_provided	2023-06-24	2023	Wayback Machine	E. Schares
-9010	MDPI	0000-0000		Entomology	Gold	yes	1	-100	converted from CHF	995.6660	converted from CHF	849.3570	converted from CHF	137535.1240	converted from CHF	1000.0000	original	1363.2520	converted from CHF	2022-07-22	2022	Wayback Machine	E. Schares
+        mock_file_content = """issn1,issn2,issn_l,apc_year,apc_usd
+2813-0324,,2813-0324,2023,
+0000-0000,,0000-0000,2022,-100
 """
         mock_csv_data = StringIO(mock_file_content)
-        mock_df = pandas.read_csv(mock_csv_data, delimiter="\t", encoding="ISO-8859-1")
+        mock_df = pandas.read_csv(mock_csv_data)
         return mock_df
 
     monkeypatch.setattr(apc, "df", mock_dataset())
+    apc.get_apc.cache_clear()
 
     assert apc.get_apc(issn="0000-0000", year=2022) is None
 
 
 def test_nan():
-    assert apc.get_apc(issn="2173-5735", year=2023) is None
+    # this journal-year is present in the dataset with type_of_fee "unknown"
+    # and no apc_usd value
+    assert apc.get_apc(issn="1044-0305", year=2019) is None

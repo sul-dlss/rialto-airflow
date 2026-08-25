@@ -11,7 +11,7 @@ def apc(pub, context):
     if context.get("types") == ["Preprint"]:
         return 0
 
-    # https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CR1MMV
+    # see rialto_airflow/apc/README.md for the dataset behind _apc_oa_dataset
     first_match_apc = first(
         pub,
         rules=[

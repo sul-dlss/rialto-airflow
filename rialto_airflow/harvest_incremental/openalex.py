@@ -1,14 +1,21 @@
 import datetime
 import logging
 import os
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from functools import cache
 
 import requests
 from more_itertools import batched
-from pyalex import Authors, Sources, Works, config
+from pyalex import Authors, OpenAlexResponseList, Sources, Works, config
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from rialto_airflow.database import get_session
 from rialto_airflow.schema.rialto import (
@@ -24,6 +31,24 @@ config.max_retries = 5
 config.retry_backoff_factor = 0.1
 config.retry_http_codes = [429, 500, 503, 504, 520]
 config.api_key = os.environ.get("AIRFLOW_VAR_OPENALEX_API_KEY")
+
+# The pyalex retry config above only covers HTTP status codes. When OpenAlex
+# ends a response part way through the body urllib3 has already handed the
+# response back, so that retry never fires and a ChunkedEncodingError comes all
+# the way out. Retry the calls that read a response body here instead.
+retry_network_errors = retry(
+    retry=retry_if_exception_type(
+        (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        )
+    ),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, max=60),
+    before_sleep=before_sleep_log(logging.getLogger(), logging.WARNING),
+    reraise=True,
+)
 
 
 def harvest(harvest_id, limit=None) -> None:
@@ -125,7 +150,7 @@ def publications_from_orcid(
     # batch process them since we can filter by multiple orcids in one request?
     logging.debug(f"looking up publications for orcid {orcid}")
     # get the first (and hopefully only) openalex id for the orcid
-    authors = Authors().filter(orcid=orcid).get()
+    authors = _authors_from_orcid(orcid)
     if len(authors) == 0:
         return
     elif len(authors) > 1:
@@ -133,16 +158,33 @@ def publications_from_orcid(
     author_id = authors[0]["id"]
 
     if harvest_date is not None:
-        for page in (
-            Works()
-            .filter(from_updated_date=harvest_date, author={"id": author_id})
-            .paginate(per_page=200)
-        ):
-            yield from page
+        works = Works().filter(from_updated_date=harvest_date, author={"id": author_id})
     else:
         # get all the works for the openalex author id
-        for page in Works().filter(author={"id": author_id}).paginate(per_page=200):
-            yield from page
+        works = Works().filter(author={"id": author_id})
+
+    pages = works.paginate(per_page=200)
+    while (page := _next_page(pages)) is not None:
+        yield from page
+
+
+@retry_network_errors
+def _authors_from_orcid(orcid: str) -> OpenAlexResponseList:
+    """
+    Look up the OpenAlex authors for an ORCID, retrying on network errors.
+    """
+    return Authors().filter(orcid=orcid).get()
+
+
+@retry_network_errors
+def _next_page(pages: Iterator[OpenAlexResponseList]) -> OpenAlexResponseList | None:
+    """
+    Get the next page of results, or None when there are no more.
+
+    pyalex only advances its cursor once a request has succeeded, so retrying
+    here re-requests the page that failed instead of skipping past it.
+    """
+    return next(pages, None)
 
 
 def publications_from_dois(
@@ -161,7 +203,15 @@ def publications_from_dois(
         dois_joined = "|".join(dois_filtered)
 
         logging.debug(f"looking up DOIs {dois_joined}")
-        yield from Works().filter(doi=dois_joined).get()
+        yield from _works_from_dois(dois_joined)
+
+
+@retry_network_errors
+def _works_from_dois(dois: str) -> OpenAlexResponseList:
+    """
+    Look up the works for a pipe separated list of DOIs, retrying on network errors.
+    """
+    return Works().filter(doi=dois).get()
 
 
 def fill_in(harvest_id: int) -> None:

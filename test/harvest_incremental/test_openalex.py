@@ -1,5 +1,6 @@
 import datetime
 import logging
+import time
 
 import pyalex
 import pytest
@@ -25,6 +26,66 @@ def test_publications_from_orcid():
             break
 
     assert count == 400, "found 100 publications"
+
+
+class FlakyPages:
+    """
+    Stand in for a pyalex Paginator that drops the connection part way through
+    a response body. Like pyalex it only advances once a request has succeeded,
+    so a retried page is served again rather than skipped.
+    """
+
+    def __init__(self, pages, fail_on):
+        self.pages = list(pages)
+        self.fail_on = fail_on
+        self.calls = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.calls += 1
+        if self.calls in self.fail_on:
+            raise requests.exceptions.ChunkedEncodingError("Response ended prematurely")
+        if len(self.pages) == 0:
+            raise StopIteration
+        return self.pages.pop(0)
+
+
+@pytest.fixture
+def no_backoff(monkeypatch):
+    """
+    Skip tenacity's backoff so the retry tests don't spend it waiting.
+    """
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+
+
+def test_next_page_retries_truncated_response(caplog, no_backoff):
+    """
+    A response that ends mid-stream is retried, and the page it failed on is
+    fetched again rather than skipped.
+    """
+    caplog.set_level(logging.WARNING)
+    pages = FlakyPages([["a"], ["b"]], fail_on={1})
+
+    assert openalex._next_page(pages) == ["a"], "the failed page was fetched again"
+    assert pages.calls == 2, "it took two attempts"
+    assert openalex._next_page(pages) == ["b"], "paging continues"
+    assert openalex._next_page(pages) is None, "no more pages"
+    assert num_log_record_matches(caplog.records, logging.WARNING, "Retrying") == 1
+
+
+def test_next_page_gives_up(no_backoff):
+    """
+    When the connection keeps dropping we stop retrying and let the task fail,
+    rather than quietly returning a short harvest.
+    """
+    pages = FlakyPages([["a"]], fail_on={1, 2, 3, 4, 5})
+
+    with pytest.raises(requests.exceptions.ChunkedEncodingError):
+        openalex._next_page(pages)
+
+    assert pages.calls == 5, "tried five times before giving up"
 
 
 @pytest.fixture

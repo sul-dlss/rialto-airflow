@@ -5,7 +5,6 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import close_all_sessions
-from sqlalchemy_utils import create_database, database_exists, drop_database
 
 # load this early so we can rewire the database name to the test database name
 import rialto_airflow.schema.rialto
@@ -13,7 +12,13 @@ import rialto_airflow.schema.rialto
 rialto_airflow.schema.rialto.RIALTO_DB_NAME = "rialto_incremental_test"
 
 from rialto_airflow import cli
-from rialto_airflow.database import create_schema, engine_setup
+from rialto_airflow.database import (
+    create_database,
+    create_schema,
+    database_exists,
+    drop_database,
+    engine_setup,
+)
 from rialto_airflow.publish import publication
 from rialto_airflow.schema import reports as reports_schema
 from rialto_airflow.schema import rialto as rialto_schema
@@ -103,12 +108,11 @@ def test_incremental_engine(monkeypatch):
     monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
 
     db_name = "rialto_incremental_test"
-    db_uri = f"{db_host}/{db_name}"
 
-    if database_exists(db_uri):
-        drop_database(db_uri)
+    if database_exists(db_name):
+        drop_database(db_name)
 
-    create_database(db_uri)
+    create_database(db_name)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
     create_schema(db_name, rialto_schema.RialtoSchemaBase)
@@ -155,12 +159,11 @@ def test_reports_engine(monkeypatch):
     monkeypatch.setenv("AIRFLOW_VAR_RIALTO_POSTGRES", db_host)
 
     db_name = "rialto_reports_test"
-    db_uri = f"{db_host}/{db_name}"
 
-    if database_exists(db_uri):
-        drop_database(db_uri)
+    if database_exists(db_name):
+        drop_database(db_name)
 
-    create_database(db_uri)
+    create_database(db_name)
 
     # note: rialto_airflow.database.create_schema wants the database name not uri
     create_schema(db_name, reports_schema.ReportsSchemaBase)

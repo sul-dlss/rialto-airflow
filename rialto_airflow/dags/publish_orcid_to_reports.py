@@ -2,6 +2,7 @@ import datetime
 
 from airflow.models import Variable
 from airflow.sdk import dag, task
+from airflow.timetables.trigger import CronTriggerTimetable
 
 from rialto_airflow.honeybadger import default_args
 from rialto_airflow.publish import orcid
@@ -18,7 +19,9 @@ Publishes author data and integration stats to postgres for supporting the ORCID
 
 
 @dag(
-    schedule="@weekly",
+    schedule=CronTriggerTimetable(
+        "0 11 * * 0", timezone="UTC"
+    ),  # At 11:00 UTC on Sundays
     max_active_runs=1,
     start_date=datetime.datetime(2024, 1, 1),
     catchup=False,

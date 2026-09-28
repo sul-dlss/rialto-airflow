@@ -30,6 +30,7 @@ dependencies = [
     # sqlalchemy-utils is incompatible with SQLAlchemy 2.1, which renamed
     # attributes.ScalarAttributeImpl to attributes._ScalarAttributeImpl. This is
     # still unfixed in the latest sqlalchemy-utils (0.42.1).
+    # See: https://github.com/kvesteri/sqlalchemy-utils/issues/829
     "sqlalchemy<2.1",
     "sqlalchemy-utils==0.41.2", # see: https://github.com/kvesteri/sqlalchemy-utils/issues/791
     "typer>=0.20.0",

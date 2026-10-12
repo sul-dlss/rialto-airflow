@@ -15,7 +15,7 @@ package-mode = false
 dependencies = [
     "alembic>=1.16.5",
     "dimcli",
-    "jsonpath-ng>=1.7.0",
+    "jsonpath-ng>=1.7.0,<1.9",  # https://github.com/sul-dlss/rialto-airflow/issues/972
     "honeybadger>=0.21",
     "more-itertools",
     "pandas>=2.2.3",

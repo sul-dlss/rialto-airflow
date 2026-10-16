@@ -224,6 +224,20 @@ One line for running the linter, the type checker, and the test suite (failing f
 uv run ruff format --diff . && uv run ruff check && uv run ty check . && uv run pytest
 ```
 
+### Continuous Integration
+
+GitHub Actions runs CI from `.github/workflows/test.yml` on each push to any branch, using `ubuntu-latest` and Python 3.12. The workflow:
+
+1. Checks lint and formatting with `ruff check` and `ruff format --diff`.
+2. Starts the `postgres` container from `compose.yaml`, without the rest of the Airflow stack.
+3. Creates the persistent databases with `bin/create_databases.py` and runs `alembic upgrade head`. In other environments the Docker stack's migration service does this, so CI needs its own step. Each run starts with an empty database.
+4. Type checks with `uv run ty check --error-on-warning .`. The flag makes CI stricter than the local command above: a warning fails the build.
+5. Runs `uv run pytest` with branch coverage and uploads the report to [Codecov](https://codecov.io/gh/sul-dlss/rialto-airflow).
+
+Tests that call live APIs read their credentials from the repository's Actions secrets (Settings → Secrets and variables → Actions). The "Run tests" step passes them in as `AIRFLOW_VAR_*` environment variables: `DIMENSIONS_API_KEY`, `WOS_KEY`, `PUBMED_KEY`, `OPENALEX_API_KEY`, `MAIS_TOKEN_URL`, `MAIS_BASE_URL`, `MAIS_CLIENT_ID` and `MAIS_SECRET`. The Codecov upload uses a `CODECOV_TOKEN` secret.
+
+When you rotate an API key in vault, update the matching GitHub secret, or CI will fail or skip the tests that use it. If you write a test that needs a new key, add a secret in GitHub and add the variable to the `env:` block of the "Run tests" step.
+
 ### Troubleshooting
 
 Getting errors with dependencies when trying to run the tests that look something like this?

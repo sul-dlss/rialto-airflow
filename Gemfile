@@ -8,6 +8,6 @@ gem 'rake'
 group :deployment do
   gem 'capistrano'
   gem 'capistrano-bundler'
-  gem 'capistrano-maintenance', '~> 1.2', require: false
+  gem 'capistrano-maintenance', require: false
   gem 'dlss-capistrano-docker', require: false
 end

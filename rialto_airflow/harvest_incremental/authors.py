@@ -2,7 +2,7 @@ import csv
 import logging
 
 from psycopg2 import Error as Psycopg2Error
-from sqlalchemy import delete, update
+from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,8 +33,13 @@ def load_authors_table(data_dir) -> None:
 
     new_authors = updated_authors = processed_authors = ignored_authors = 0
 
+    # rows that could not be loaded; these are reported together at the end so
+    # that one bad row doesn't prevent the rest of the file from loading
+    failures: list[str] = []
+
     with open(authors_file, "r") as file:
-        for row in csv.DictReader(file):
+        # line 1 is the header
+        for line_num, row in enumerate(csv.DictReader(file), start=2):
             processed_authors += 1
             row_dict = row_to_dict(row)
             try:
@@ -47,9 +52,8 @@ def load_authors_table(data_dir) -> None:
                         ignored_authors += 1
 
             except IntegrityError as e:
-                assert isinstance(e.orig, Psycopg2Error)  # needed for type checking
                 session.rollback()
-                constraint = e.orig.diag.constraint_name
+                constraint = _constraint_name(e)
 
                 if constraint == "author_orcid_key":
                     ignored_authors += 1
@@ -58,12 +62,44 @@ def load_authors_table(data_dir) -> None:
                     )
 
                 elif constraint == "author_cap_profile_id_key":
-                    handle_duplicate_cap_profile_id(session, row_dict)
-                    updated_authors += 1
+                    try:
+                        handle_duplicate_cap_profile_id(session, row_dict)
+                        updated_authors += 1
+                    except IntegrityError as e2:
+                        session.rollback()
+                        failures.append(_describe_failure(line_num, row_dict, e2))
+
+                else:
+                    failures.append(_describe_failure(line_num, row_dict, e))
 
         logging.info(
-            f"processed={processed_authors} new={new_authors} updated={updated_authors} ignored={ignored_authors}"
+            f"processed={processed_authors} new={new_authors} updated={updated_authors} ignored={ignored_authors} failed={len(failures)}"
         )
+
+    if failures:
+        for failure in failures:
+            logging.error(failure)
+        raise AuthorLoadError(
+            f"{len(failures)} author row(s) in {authors_file} could not be loaded:\n"
+            + "\n".join(failures)
+        )
+
+
+class AuthorLoadError(Exception):
+    pass
+
+
+def _constraint_name(e: IntegrityError) -> str | None:
+    assert isinstance(e.orig, Psycopg2Error)  # needed for type checking
+    return e.orig.diag.constraint_name
+
+
+def _describe_failure(line_num: int, row_dict: dict, e: IntegrityError) -> str:
+    assert isinstance(e.orig, Psycopg2Error)  # needed for type checking
+    return (
+        f"line {line_num}: sunet={row_dict['sunet']} cap_profile_id={row_dict['cap_profile_id']} "
+        f"orcid={row_dict['orcid']} violates {e.orig.diag.constraint_name}: {e.orig.diag.message_detail}"
+    )
 
 
 def row_to_dict(row: dict) -> dict:
@@ -118,6 +154,13 @@ def handle_duplicate_cap_profile_id(session: Session, row_dict: dict) -> None:
     an existing author that already has that cap_profile_id. Overwrite the
     existing row with the incoming values, which preserve the existing
     author/publication relations.
+
+    If the incoming sunet already belongs to a different author row, the same
+    person was loaded twice under different identifiers and upstream has since
+    merged them. That row is merged into the one holding the cap_profile_id.
+
+    Everything happens in one transaction. If an IntegrityError is raised (e.g.
+    the incoming ORCID belongs to a third author) nothing is changed.
     """
 
     cap_profile_id = row_dict["cap_profile_id"]
@@ -129,6 +172,14 @@ def handle_duplicate_cap_profile_id(session: Session, row_dict: dict) -> None:
     # save the old sunet before it gets updated, so we can log it below
     old_sunet = existing_author.sunet
 
+    duplicate_author = (
+        session.query(Author)
+        .where(Author.sunet == row_dict["sunet"], Author.id != existing_author.id)
+        .one_or_none()
+    )
+    if duplicate_author is not None:
+        merge_author(session, duplicate_author, into=existing_author)
+
     session.execute(
         update(Author).where(Author.id == existing_author.id).values(row_dict)
     )
@@ -136,6 +187,38 @@ def handle_duplicate_cap_profile_id(session: Session, row_dict: dict) -> None:
 
     logging.info(
         f"Updated author sunet={old_sunet} with author sunet={row_dict['sunet']} for cap_profile_id={cap_profile_id}"
+    )
+
+
+def merge_author(session: Session, author: Author, into: Author) -> None:
+    """
+    Move the publication links from author onto into, and delete author. This
+    does not commit, so that the caller can make it part of a larger transaction.
+    """
+    links = pub_author_association
+
+    # save these before the author is deleted, so we can log them below
+    merged = (
+        f"id={author.id} sunet={author.sunet} cap_profile_id={author.cap_profile_id}"
+    )
+
+    # skip publications that are already linked to the surviving author, since
+    # moving those would violate the association's primary key
+    already_linked = select(links.c.publication_id).where(links.c.author_id == into.id)
+    moved = session.execute(
+        update(links)
+        .where(links.c.author_id == author.id)
+        .where(links.c.publication_id.not_in(already_linked))
+        .values(author_id=into.id)
+    )
+    assert isinstance(moved, CursorResult)  # needed for type checking
+
+    # any links that weren't moved are removed by the ON DELETE CASCADE
+    session.execute(delete(Author).where(Author.id == author.id))
+
+    logging.info(
+        f"Merged author {merged} into author id={into.id} sunet={into.sunet} cap_profile_id={into.cap_profile_id}, "
+        f"moved {moved.rowcount} publication link(s)"
     )
 
 

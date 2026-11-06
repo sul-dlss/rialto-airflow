@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import update
 
 from rialto_airflow.harvest_incremental.authors import (
+    AuthorLoadError,
     clear_pub_author_links,
     load_authors_table,
 )
@@ -237,6 +238,135 @@ def test_load_dupe_cap_id(test_incremental_session, tmp_path, caplog, authors_cs
         assert author.status is True, "they are active"
         assert len(author.publications) == 1, (
             "removal of old author preserved their publications"
+        )
+
+
+def test_load_split_identity(test_incremental_session, tmp_path, caplog, authors_csv):
+    """
+    The same person was loaded twice with different sunets and cap_profile_ids,
+    and upstream has since merged them: the CSV row has the sunet from one author
+    row and the cap_profile_id from the other. The two rows should be merged.
+    """
+    caplog.set_level(logging.INFO)
+
+    with test_incremental_session.begin() as session:
+        shared_pub = Publication(title="Shared pub")
+        older = Author(
+            sunet="kaileng",
+            cap_profile_id="340603",
+            first_name="Kailen",
+            last_name="Goldman",
+            publications=[Publication(title="Older pub"), shared_pub],
+        )
+        newer = Author(
+            sunet="beluga",
+            cap_profile_id="396793",
+            first_name="Kailen",
+            last_name="Goldman",
+            publications=[Publication(title="Newer pub"), shared_pub],
+        )
+        session.add_all([older, newer])
+        session.flush()
+        older_id, newer_id = older.id, newer.id
+
+    with open(authors_csv, "w", newline="") as csvfile:  # note: overwriting
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sunetid": "beluga",
+                "cap_profile_id": "340603",
+                "first_name": "Kailen",
+                "last_name": "Goldman",
+                "active": "true",
+                "academic_council": "false",
+            }
+        )
+
+    load_authors_table(tmp_path)
+    assert "processed=1 new=0 updated=1 ignored=0 failed=0" in caplog.text
+    assert (
+        f"Merged author id={newer_id} sunet=beluga cap_profile_id=396793 into author id={older_id}"
+        in caplog.text
+    )
+
+    with test_incremental_session.begin() as session:
+        assert session.query(Author).count() == 1
+        author = session.query(Author).one()
+        assert author.id == older_id
+        assert author.sunet == "beluga"
+        assert author.cap_profile_id == "340603"
+        assert sorted(pub.title for pub in author.publications) == [
+            "Newer pub",
+            "Older pub",
+            "Shared pub",
+        ]
+        assert session.query(pub_author_association).count() == 3
+        assert session.query(Publication).count() == 3, "no publications deleted"
+
+
+def test_load_unresolvable_row(test_incremental_session, tmp_path, caplog, authors_csv):
+    """
+    A row that can't be resolved should be rolled back and reported, without
+    stopping the rest of the file from loading. The task fails at the end.
+    """
+    with test_incremental_session.begin() as session:
+        session.add_all(
+            [
+                Author(
+                    sunet="kaileng", cap_profile_id="1", first_name="", last_name=""
+                ),
+                Author(sunet="beluga", cap_profile_id="2", first_name="", last_name=""),
+                Author(
+                    sunet="someone",
+                    orcid="https://orcid.org/0000-0000-0000-0009",
+                    first_name="",
+                    last_name="",
+                ),
+            ]
+        )
+
+    with open(authors_csv, "w", newline="") as csvfile:  # note: overwriting
+        writer = csv.DictWriter(csvfile, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        # a split identity whose ORCID belongs to a third author
+        writer.writerow(
+            {
+                "sunetid": "beluga",
+                "cap_profile_id": "1",
+                "orcidid": "https://orcid.org/0000-0000-0000-0009",
+                "active": "true",
+                "academic_council": "false",
+            }
+        )
+        writer.writerow(
+            {
+                "sunetid": "lelands",
+                "active": "true",
+                "academic_council": "false",
+            }
+        )
+
+    with pytest.raises(AuthorLoadError, match="1 author row"):
+        load_authors_table(tmp_path)
+
+    assert "processed=2 new=1 updated=0 ignored=0 failed=1" in caplog.text
+    assert (
+        "line 2: sunet=beluga cap_profile_id=1 orcid=https://orcid.org/0000-0000-0000-0009 violates author_orcid_key"
+        in caplog.text
+    )
+
+    with test_incremental_session.begin() as session:
+        assert session.query(Author).where(Author.sunet == "lelands").count() == 1
+        # the failed merge was rolled back
+        assert session.query(Author).count() == 4
+        assert (
+            session.query(Author).where(Author.sunet == "kaileng").one().cap_profile_id
+            == "1"
+        )
+        assert (
+            session.query(Author).where(Author.sunet == "beluga").one().cap_profile_id
+            == "2"
         )
 
 

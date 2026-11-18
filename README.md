@@ -15,21 +15,21 @@ More info on the workflow schedules: https://github.com/sul-dlss/rialto-airflow/
 2. Load the current Stanford Authors CSV export from [rialto-orgs](https://github.com/sul-dlss/rialto-orgs): `/data/authors.csv` into the Author database table.
 3. Use APIs from the following platforms to retrieve publication metadata using an author’s ORCID:
     * Dimensions
-    * OpenAlex (We harvest by ORCID from OpenAlex but when publishing to the reports database do not include pubs only from OpenAlex.)
+    * OpenAlex (We harvest by ORCID from OpenAlex but when publishing to the reports database do not include publications only from OpenAlex.)
     * Web of Science
     * PubMed
 4. Retrieve all *approved* publications from the [sul_pub](https://github.com/sul-dlss/sul_pub) API.
-6. *Fill in* missing publication metadata by looking in the following platforms by DOI for publications:
+5. *Fill in* missing publication metadata by looking in the following platforms by DOI for publications:
     * Dimensions
     * OpenAlex
     * Web of Science
     * PubMed
     * Crossref
-5. *Deduplicate* publications without a DOI using their platform specific identifiers.
-6. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
-7. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
-8. Remove orphaned publications (publications with no authors attached anymore).
-9. Mark the harvest as complete by updating the database record for the harvest. 
+6. *Deduplicate* publications without a DOI using their platform specific identifiers.
+7. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
+8. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
+9. Remove orphaned publications (publications with no authors attached anymore).
+10. Mark the harvest as complete by updating the database record for the harvest. 
 
 More info on incremental harvests: https://github.com/sul-dlss/rialto-airflow/wiki/Incremental-Harvesting
 
@@ -142,7 +142,7 @@ uv lock --upgrade
 Like dependency additions, dependency updates require container rebuild/restart.
 
 ## Databases
-We have multiple database:
+We have multiple databases:
 * The internal Airflow DB, which the Airflow Docker containers manage.
 * A `rialto` database for managing harvest data, including publications, authors, and funders.
 * A `rialto_reports` database which stores the data Tableau picks up to render dashboard visualizations.

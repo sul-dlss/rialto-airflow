@@ -1,34 +1,37 @@
 # rialto-airflow
 
-[![.github/workflows/test.yml](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml/badge.svg)](https://github.com/sul-dlss-labs/rialto-airflow/actions/workflows/test.yml)
+[![.github/workflows/test.yml](https://github.com/sul-dlss/rialto-airflow/actions/workflows/test.yml/badge.svg)](https://github.com/sul-dlss/rialto-airflow/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/sul-dlss/rialto-airflow/graph/badge.svg?token=rmO5oWki9D)](https://codecov.io/gh/sul-dlss/rialto-airflow)
 
-This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
+This repository contains an Airflow setup for harvesting and analyzing Stanford publication metadata. The workflow integrates data from [sul_pub](https://github.com/sul-dlss/sul_pub), [rialto-orgs](https://github.com/sul-dlss/rialto-orgs), [OpenAlex](https://openalex.org/), [Dimensions](https://www.dimensions.ai/), [Web of Science](https://clarivate.com/academia-government/scientific-and-academic-research/research-discovery-and-referencing/web-of-science/), [PubMed](https://www.ncbi.nlm.nih.gov/books/NBK25501/), and [Crossref](https://crossref.org) APIs to provide a view of publication data for Stanford University research.
 
 ## Workflows
 
-### Harvest
+More info on the workflow schedules: https://github.com/sul-dlss/rialto-airflow/wiki/Schedule-for-RIALTO-data-harvesting-and-publishing
 
-1. Every Sunday at midnight create a new database named with a timestamp: `rialto_YYYYMMDDHHMMSS`.
-2. Create a new “snapshot” directory using the same timestamp: `/data/snapshots/YYMMDDHHMMSS`.
-3. Load the current Stanford Authors CSV export from [rialto-orgs](https://github.com/sul-dlss/rialto-orgs): `/data/authors.csv` into the Author database table.
-4. Use APIs from the following platforms to retrieve publication metadata using an author’s ORCID:
+### Incremental Harvest
+
+1. Every Sunday at midnight (00:00 UTC on Sunday), start the harvest.
+2. Load the current Stanford Authors CSV export from [rialto-orgs](https://github.com/sul-dlss/rialto-orgs): `/data/authors.csv` into the Author database table.
+3. Use APIs from the following platforms to retrieve publication metadata using an author’s ORCID:
     * Dimensions
-    * OpenAlex
+    * OpenAlex (We harvest by ORCID from OpenAlex but when publishing to the reports database do not include publications only from OpenAlex.)
     * Web of Science
     * PubMed
-5. Retrieve all *approved* publications from the [sul_pub](https://github.com/sul-dlss/sul_pub) API.
-6. *Fill in* missing publication metadata by looking in the following platforms by DOI for publications:
+4. Retrieve all *approved* publications from the [sul_pub](https://github.com/sul-dlss/sul_pub) API.
+5. *Fill in* missing publication metadata by looking in the following platforms by DOI for publications:
     * Dimensions
     * OpenAlex
     * Web of Science
     * PubMed
     * Crossref
-7. *Deduplicate* publications, using their platform specific identifiers, currently just Web of Science and OpenAlex.
-8. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
-9. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
-10. Mark the snapshot as complete by putting a `snapshot.json` in the snapshot directory.
-11. Every week we look for `rialto_YYMMDDHHMMSS` databases and snapshot directories that are older than 30 days and we delete them.
+6. *Deduplicate* publications without a DOI using their platform specific identifiers.
+7. *Distill* publication metadata, or extracts some fields from platform metadata into columns in the Publication table.
+8. Looks for funder metadata in all publications with Dimensions and OpenAlex metadata, and populates the *Funder* database table which it links to the Publication table. This involves OpenAlex API requests to fetch funding information by `openalex_id`.
+9. Remove orphaned publications (publications with no authors attached anymore).
+10. Mark the harvest as complete by updating the database record for the harvest. 
+
+More info on incremental harvests: https://github.com/sul-dlss/rialto-airflow/wiki/Incremental-Harvesting
 
 ## Running Locally with Docker
 
@@ -39,14 +42,15 @@ Based on the documentation, [Running Airflow in Docker](https://airflow.apache.o
 2. Create a `.env` file with the following values. For local development these can usually be as below.  To ensure the tests work correctly, look at the section below labeled `Test Setup`, which will tell you exactly which values need to be set and from where in order to have the tests work.
 ```
 AIRFLOW_UID=50000
-AIRFLOW_GROUP=0
 AIRFLOW_VAR_DATA_DIR="data"
 AIRFLOW_VAR_CROSSREF_EMAIL=rialto-service@lists.stanford.edu
-AIRFLOW_VAR_SUL_PUB_HOST: 'sul-pub-cap-uat.stanford.edu'
-AIRFLOW_VAR_HARVEST_LIMIT: 1000
-AIRFLOW_VAR_WOS_KEY: see vault value at puppet/application/rialto-airflow/dev/wos_key
+AIRFLOW_VAR_SUL_PUB_HOST='sul-pub-cap-uat.stanford.edu'
+AIRFLOW_VAR_HARVEST_LIMIT=1000
+AIRFLOW_VAR_WOS_KEY=<vault value at puppet/application/rialto-airflow/dev/wos_key>
 ```
-(See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.9.2/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info.)
+(See [Airflow docs](https://airflow.apache.org/docs/apache-airflow/3.1.8/howto/docker-compose/index.html#setting-the-right-airflow-user) for more info on `AIRFLOW_UID`.)
+
+`AIRFLOW_VAR_DATA_DIR` applies only when running code outside Docker (e.g. the console or CLI). Inside the containers, `compose.yaml` sets it to `/opt/airflow/data`, which is the project's `data/` directory mounted into the container.
 
 3. Add environment variables used by DAGs to the `.env` file. For the VMs, they will be applied by puppet.  For localhost, you can use the following to generate secret content for your dev .env file from stage (you can also use prod if you really needed to by altering where in puppet you look below).  For running tests, you may need to add some values as described below.  Note that you should use the WOS key from the dev environment as described above, not the stage environment which will be output below.
 
@@ -59,11 +63,11 @@ done
 
 4. The harvest DAG requires a CSV file of authors (authors.csv) from rialto-orgs to be available on the filesystem. A version of this file is available on the rialto-orgs VM at `/rialto-data/authors.csv` or at https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=&only_active=false.
 
-The publish_orcid_to_reports DAG requires a CSV of active authors (active_authors.csv). A version of this file is available on the rialto-orgs VM at `/rialto-data/active_authors.csv` or at https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=
+The publish_orcid_to_reports DAG requires a CSV of active authors (authors_active.csv). A version of this file is available on the rialto-orgs VM at `/rialto-data/authors_active.csv` or at https://sul-rialto-stage.stanford.edu/authors?action=index&commit=Search&controller=authors&format=csv&orcid_filter=&q=
 
-Put the `authors.csv` and `authors_active.csv` file in the `data/` directory.
+Put the `authors.csv` and `authors_active.csv` files in the `data/` directory.
 
-5. The publish_to_reports DAG expects a `downloads/` directory to exist in the directory for `AIRFLOW_VAR_DATA_DIR`.
+5. The publish_to_reports DAG expects a `downloads/` directory to exist inside the data directory: `mkdir data/downloads`.
 
 6. Bring up containers.
 ```
@@ -87,15 +91,12 @@ Note: you may need to specify the  `AIRFLOW_VAR_RIALTO_POSTGRES` connection stri
 `AIRFLOW_VAR_RIALTO_POSTGRES="postgresql+psycopg2://airflow:airflow@localhost:5432"`
 
 ```
-from rialto_airflow.snapshot import Snapshot
 from sqlalchemy import select, func
-from rialto_airflow.database import get_session, Publication, Author, Funder
+from rialto_airflow.database import get_session
+from rialto_airflow.schema.rialto import RIALTO_DB_NAME, Publication, Author, Funder, Harvest
 
-# the database name
-database_name = 'rialto_20250508215121'
-
-snapshot = Snapshot('data',database_name=database_name)
-session = get_session(snapshot.database_name)()
+# the harvest_incremental DAG writes to the persistent "rialto" database
+session = get_session(RIALTO_DB_NAME)()
 
 # query an entire table
 stmt = (select(Publication).limit(10))
@@ -140,11 +141,11 @@ uv lock --upgrade
 
 Like dependency additions, dependency updates require container rebuild/restart.
 
-## Database Management (Creation and Migration)
-As of Sept 2025, we have 3 types of database:
+## Databases
+We have multiple databases:
 * The internal Airflow DB, which the Airflow Docker containers manage.
-* Harvest snapshot DBs, one of which is created on each harvest run.
-* Other persistent databases with stable names, e.g. the `rialto_reports` DB to which Tableau connects to render dashboard visualizations.
+* A `rialto` database for managing harvest data, including publications, authors, and funders.
+* A `rialto_reports` database which stores the data Tableau picks up to render dashboard visualizations.
 
 We use [SQLAlchemy](https://www.sqlalchemy.org/) as our ORM, and [Alembic](https://alembic.sqlalchemy.org/en/latest/) to manage migrations as our schema(s) evolve.
 
@@ -161,13 +162,16 @@ pip3 install --upgrade uv # in stage and prod, will install to ~/.local/bin/uv (
 
 # create the database(s) for which Alembic manages migrations -- this must happen before migrations run
 uv run python bin/create_databases.py
+```
 
+The alembic directory is the default for `alembic` commands and contains migrations for the `rialto_reports` database ("published" data):
+```
 uv run dotenv alembic upgrade head # run the migrations to get to the current DB schema for the deployment
 uv run dotenv alembic current # show the current migration revision for this env
 uv run dotenv alembic history --verbose # show the history of migrations that have been run in this env
 ```
 
-For the harvest that stores incrementally harvested data in the `rialto` database, specify the name of the database:
+The `alembic_rialto` directory contains migrations for the incremental harvest `rialto` database. Specify the name of the database to run `alembic` commands:
 ```sh
 uv run dotenv run alembic -n rialto upgrade head # run the migrations to get to the current DB schema for the deployment
 uv run dotenv run alembic -n rialto current # show the current migration revision for this env
